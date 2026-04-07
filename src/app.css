@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+@theme {
+  /* Cores de Marca (Logo) */
+  --color-purple:       #6C4CAF;
+  --color-purple-light: #8967CC;
+  --color-purple-muted: #E8D9FF;
+  --color-lime:         #C5D44E; /* Destaques / CTAs */
+
+  /* Semânticas financeiras (Tokens Tailwind v4) */
+  --color-receita:  #16A34A;
+  --color-despesa:  #DC2626;
+  --color-warning:  #CA8A04;
+  --color-info:     #2563EB;
+
+  /* Fontes semânticas */
+  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-heading: 'Outfit', sans-serif;
+  /* Estrutura Background e Texto */
+  --color-page:      #F8F7FA;
+  --color-card-base: #FFFFFF;
+  --color-sidebar:   #6C4CAF;
+  --color-text-main: #1A0A2E;
+  --color-text-sub:  #6B7280;
+  --color-border-base: #E5E0F2;
+  
+  /* Shadcn UI / Utility Mappings */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  
+  --radius-sm: calc(var(--radius) - 0.125rem);
+  --radius-md: calc(var(--radius) - 0.25rem);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 0.25rem);
+}
+
+@layer base {
+  :root {
+    --background: var(--color-page);
+    --foreground: var(--color-text-main);
+    
+    --card: var(--color-card-base);
+    --card-foreground: var(--color-text-main);
+    
+    --popover: var(--color-card-base);
+    --popover-foreground: var(--color-text-main);
+    
+    --primary: var(--color-lime);
+    --primary-foreground: #000000;
+    
+    --secondary: var(--color-purple-muted);
+    --secondary-foreground: var(--color-purple);
+    
+    --muted: #F3F4F6;
+    --muted-foreground: var(--color-text-sub);
+    
+    --accent: var(--color-lime);
+    --accent-foreground: #000000;
+    
+    --destructive: var(--color-despesa);
+    --destructive-foreground: var(--color-card-base);
+
+    --border: var(--color-border-base);
+    --input: var(--color-border-base);
+    --ring: var(--color-purple);
+    
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading text-text-main;
+  }
+}
