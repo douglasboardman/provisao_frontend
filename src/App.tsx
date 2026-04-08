@@ -6,7 +6,16 @@ import { ProtectedRoute } from "./components/layout/ProtectedRoute"
 import { Login } from "./features/auth/Login"
 import { Dashboard } from "./features/dashboard/Dashboard"
 import { PessoasList } from "./features/pessoas/PessoasList"
-import { LancamentosTable } from "./features/lancamentos/LancamentosTable"
+import { GruposFamiliaresList } from "./features/grupos-familiares/GruposFamiliaresList"
+import { VinculosList } from "./features/vinculos-membresia/VinculosList"
+import { RelatoriosMembresia } from "./features/pessoas/RelatoriosMembresia"
+import { CategoriaList } from "./features/cadastros-basicos/CategoriaList"
+import { TipoLancamentoList } from "./features/cadastros-basicos/TipoLancamentoList"
+import { ContasList } from "./features/contas/ContasList"
+import { LancamentosTable } from "./features/lancamentos/LancamentosList"
+import { AcoesList } from "./features/acoes/AcoesList"
+import { UsuariosList } from "./features/usuarios/UsuariosList"
+import { ConfiguracoesIgreja } from "./features/configuracoes/ConfiguracoesIgreja"
 
 // Placeholders for non-implemented views
 const PlaceholderView = ({ title }: { title: string }) => (
@@ -39,23 +48,27 @@ function App() {
         <Route path="pessoas" element={<PessoasList />} />
         <Route path="pessoas/novo" element={<PlaceholderView title="Cadastro de Pessoa" />} />
         <Route path="pessoas/:id" element={<PlaceholderView title="Detalhes da Pessoa" />} />
-        <Route path="grupos-familiares" element={<PlaceholderView title="Grupos Familiares" />} />
-        <Route path="vinculos-membresia" element={<PlaceholderView title="Vínculos de Membresia" />} />
-        <Route path="relatorios-membresia" element={<PlaceholderView title="Relatórios de Membresia" />} />
+        <Route path="grupos-familiares" element={<GruposFamiliaresList />} />
+        <Route path="vinculos-membresia" element={<VinculosList />} />
+        <Route path="relatorios-membresia" element={<RelatoriosMembresia />} />
         
         {/* FINANCEIRO */}
-        <Route path="contas" element={<PlaceholderView title="Contas Financeiras" />} />
+        <Route path="contas" element={<ContasList />} />
         <Route path="lancamentos" element={<LancamentosTable />} />
+        
+        <Route path="acoes" element={<AcoesList />} />
+        <Route path="usuarios" element={<UsuariosList />} />
+        <Route path="configuracoes" element={<ConfiguracoesIgreja />} />
         <Route path="receitas" element={<PlaceholderView title="Receitas" />} />
         <Route path="despesas" element={<PlaceholderView title="Despesas" />} />
         <Route path="balanco-mensal" element={<PlaceholderView title="Balanço Mensal" />} />
         <Route path="relatorios-financeiro" element={<PlaceholderView title="Relatórios Financeiros" />} />
         
         {/* CADASTROS */}
-        <Route path="categoria-receita" element={<PlaceholderView title="Categoria de Receita" />} />
-        <Route path="categoria-despesa" element={<PlaceholderView title="Categoria de Despesa" />} />
-        <Route path="tipo-receita" element={<PlaceholderView title="Tipo de Receita" />} />
-        <Route path="tipo-despesa" element={<PlaceholderView title="Tipo de Despesa" />} />
+        <Route path="cat-receita" element={<CategoriaList tipo="receita" />} />
+        <Route path="cat-despesa" element={<CategoriaList tipo="despesa" />} />
+        <Route path="receitas" element={<TipoLancamentoList tipo="receita" />} />
+        <Route path="despesas" element={<TipoLancamentoList tipo="despesa" />} />
         
         {/* ADMINISTRAÇÃO */}
         <Route path="acoes" element={<PlaceholderView title="Ações" />} />

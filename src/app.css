@@ -96,3 +96,24 @@
     @apply font-heading text-text-main;
   }
 }
+
+/* ─── Botões de ação em tabelas ──────────────────────────────────────────────
+   Padrão visual:
+     .btn-action-delete   → ícone vermelho, hover fundo vermelho + ícone branco
+     .btn-action-critical → ícone laranja, hover fundo laranja + ícone branco
+     .btn-action-edit     → ghost padrão (sem override, herda do Button variant)
+   ─────────────────────────────────────────────────────────────────────────── */
+@layer components {
+  .btn-action-delete {
+    @apply text-destructive
+           hover:text-white hover:bg-destructive
+           transition-colors;
+  }
+
+  .btn-action-critical {
+    @apply text-amber-600
+           hover:text-white hover:bg-amber-600
+           transition-colors;
+  }
+}
+

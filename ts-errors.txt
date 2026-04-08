@@ -1,0 +1,6 @@
+src/components/shared/AsyncSelect.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/shared/ConfirmDialog.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/components/shared/DataTable.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/features/grupos-familiares/GruposFamiliaresForm.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/features/grupos-familiares/GruposFamiliaresList.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/features/grupos-familiares/GruposFamiliaresList.tsx(6,10): error TS6133: 'Plus' is declared but its value is never read.

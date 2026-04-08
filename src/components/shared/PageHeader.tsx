@@ -30,7 +30,7 @@ export function PageHeader({ title, subtitle, totalCount, onNew, newButtonLabel 
       {onNew && (
         <button 
           onClick={onNew}
-          className="bg-lime hover:bg-[#b0c03c] text-black font-semibold px-5 py-2.5 rounded-xl shadow-sm transition-all focus:ring-4 focus:ring-lime/30 flex items-center gap-2 font-sans hover:-translate-y-0.5"
+          className="bg-lime hover:bg-[#b0c03c] text-black font-semibold px-5 py-2.5 rounded-xl shadow-sm transition-all focus:ring-4 focus:ring-lime/30 flex items-center gap-2 font-sans hover:-translate-y-0.5 cursor-pointer"
         >
           <Plus size={18} strokeWidth={2.5} />
           {newButtonLabel}

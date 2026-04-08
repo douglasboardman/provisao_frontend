@@ -1,68 +1,134 @@
-
-import { PageHeader } from "@/components/shared/PageHeader"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
+import { useState } from 'react';
+import { PageHeader } from '../../components/shared/PageHeader';
+import { DataTable, Column } from '../../components/shared/DataTable';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Edit2, Trash2 } from 'lucide-react';
+import { usePessoas } from './hooks';
+import { Pessoa } from './schema';
+import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
+import { PessoaForm } from './PessoaForm';
+import { formatCpf, formatPhone } from '../../lib/format';
 
 export function PessoasList() {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingPessoa, setEditingPessoa] = useState<Pessoa | undefined>();
+  const [deletingPessoa, setDeletingPessoa] = useState<Pessoa | undefined>();
+
+  const { useList, useDelete } = usePessoas();
+  const { data = [], isLoading } = useList();
+  const deleteMutation = useDelete();
+
+  const filteredData = data.filter((p) => 
+    p.nome_completo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (p.cpf && p.cpf.includes(searchTerm))
+  );
+
+  const handleDelete = () => {
+    if (deletingPessoa?.id) {
+      deleteMutation.mutate(deletingPessoa.id, {
+        onSuccess: () => setDeletingPessoa(undefined)
+      });
+    }
+  };
+
+  const columns: Column<Pessoa>[] = [
+    {
+      key: 'nome_completo',
+      header: 'Nome',
+      render: (row) => (
+        <div className="flex items-center gap-3">
+          {row.url_foto ? (
+             <img src={row.url_foto} alt="Foto" className="w-8 h-8 rounded-full object-cover" />
+          ) : (
+             <div className="w-8 h-8 rounded-full bg-purple/10 text-purple flex items-center justify-center font-bold text-xs uppercase">
+                {row.nome_completo.substring(0, 2)}
+             </div>
+          )}
+          <div className="flex flex-col">
+            <span className="font-medium text-foreground">{row.nome_completo}</span>
+            <span className="text-xs text-muted-foreground">{formatCpf(row.cpf)}</span>
+          </div>
+        </div>
+      )
+    },
+    {
+      key: 'contato',
+      header: 'Contato',
+      render: (row) => (
+        <div className="flex flex-col">
+          <span className="text-sm">{formatPhone(row.telefone_celular)}</span>
+          <span className="text-xs text-muted-foreground">{row.email}</span>
+        </div>
+      )
+    },
+    {
+      key: 'actions',
+      header: '',
+      align: 'right',
+      render: (row) => (
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" size="icon" onClick={() => {
+            setEditingPessoa(row);
+            setIsFormOpen(true);
+          }}>
+            <Edit2 className="h-4 w-4" />
+          </Button>
+          <Button variant="action-delete" size="icon" onClick={() => setDeletingPessoa(row)}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      )
+    }
+  ];
+
   return (
-    <div className="space-y-6">
+    <>
       <PageHeader 
         title="Gestão de Pessoas" 
-        subtitle="Gerencie todos os membros, congregados e contatos da congregação." 
+        subtitle="Gerencie todos os membros, congregados e contatos da congregação."
+        totalCount={data.length}
+        newButtonLabel="Nova Pessoa"
+        onNew={() => {
+          setEditingPessoa(undefined);
+          setIsFormOpen(true);
+        }}
       />
 
-      <div className="flex items-center gap-4">
-        <Input placeholder="Buscar pessoas por nome ou documento..." className="max-w-md bg-white" />
-        <Button className="bg-lime text-black hover:bg-lime/90 font-medium">Nova Pessoa</Button>
+      <div className="mb-4 flex items-center gap-4">
+        <div className="max-w-md w-full">
+          <Input 
+            placeholder="Buscar pessoas por nome ou documento..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          <div className="rounded-md border-0">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 border-b">
-                <tr>
-                  <th className="h-12 px-6 text-left align-middle font-medium text-muted-foreground w-[50px]">Foto</th>
-                  <th className="h-12 px-6 text-left align-middle font-medium text-muted-foreground">Nome</th>
-                  <th className="h-12 px-6 text-left align-middle font-medium text-muted-foreground">Status</th>
-                  <th className="h-12 px-6 text-left align-middle font-medium text-muted-foreground">Telefone</th>
-                  <th className="h-12 px-6 text-right align-middle font-medium text-muted-foreground">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {/* Mock data */}
-                <tr className="border-b transition-colors hover:bg-muted/50">
-                  <td className="px-6 py-4">
-                     <div className="w-8 h-8 rounded-full bg-purple/10 text-purple flex items-center justify-center font-bold text-xs">
-                        JP
-                     </div>
-                  </td>
-                  <td className="px-6 py-4 font-medium text-foreground">João Pedro Alves</td>
-                  <td className="px-6 py-4"><span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold text-lime border-lime/20 bg-lime/10">Comungante</span></td>
-                  <td className="px-6 py-4 text-muted-foreground">(11) 98765-4321</td>
-                  <td className="px-6 py-4 text-right">
-                    <Button variant="ghost" size="sm" className="text-purple hover:text-purple-light">Editar</Button>
-                  </td>
-                </tr>
-                <tr className="border-b transition-colors hover:bg-muted/50">
-                  <td className="px-6 py-4">
-                     <div className="w-8 h-8 rounded-full bg-muted text-muted-foreground flex items-center justify-center font-bold text-xs">
-                        MA
-                     </div>
-                  </td>
-                  <td className="px-6 py-4 font-medium text-foreground">Maria Aparecida Silva</td>
-                  <td className="px-6 py-4"><span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold text-muted-foreground border-border bg-muted">Congregado</span></td>
-                  <td className="px-6 py-4 text-muted-foreground">(11) 91234-5678</td>
-                  <td className="px-6 py-4 text-right">
-                    <Button variant="ghost" size="sm" className="text-purple hover:text-purple-light">Editar</Button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
+      <DataTable
+        data={filteredData}
+        columns={columns}
+        keyExtractor={(item) => item.id || ''}
+        loading={isLoading}
+      />
+
+      {isFormOpen && (
+        <PessoaForm 
+          open={isFormOpen} 
+          onOpenChange={setIsFormOpen} 
+          initialData={editingPessoa} 
+        />
+      )}
+
+      <ConfirmDialog
+        open={!!deletingPessoa}
+        onOpenChange={(open) => !open && setDeletingPessoa(undefined)}
+        title="Excluir Pessoa?"
+        description={`Tem certeza que deseja excluir ${deletingPessoa?.nome_completo}? Esta ação não afeta registros vinculados mas é irreversível.`}
+        confirmBrand="destructive"
+        onConfirm={handleDelete}
+      />
+    </>
+  );
 }
