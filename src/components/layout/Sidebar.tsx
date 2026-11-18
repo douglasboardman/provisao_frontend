@@ -1,95 +1,133 @@
 import {
-  Home, Users, Building2, Link, FileText,
-  Wallet, ArrowRightLeft, TrendingUp, TrendingDown, Calculator,
-  Tag, Tags, ListPlus, ListMinus,
-  Target, UserCog, History, Settings, LogOut,
+  Home, Users, UsersRound, BookUser, IdCard,
+  Landmark, ArrowRightLeft, TrendingUp, TrendingDown, Scale,
+  Sprout, UserCog, Settings, LogOut,
 } from "lucide-react"
+import { useQuery } from "@tanstack/react-query"
+import { oficiaisApi } from "../../api/oficiais"
 import { NavLink, useNavigate } from "react-router"
+import logo from "../../assets/logo-assinatura-horizontal.png"
 import { cn } from "@/lib/utils"
-import { useAuthStore, type Perfil } from "@/stores/useAuthStore"
-import logoImg from "@/assets/logo/horizontal.png"
+import { useAuthStore } from "../../stores/auth"
+import { canAccessModule, type Module } from "../../lib/permissions"
+import type { LucideIcon } from "lucide-react"
+import { Perfil } from "../../types/enums"
+import { useRecurso } from "../../lib/recursos"
 
-type NavItem =
-  | { group: string }
-  | { path: string; icon: typeof Home; label: string; roles: Perfil[] }
+type NavGroup = { kind: "group"; label: string }
+type NavItem = { kind: "item"; path: string; icon: LucideIcon; label: string; modules?: Module[] }
+type NavEntry = NavGroup | NavItem
 
-const ALL: Perfil[] = [
-  "ADMINISTRADOR", "GESTOR", "TESOUREIRO", "OPERADOR", "AUDITOR", "SECRETARIO",
+const navEntries: NavEntry[] = [
+  { kind: "item", path: "/dashboard", icon: Home, label: "Dashboard" },
+
+  { kind: "group", label: "Membresia" },
+  { kind: "item", path: "/oficiais", icon: IdCard, label: "Oficiais" },
+  { kind: "item", path: "/orgaos", icon: Landmark, label: "Órgãos e unidades" },
+  { kind: "item", path: "/secretaria", icon: BookUser, label: "Secretaria", modules: ["secretaria"] },
+  { kind: "item", path: "/pessoas", icon: Users, label: "Pessoas", modules: ["pessoas"] },
+  { kind: "item", path: "/grupos-familiares", icon: UsersRound, label: "Grupos Familiares", modules: ["grupos-familiares"] },
+  { kind: "item", path: "/rol-membros", icon: BookUser, label: "Rol de Membros", modules: ["eventos-membresia"] },
+  { kind: "item", path: "/gestao-membresia", icon: IdCard, label: "Gestão de Membresia", modules: ["eventos-membresia"] },
+
+  { kind: "group", label: "Financeiro" },
+  { kind: "item", path: "/contas", icon: Landmark, label: "Contas", modules: ["contas"] },
+  { kind: "item", path: "/lancamentos", icon: ArrowRightLeft, label: "Lançamentos", modules: ["lancamentos"] },
+  { kind: "item", path: "/balanco-mensal", icon: Scale, label: "Balanço Mensal", modules: ["lancamentos"] },
+
+  { kind: "group", label: "Cadastros" },
+  { kind: "item", path: "/cat-receita", icon: TrendingUp, label: "Receitas", modules: ["cat-receita"] },
+  { kind: "item", path: "/cat-despesa", icon: TrendingDown, label: "Despesas", modules: ["cat-despesa"] },
+  { kind: "item", path: "/acoes", icon: Sprout, label: "Ações", modules: ["acoes"] },
+
+  { kind: "group", label: "Administração" },
+  { kind: "item", path: "/usuarios", icon: UserCog, label: "Usuários", modules: ["usuarios"] },
+  { kind: "item", path: "/configuracoes", icon: Settings, label: "Configurações", modules: ["igreja", "logs"] },
 ]
 
-const navItems: NavItem[] = [
-  { path: "/dashboard", icon: Home, label: "Dashboard", roles: ALL },
+const PERFIL_LABELS: Record<Perfil, string> = {
+  [Perfil.ADMINISTRADOR]: "Administrador",
+  [Perfil.AUDITOR]: "Auditor",
+  [Perfil.OPERADOR]: "Operador",
+  [Perfil.SECRETARIO]: "Secretário",
+  [Perfil.TESOUREIRO]: "Tesoureiro",
+  [Perfil.GESTOR]: "Gestor",
+}
 
-  { group: "Membresia" },
-  { path: "/pessoas", icon: Users, label: "Pessoas", roles: ALL },
-  { path: "/grupos-familiares", icon: Building2, label: "Grupos Familiares", roles: ALL },
-  { path: "/vinculos-membresia", icon: Link, label: "Vínculos de Membresia", roles: ALL },
-  { path: "/relatorios-membresia", icon: FileText, label: "Relatórios", roles: ["ADMINISTRADOR", "GESTOR", "AUDITOR", "SECRETARIO"] },
+function filterNav(entries: NavEntry[], perfil: Perfil): NavEntry[] {
+  const filtered: NavEntry[] = []
 
-  { group: "Financeiro" },
-  { path: "/contas", icon: Wallet, label: "Contas", roles: ALL },
-  { path: "/lancamentos", icon: ArrowRightLeft, label: "Lançamentos", roles: ALL },
-  { path: "/receitas", icon: TrendingUp, label: "Receitas", roles: ALL },
-  { path: "/despesas", icon: TrendingDown, label: "Despesas", roles: ALL },
-  { path: "/balanco-mensal", icon: Calculator, label: "Balanço Mensal", roles: ["ADMINISTRADOR", "GESTOR", "TESOUREIRO", "AUDITOR"] },
-  { path: "/relatorios-financeiro", icon: FileText, label: "Relatórios", roles: ["ADMINISTRADOR", "GESTOR", "TESOUREIRO", "AUDITOR"] },
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i]
+    if (entry.kind === "group") {
+      const nextItems: NavItem[] = []
+      for (let j = i + 1; j < entries.length && entries[j].kind === "item"; j++) {
+        nextItems.push(entries[j] as NavItem)
+      }
+      const hasVisible = nextItems.some(
+        (item) => !item.modules || item.modules.some((m) => canAccessModule(perfil, m)),
+      )
+      if (hasVisible) filtered.push(entry)
+    } else {
+      if (!entry.modules || entry.modules.some((m) => canAccessModule(perfil, m))) {
+        filtered.push(entry)
+      }
+    }
+  }
 
-  { group: "Cadastros" },
-  { path: "/categoria-receita", icon: Tag, label: "Categoria Receita", roles: ALL },
-  { path: "/categoria-despesa", icon: Tags, label: "Categoria Despesa", roles: ALL },
-  { path: "/tipo-receita", icon: ListPlus, label: "Tipo Receita", roles: ALL },
-  { path: "/tipo-despesa", icon: ListMinus, label: "Tipo Despesa", roles: ALL },
-
-  { group: "Administração" },
-  { path: "/acoes", icon: Target, label: "Ações", roles: ALL },
-  { path: "/usuarios", icon: UserCog, label: "Usuários", roles: ["ADMINISTRADOR", "GESTOR", "AUDITOR"] },
-  { path: "/logs", icon: History, label: "Logs", roles: ["ADMINISTRADOR", "AUDITOR"] },
-  { path: "/configuracoes", icon: Settings, label: "Configurações", roles: ["ADMINISTRADOR"] },
-]
-
-const roleLabels: Record<Perfil, string> = {
-  ADMINISTRADOR: "Administrador",
-  GESTOR: "Gestor",
-  TESOUREIRO: "Tesoureiro",
-  OPERADOR: "Operador",
-  AUDITOR: "Auditor",
-  SECRETARIO: "Secretário",
+  return filtered
 }
 
 export function Sidebar() {
-  const { user, logout } = useAuthStore()
+  const user = useAuthStore((s) => s.user)
+  const governanca = useRecurso('governanca')
+  const orgaos = useRecurso('orgaos')
+  const secretaria = useRecurso('secretaria')
+  const logout = useAuthStore((s) => s.logout)
   const navigate = useNavigate()
+  const perfil = user?.perfil ?? Perfil.OPERADOR
+  const identidade = `${user?.igreja_id ?? ''}:${user?.sub ?? ''}`
+  const notificacoes = useQuery({ queryKey: ['oficiais', identidade, 'notificacoes'], queryFn: oficiaisApi.notificacoes,
+    enabled: governanca && !!user && !user.mfa_enrollment_required && [Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO].includes(perfil), refetchInterval: 60_000 })
+  const pendentes = notificacoes.data?.filter(item => !item.lido_em).length ?? 0
+  const acessoInstitucional = [Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO, Perfil.AUDITOR].includes(perfil)
+  const liberados: Record<string, boolean> = {
+    '/oficiais': governanca && acessoInstitucional,
+    '/orgaos': governanca && orgaos && acessoInstitucional,
+    '/secretaria': secretaria,
+  }
+  const visibleEntries = filterNav(navEntries.filter(entry => entry.kind === 'group' || liberados[entry.path] !== false), perfil)
 
-  const handleLogout = () => {
-    logout()
+  const initials = user?.username
+    ? user.username.slice(0, 2).toUpperCase()
+    : "?"
+
+  async function handleLogout() {
+    try { await logout() } catch { window.alert("Não foi possível encerrar a sessão. Tente novamente."); return }
     navigate("/login")
   }
 
   return (
     <aside className="w-[280px] bg-sidebar flex-shrink-0 flex flex-col h-full text-white/90 overflow-y-auto">
-      <div className="p-6 py-8 flex items-center justify-center">
-        <img src={logoImg} alt="ProVisão" className="w-full max-w-[200px] object-contain mix-blend-screen" />
+      <div className="h-20 px-4 flex items-center">
+        <img src={logo} alt="ProVisão" className="h-14 w-auto" />
       </div>
 
-      <nav className="flex-1 px-4 py-4 space-y-1">
-        {navItems.map((item, i) => {
-          if ("group" in item) {
+      <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
+        {visibleEntries.map((entry, i) => {
+          if (entry.kind === "group") {
             return (
               <div key={i} className="pt-6 pb-2 px-2 text-xs font-semibold uppercase tracking-wider text-purple-muted/60 font-sans">
-                {item.group}
+                {entry.label}
               </div>
             )
           }
 
-          if (user && !item.roles.includes(user.perfil)) {
-            return null
-          }
-
-          const Icon = item.icon
+          const Icon = entry.icon
           return (
             <NavLink
-              key={item.path}
-              to={item.path}
+              key={entry.path}
+              to={entry.path}
               className={({ isActive }) =>
                 cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors font-sans",
@@ -100,24 +138,24 @@ export function Sidebar() {
               }
             >
               <Icon size={18} strokeWidth={2} />
-              {item.label}
+              {entry.label}
+              {entry.path === "/oficiais" && pendentes > 0 && <span className="ml-auto rounded-full bg-white px-2 text-xs font-semibold text-purple-900" aria-label={`${pendentes} ${pendentes === 1 ? 'aviso não lido' : 'avisos não lidos'}`}>{pendentes}</span>}
             </NavLink>
           )
         })}
       </nav>
 
-      {/* Perfil */}
-      <div className="p-4 border-t border-purple-light/20 flex flex-col gap-2">
+      <div className="p-4 border-t border-purple-light/20">
         <div className="flex items-center gap-3 p-2 rounded-lg bg-white/5 border border-white/10">
-          <div className="w-9 h-9 rounded-full bg-lime text-sidebar flex items-center justify-center text-sm font-bold shadow-sm flex-shrink-0">
-            {user?.username?.substring(0, 2).toUpperCase() || 'PV'}
+          <div className="w-9 h-9 rounded-full bg-purple-light flex items-center justify-center text-sm font-bold shadow-sm">
+            {initials}
           </div>
           <div className="flex flex-col flex-1 min-w-0">
-            <span className="text-sm font-semibold truncate font-sans text-white">{user?.username || 'Sistema'}</span>
-            <span className="text-xs text-lime truncate font-sans font-medium">{user?.perfil ? roleLabels[user.perfil] : 'Guest'}</span>
+            <span className="text-sm font-semibold truncate font-sans">{user?.username ?? "Usuário"}</span>
+            <span className="text-xs text-purple-muted truncate font-sans">{PERFIL_LABELS[perfil]}</span>
           </div>
-          <button onClick={handleLogout} className="p-2 text-purple-muted hover:text-white hover:bg-white/10 rounded-md transition-colors" title="Sair">
-            <LogOut size={16} />
+          <button onClick={handleLogout} className="p-1.5 rounded-md hover:bg-white/10 transition-colors" title="Sair">
+            <LogOut size={16} className="text-purple-muted" />
           </button>
         </div>
       </div>

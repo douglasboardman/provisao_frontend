@@ -1,1 +1,8 @@
 /node_modules
+/dist
+/.helix/
+/.env.local
+/.env.*.local
+/test-results/
+/playwright-report/
+/tsconfig.tsbuildinfo

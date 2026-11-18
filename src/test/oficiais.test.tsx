@@ -1,0 +1,42 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { cleanup, render, screen, fireEvent } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { OficiaisPage } from '../pages/oficiais/OficiaisPage'
+import { useAuthStore } from '../stores/auth'
+import { oficiaisApi } from '../api/oficiais'
+import { Perfil } from '../types/enums'
+
+vi.mock('../api/pessoas', () => ({ pessoasApi: { list: vi.fn(async () => [{ id: 'p1', nome_completo: 'Pessoa Teste' }]) } }))
+vi.mock('../api/oficiais', () => ({ oficiaisApi: {
+  notificacoes: vi.fn(async () => []),
+  meuAcesso: vi.fn(async () => ({ pode_consultar: false, pode_registrar: false })),
+  cadastrar: vi.fn(async () => ({ id: 'id-2' })),
+  listar: vi.fn(async () => ({ itens: [{ id: 'id-1', tipo: 'DIACONO', pessoa: { id: 'p1', nome_completo: 'Pessoa Teste' } }], proximo_cursor: null })),
+  exercicio: vi.fn(async (_id: string, data: string) => ({ situacao: 'EM_EXERCICIO', data_referencia: data })),
+  alertas: vi.fn(async () => []),
+} }))
+
+describe('consulta de oficiais', () => {
+  afterEach(cleanup)
+  beforeEach(() => useAuthStore.setState({ status: 'ready', user: { sub: 'user-1', igreja_id: 'church-1', perfil: Perfil.SECRETARIO, login: 'x', username: 'x' } }))
+  it('mostra oficial e consulta exercício sem afirmar competência', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<QueryClientProvider client={client}><OficiaisPage /></QueryClientProvider>)
+    expect(await screen.findByText('Pessoa Teste')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Consultar exercício' }))
+    expect(await screen.findByText(/Em exercício em/)).toBeTruthy()
+    expect(screen.getByText(/não substitui a verificação de competência/)).toBeTruthy()
+  })
+  it('registra um ofício sem atribuir ordenação ou mandato', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<QueryClientProvider client={client}><OficiaisPage /></QueryClientProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar ofício' }))
+    const pessoa = screen.getByLabelText('Pessoa')
+    await screen.findByRole('option', { name: 'Pessoa Teste' })
+    fireEvent.change(pessoa, { target: { value: 'p1' } })
+    fireEvent.change(screen.getByLabelText('Ofício'), { target: { value: 'PRESBITERO_REGENTE' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar ofício' }))
+    await vi.waitFor(() => expect(oficiaisApi.cadastrar).toHaveBeenCalledWith({ pessoa_id: 'p1', tipo: 'PRESBITERO_REGENTE' }, expect.anything()))
+  })
+
+})
