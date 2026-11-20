@@ -19,7 +19,9 @@ import { toast } from "../ui/use-toast"
 import { pessoasApi } from "../../api/pessoas"
 import { gruposFamiliaresApi } from "../../api/grupos-familiares"
 import { tratamentosApi } from "../../api/tratamentos"
+import { profissoesApi } from "../../api/profissoes"
 import { ApiRequestError } from "../../api/client"
+import { useAuthStore } from "../../stores/auth"
 import { Sexo, EstadoCivil, EstadoBrasil } from "../../types/enums"
 import type { Pessoa } from "../../types/models"
 
@@ -43,13 +45,14 @@ const schema = z.object({
   estado: z.nativeEnum(EstadoBrasil).optional().or(z.literal("" as EstadoBrasil)),
   grupo_familiar_id: z.string().optional().or(z.literal("")),
   tratamento_id: z.number().int().optional().or(z.literal(0)),
+  profissao_id: z.uuid().or(z.literal("")),
   conjuge_id: z.string().optional().or(z.literal("")),
 })
 
 type FormData = z.infer<typeof schema>
 
-function clean(d: FormData): Record<string, unknown> {
-  const result: Record<string, unknown> = { nome_completo: d.nome_completo, data_nascimento: d.data_nascimento, sexo: d.sexo }
+function clean(d: FormData): Partial<Pessoa> {
+  const result: Partial<Pessoa> & { telefone_celular?: string } = { nome_completo: d.nome_completo, data_nascimento: d.data_nascimento, sexo: d.sexo }
   if (d.cpf) result.cpf = d.cpf
   if (d.estado_civil) result.estado_civil = d.estado_civil
   if (d.email) result.email = d.email
@@ -76,6 +79,7 @@ interface PessoaEditDialogProps {
 
 export function PessoaEditDialog({ pessoaId, open, onClose, onBack }: PessoaEditDialogProps) {
   const queryClient = useQueryClient()
+  const igrejaId = useAuthStore(s => s.user?.igreja_id)
   const [formReady, setFormReady] = useState(false)
   const [fetchingCep, setFetchingCep] = useState(false)
   const [cepReady, setCepReady] = useState(false)
@@ -88,14 +92,16 @@ export function PessoaEditDialog({ pessoaId, open, onClose, onBack }: PessoaEdit
   const { data: allPessoas } = useQuery({ queryKey: ["pessoas"], queryFn: pessoasApi.list })
   const { data: grupos } = useQuery({ queryKey: ["grupos-familiares"], queryFn: gruposFamiliaresApi.list })
   const { data: tratamentos } = useQuery({ queryKey: ["tratamentos"], queryFn: tratamentosApi.list })
+  const profissoes = useQuery({ queryKey: ["profissoes", igrejaId], queryFn: profissoesApi.list, enabled: open && !!igrejaId })
 
   const pessoa = pessoaId ? allPessoas?.find((p) => p.id === pessoaId) ?? null : null
   const isEdit = !!pessoaId
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { nome_completo: "", cpf: "", data_nascimento: "", sexo: Sexo.MASCULINO, estado_civil: "" as EstadoCivil, email: "", telefone_celular: "", cep: "", logradouro: "", numero: "", complemento: "", bairro: "", cidade: "", estado: "" as EstadoBrasil, grupo_familiar_id: "", tratamento_id: 0, conjuge_id: "" },
+    defaultValues: { nome_completo: "", cpf: "", data_nascimento: "", sexo: Sexo.MASCULINO, estado_civil: "" as EstadoCivil, email: "", telefone_celular: "", cep: "", logradouro: "", numero: "", complemento: "", bairro: "", cidade: "", estado: "" as EstadoBrasil, grupo_familiar_id: "", tratamento_id: 0, profissao_id: "", conjuge_id: "" },
   })
+  const profissaoAlterada = !!form.formState.dirtyFields.profissao_id
 
   useEffect(() => {
     if (!open) { setFormReady(false); return }
@@ -121,6 +127,7 @@ export function PessoaEditDialog({ pessoaId, open, onClose, onBack }: PessoaEdit
         estado: pessoa.estado ?? ("" as EstadoBrasil),
         grupo_familiar_id: pessoa.grupo_familiar_id ?? "",
         tratamento_id: pessoa.tratamento_id ?? 0,
+        profissao_id: pessoa.profissao_id ?? "",
         conjuge_id: pessoa.conjuge_id ?? "",
       })
       setFormReady(true)
@@ -159,13 +166,17 @@ export function PessoaEditDialog({ pessoaId, open, onClose, onBack }: PessoaEdit
   }, [form])
 
   const createMut = useMutation({
-    mutationFn: (d: FormData) => pessoasApi.create(clean(d) as Partial<Pessoa>),
+    mutationFn: (d: FormData) => pessoasApi.create({
+      ...clean(d), ...(d.profissao_id ? { profissao_id: d.profissao_id } : {}),
+    }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["pessoas"] }); toast({ title: "Pessoa criada com sucesso" }); handleDone() },
     onError: (e) => toast({ title: "Erro", description: e instanceof ApiRequestError ? e.messages[0] : "Erro ao criar", variant: "destructive" }),
   })
 
   const updateMut = useMutation({
-    mutationFn: (d: FormData) => pessoasApi.update(pessoaId!, clean(d) as Partial<Pessoa>),
+    mutationFn: ({ dados, profissaoAlterada }: { dados: FormData; profissaoAlterada: boolean }) => pessoasApi.update(pessoaId!, {
+      ...clean(dados), ...(profissaoAlterada ? { profissao_id: dados.profissao_id || null } : {}),
+    }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["pessoas"] }); toast({ title: "Pessoa atualizada" }); handleDone() },
     onError: (e) => toast({ title: "Erro", description: e instanceof ApiRequestError ? e.messages[0] : "Erro ao atualizar", variant: "destructive" }),
   })
@@ -183,7 +194,7 @@ export function PessoaEditDialog({ pessoaId, open, onClose, onBack }: PessoaEdit
   })
 
   function onSubmit(d: FormData) {
-    if (isEdit) updateMut.mutate(d)
+    if (isEdit) updateMut.mutate({ dados: d, profissaoAlterada })
     else createMut.mutate(d)
   }
 
@@ -255,6 +266,21 @@ export function PessoaEditDialog({ pessoaId, open, onClose, onBack }: PessoaEdit
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="pe_profissao">Profissão</Label>
+              <Select
+                value={form.watch("profissao_id") || "sem-profissao"}
+                disabled={!profissoes.isSuccess}
+                onValueChange={v => form.setValue("profissao_id", v === "sem-profissao" ? "" : v, { shouldDirty: true })}
+              >
+                <SelectTrigger id="pe_profissao"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sem-profissao">Não informada</SelectItem>
+                  {profissoes.data?.map(p => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {profissoes.isError && <p role="alert" className="text-xs text-destructive">Não foi possível carregar as profissões.</p>}
             </div>
           </div>
 

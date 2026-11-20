@@ -1,11 +1,12 @@
 import { useState } from "react"
-import { Building2, FileText, SlidersHorizontal, ShieldCheck } from "lucide-react"
+import { Briefcase, Building2, FileText, SlidersHorizontal, ShieldCheck } from "lucide-react"
 import { useAuthStore } from "../../stores/auth"
 import { canAccessModule } from "../../lib/permissions"
 import { MfaPage } from "./MfaPage"
 import { IgrejaPage } from "./IgrejaPage"
 import { LogsPage } from "./LogsPage"
 import { ParametrosRolMembrosPage } from "./ParametrosRolMembrosPage"
+import { ProfissoesPage } from "./ProfissoesPage"
 import type { LucideIcon } from "lucide-react"
 import type { Module } from "../../lib/permissions"
 
@@ -21,6 +22,7 @@ const TABS: Tab[] = [
   { key: "igreja", label: "Igreja", icon: Building2, module: "igreja", component: IgrejaPage },
   { key: "mfa", label: "Autenticação", icon: ShieldCheck, module: "igreja", component: MfaPage },
   { key: "parametros-membresia", label: "Parâmetros Membresia", icon: SlidersHorizontal, module: "regras-relacao-enum", component: ParametrosRolMembrosPage },
+  { key: "profissoes", label: "Profissões", icon: Briefcase, module: "profissoes", component: ProfissoesPage },
   { key: "logs", label: "Logs", icon: FileText, module: "logs", component: LogsPage },
 ]
 

@@ -4,7 +4,7 @@ export type Module =
   | "usuarios" | "igreja" | "pessoas" | "grupos-familiares"
   | "eventos-membresia" | "acoes" | "contas" | "cat-despesa"
   | "cat-receita" | "despesas" | "receitas" | "lancamentos" | "logs"
-  | "regras-relacao-enum" | "secretaria"
+  | "regras-relacao-enum" | "secretaria" | "profissoes"
 
 export type Action = "view" | "create" | "edit" | "delete"
 
@@ -27,6 +27,7 @@ const PERMISSIONS: PermissionMap = {
     lancamentos: ["view"],
     logs: ["view"],
     "regras-relacao-enum": ["view", "create", "edit", "delete"],
+    profissoes: ["view", "create", "edit", "delete"],
   },
   [Perfil.AUDITOR]: {
     secretaria: ["view"],
@@ -68,6 +69,8 @@ const PERMISSIONS: PermissionMap = {
     "cat-despesa": ["view"],
     "cat-receita": ["view"],
     logs: ["view"],
+    "regras-relacao-enum": ["view", "edit"],
+    profissoes: ["view", "create", "edit", "delete"],
   },
   [Perfil.TESOUREIRO]: {
     pessoas: ["view", "create", "edit"],

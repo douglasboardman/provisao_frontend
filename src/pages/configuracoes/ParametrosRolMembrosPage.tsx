@@ -8,6 +8,7 @@ import {
 } from "../../components/ui/select"
 import { toast } from "../../components/ui/use-toast"
 import { usePermissions } from "../../hooks/use-permissions"
+import { useEnumRelations } from "../../hooks/use-enum-relations"
 import { regrasRelacaoEnumApi } from "../../api/regras-relacao-enum"
 import { ApiRequestError } from "../../api/client"
 import type { RegraRelacaoEnum } from "../../types/models"
@@ -50,7 +51,7 @@ function RuleCard({
   }, [regra.valores, localValores])
 
   const saveMut = useMutation({
-    mutationFn: () => regrasRelacaoEnumApi.replaceValores(regra.id, localValores),
+    mutationFn: () => regrasRelacaoEnumApi.replaceValoresMembresia(regra.id, localValores),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["regras-relacao-enum"] })
       toast({ title: `"${regra.nome}" atualizada` })
@@ -124,7 +125,7 @@ function RuleCard({
                   <td className="py-2">{formatEnumValue(v.valor_classificado)}</td>
                   {canEdit && (
                     <td className="py-2">
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleRemove(i)}>
+                      <Button variant="ghost" size="sm" aria-label={`Remover ${formatEnumValue(v.valor_classificado)}`} className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleRemove(i)}>
                         <Trash2 size={14} />
                       </Button>
                     </td>
@@ -148,7 +149,7 @@ function RuleCard({
               <div className="flex-1 space-y-1">
                 <label className="text-xs font-medium text-muted-foreground">Classificador</label>
                 <Select value={newClassificador} onValueChange={setNewClassificador}>
-                  <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+                  <SelectTrigger aria-label="Classificador" className="h-8 text-sm"><SelectValue placeholder="Selecionar..." /></SelectTrigger>
                   <SelectContent>
                     {classificadorOptions.map((v) => (
                       <SelectItem key={v} value={v}>{formatEnumValue(v)}</SelectItem>
@@ -159,7 +160,7 @@ function RuleCard({
               <div className="flex-1 space-y-1">
                 <label className="text-xs font-medium text-muted-foreground">Classificado</label>
                 <Select value={newClassificado} onValueChange={setNewClassificado}>
-                  <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+                  <SelectTrigger aria-label="Classificado" className="h-8 text-sm"><SelectValue placeholder="Selecionar..." /></SelectTrigger>
                   <SelectContent>
                     {classificadoOptions.map((v) => (
                       <SelectItem key={v} value={v}>{formatEnumValue(v)}</SelectItem>
@@ -192,10 +193,7 @@ function RuleCard({
 export function ParametrosRolMembrosPage() {
   const { canEdit } = usePermissions("regras-relacao-enum")
 
-  const { data: regras, isLoading } = useQuery({
-    queryKey: ["regras-relacao-enum", "membresia"],
-    queryFn: () => regrasRelacaoEnumApi.getByModulo("membresia"),
-  })
+  const { regras, isLoading } = useEnumRelations("membresia")
 
   const { data: enumValues } = useQuery({
     queryKey: ["regras-relacao-enum", "enums"],

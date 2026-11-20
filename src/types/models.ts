@@ -43,6 +43,7 @@ export interface Pessoa {
   estado: EstadoBrasil | null
   grupo_familiar_id: string | null
   tratamento_id: number | null
+  profissao_id?: string | null
   conjuge_id: string | null
   created_at: string
   updated_at: string
@@ -68,6 +69,11 @@ export interface Tratamento {
   abreviacao: string
   created_at: string
   updated_at: string
+}
+
+export interface Profissao {
+  id: string
+  nome: string
 }
 
 export interface EventoMembresia {

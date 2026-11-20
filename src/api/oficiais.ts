@@ -1,12 +1,15 @@
 export type BloqueioOrgao = { bloqueia: boolean; participacoes: number; ocupacoes: number; rol_alterado?: number; rol_preservado?: number; rol_indeterminado?: number; detalhes?: { id: string; inicio: string; tipo: 'PARTICIPACAO' | 'OCUPACAO'; orgao: string; cargo: string | null; comparacao_rol: 'ALTERADO' | 'PRESERVADO' | 'INDETERMINADO' }[]; detalhes_limitados?: boolean }
 import { apiClient } from './client'
 
-export interface OficialResumo { id: string; tipo: 'DIACONO' | 'PRESBITERO_REGENTE' | 'PRESBITERO_DOCENTE'; pessoa: { id: string; nome_completo: string } }
+export interface OficialResumo { id: string; tipo: 'DIACONO' | 'PRESBITERO_REGENTE' | 'PRESBITERO_DOCENTE'; ativo: boolean; pessoa: { id: string; nome_completo: string } }
 export interface PaginaOficiais { itens: OficialResumo[]; proximo_cursor: string | null }
 export interface ExercicioOficial { situacao: 'EM_EXERCICIO' | 'FORA_DE_EXERCICIO' | 'INDETERMINADA'; data_referencia: string; revisao_pendente?: boolean }
 export interface AlertaOficial { id: string; data_alerta: string; natureza: 'ENCERRAMENTO_REGISTRADO' | 'TERMINO_PREVISTO'; oficial: { tipo: OficialResumo['tipo']; pessoa: { nome_completo: string } } }
-export interface PoliticaOficial { id: string; versao: string; fonte: string; vigente_desde: string; vigente_ate: string | null }
-export interface ConferenciaOficial { id: string; data_eleicao: string; politica_id: string; mandato: { id: string } | null; revisao_pendente?: boolean; impedida_para_mandato?: boolean }
+export type OficioEletivo = 'DIACONO' | 'PRESBITERO_REGENTE'
+export interface AtaDeEleicao { versao_id: string; documento_id: string; data: string; assunto: string; numero: string | null }
+export interface IndicacaoEleitoral { id: string; oficio: OficioEletivo; data_assembleia: string; pessoa: { nome_completo: string } }
+export interface NovaIndicacao { pessoa_id: string; oficio: OficioEletivo; ata_conselho_versao_id: string; data_assembleia: string }
+export interface MandatoPorIndicacao { indicacao_id: string; ata_assembleia_versao_id: string; data_posse: string }
 export interface PeriodosOficial { mandatos: { id: string; data_eleicao: string; data_posse: string; termino_previsto: string; termino_efetivo: string | null; revisao_pendente?: boolean }[]; vinculos: { id: string; modalidade: string; concilio: string; data_inicio: string; data_fim: string | null; exercicio_institucional: boolean }[] }
 export interface AcessoSensivel { pode_consultar: boolean; pode_registrar: boolean }
 export interface ConcessaoSensivel extends AcessoSensivel { id: string; usuario_id: string; fundamento: string; concedido_em: string; revogado_em: string | null; usuario: { nome_usuario: string } }
@@ -71,12 +74,21 @@ export const oficiaisApi = {
   concederAcesso: (dados: { usuario_id: string; pode_consultar: boolean; pode_registrar: boolean; fundamento: string }) => apiClient.post<ConcessaoSensivel>('oficiais/acessos-sensiveis', dados),
   revogarAcesso: (id: string, motivo: string) => apiClient.patch<unknown>(`oficiais/acessos-sensiveis/${encodeURIComponent(id)}/revogar`, { motivo }),
   eventosSensiveis: (id: string) => apiClient.get<EventoSensivel[]>(`oficiais/${encodeURIComponent(id)}/eventos-sensiveis`),
-  politicas: () => apiClient.get<PoliticaOficial[]>('oficiais/politicas'),
-  conferencias: (pessoaId: string) => apiClient.get<ConferenciaOficial[]>(`oficiais/conferencias/${encodeURIComponent(pessoaId)}`),
+  atasDeEleicao: (tipo: 'CONSELHO' | 'ASSEMBLEIA', busca: string) =>
+    apiClient.get<AtaDeEleicao[]>(`oficiais/indicacoes/atas?${new URLSearchParams({ tipo, busca })}`),
+  candidatos: (ata: string, busca: string) =>
+    apiClient.get<{ id: string; nome_completo: string }[]>(`oficiais/indicacoes/candidatos?${new URLSearchParams({ ata, busca })}`),
+  indicacoes: (assembleia?: string) =>
+    apiClient.get<IndicacaoEleitoral[]>(`oficiais/indicacoes${assembleia ? `?${new URLSearchParams({ assembleia })}` : ''}`),
+  registrarIndicacao: (dados: NovaIndicacao) => apiClient.post<{ id: string }>('oficiais/indicacoes', dados),
+  registrarMandatoPorIndicacao: (dados: MandatoPorIndicacao) =>
+    apiClient.post<{ id: string; oficial_id: string }>('oficiais/indicacoes/mandatos', dados),
   periodos: (id: string) => apiClient.get<PeriodosOficial>(`oficiais/${encodeURIComponent(id)}/periodos`),
   criarAto: (caminho: string, dados: unknown) => apiClient.post<unknown>(`oficiais/${caminho}`, dados),
   encerrar: (caminho: string, dados: unknown) => apiClient.patch<unknown>(`oficiais/${caminho}`, dados),
-  cadastrar: (dados: { pessoa_id: string; tipo: OficialResumo['tipo'] }) => apiClient.post<{ id: string }>('oficiais', dados),
+  cadastrar: (dados: { pessoa_id: string; tipo: OficialResumo['tipo']; ativo?: boolean }) => apiClient.post<{ id: string }>('oficiais', dados),
+  alterarSituacao: ({ id, ativo }: { id: string; ativo: boolean }) =>
+    apiClient.patch<{ id: string; ativo: boolean }>(`oficiais/${encodeURIComponent(id)}/situacao`, { ativo }),
   listar: (cursor?: string) => apiClient.get<PaginaOficiais>(`oficiais${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`),
   exercicio: (id: string, data: string) => apiClient.get<ExercicioOficial>(`oficiais/${encodeURIComponent(id)}/exercicio?data=${encodeURIComponent(data)}`),
   alertas: (data: string, dias: number) => apiClient.get<AlertaOficial[]>(`oficiais/alertas?data=${encodeURIComponent(data)}&dias=${dias}`),

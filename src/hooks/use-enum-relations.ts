@@ -1,10 +1,12 @@
 import { useCallback } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { regrasRelacaoEnumApi } from "../api/regras-relacao-enum"
+import { useAuthStore } from "../stores/auth"
 
 export function useEnumRelations(modulo: string) {
+  const igrejaId = useAuthStore(s => s.user?.igreja_id)
   const { data: regras, isLoading } = useQuery({
-    queryKey: ["regras-relacao-enum", modulo],
+    queryKey: ["regras-relacao-enum", modulo, igrejaId],
     queryFn: () => regrasRelacaoEnumApi.getByModulo(modulo),
     staleTime: 5 * 60 * 1000,
   })

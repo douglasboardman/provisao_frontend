@@ -25,4 +25,7 @@ export const regrasRelacaoEnumApi = {
 
   replaceValores: (id: string, valores: { valor_classificador: string; valor_classificado: string }[]) =>
     apiClient.put<RegraRelacaoEnum>(`regras-relacao-enum/${id}/valores`, { valores }),
+
+  replaceValoresMembresia: (id: string, valores: { valor_classificador: string; valor_classificado: string }[]) =>
+    apiClient.put<RegraRelacaoEnum>(`regras-relacao-enum/modulo/membresia/${encodeURIComponent(id)}/valores`, { valores }),
 }

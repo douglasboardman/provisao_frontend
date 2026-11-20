@@ -1,13 +1,56 @@
 import { test, expect } from '@playwright/test'
 
+test('registra indicação e cria mandato usando a data da ata da Assembleia', async ({ page }) => {
+  test.skip(process.env.VITE_FEATURE_GOVERNANCA !== 'true' || process.env.VITE_FEATURE_SECRETARIA !== 'true', 'O fluxo usa governança e secretaria.')
+  const headers = { 'Access-Control-Allow-Origin': 'http://127.0.0.1:4179', 'Access-Control-Allow-Credentials': 'true', 'Access-Control-Allow-Headers': 'content-type,x-provisao-request', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' }
+  let indicacao: unknown
+  let mandato: unknown
+  await page.route('http://localhost:3000/**', route => {
+    if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
+    const url = new URL(route.request().url())
+    if (url.pathname === '/auth/profile') return route.fulfill({ headers, json: { sub: 'u', igreja_id: 'i', perfil: 'GESTOR', username: 'Gestor', login: 'g@example.invalid' } })
+    if (url.pathname === '/oficiais') return route.fulfill({ headers, json: { itens: [], proximo_cursor: null } })
+    if (url.pathname === '/oficiais/indicacoes/atas') {
+      const conselho = url.searchParams.get('tipo') === 'CONSELHO'
+      return route.fulfill({ headers, json: [{ versao_id: conselho ? 'con' : 'ass', numero: '10', data: conselho ? '2026-08-01' : '2026-09-01', assunto: 'Eleições' }] })
+    }
+    if (url.pathname === '/oficiais/indicacoes/candidatos') return route.fulfill({ headers, json: [{ id: 'p', nome_completo: 'Pessoa Sintética' }] })
+    if (url.pathname === '/oficiais/indicacoes' && route.request().method() === 'POST') {
+      indicacao = route.request().postDataJSON()
+      return route.fulfill({ headers, status: 201, json: { id: 'ind' } })
+    }
+    if (url.pathname === '/oficiais/indicacoes/mandatos') {
+      mandato = route.request().postDataJSON()
+      return route.fulfill({ headers, status: 201, json: { id: 'mandato', oficial_id: 'o' } })
+    }
+    if (url.pathname === '/oficiais/indicacoes' && url.searchParams.get('assembleia') === 'ass' && indicacao && !mandato) {
+      return route.fulfill({ headers, json: [{ id: 'ind', oficio: 'DIACONO', data_assembleia: '2026-09-01', pessoa: { nome_completo: 'Pessoa Sintética' } }] })
+    }
+    return route.fulfill({ headers, json: [] })
+  })
+  await page.goto('/oficiais')
+  await page.getByRole('button', { name: 'Registrar indicação' }).click()
+  await page.getByLabel('Ata do Conselho que aprovou a indicação').selectOption('con')
+  await page.getByLabel('Membro indicado').selectOption('p')
+  await page.getByLabel('Data da assembleia de eleição').fill('2026-09-01')
+  await page.getByRole('button', { name: 'Salvar indicação' }).click()
+  await expect.poll(() => indicacao).toEqual({ pessoa_id: 'p', oficio: 'DIACONO', ata_conselho_versao_id: 'con', data_assembleia: '2026-09-01' })
+  await expect(page.getByText('Indicação registrada.')).toBeVisible()
+  await page.getByRole('button', { name: 'Registrar mandato' }).click()
+  await page.getByLabel('Ata da Assembleia que registrou a eleição').selectOption('ass')
+  await page.getByLabel('Indicação para esta eleição').selectOption('ind')
+  await page.getByLabel('Data da posse').fill('2026-09-08')
+  await page.getByRole('button', { name: 'Salvar mandato' }).click()
+  await expect.poll(() => mandato).toEqual({ indicacao_id: 'ind', ata_assembleia_versao_id: 'ass', data_posse: '2026-09-08' })
+  await expect(page.getByText('Mandato registrado e ofício ativo.')).toBeVisible()
+})
+
 test('consulta oficiais e exercício com a funcionalidade habilitada', async ({ page }) => {
   test.skip(process.env.VITE_FEATURE_GOVERNANCA !== 'true', 'A consulta exige a chave de governança na compilação.')
   const headers = { 'Access-Control-Allow-Origin': 'http://127.0.0.1:4179', 'Access-Control-Allow-Credentials': 'true', 'Access-Control-Allow-Headers': 'content-type,x-provisao-request', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' }
   const oficialId = 'd0000000-0000-4000-8000-000000000001'
   let criacao: unknown
   let ordenacao: unknown
-  let conferencia: unknown
-  let mandato: unknown
   let historico: unknown
   await page.route('http://localhost:3000/**', route => {
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
@@ -19,10 +62,6 @@ test('consulta oficiais e exercício com a funcionalidade habilitada', async ({ 
     if (url.pathname === `/oficiais/${oficialId}/acervo-historico` && route.request().method() === 'POST') { historico = route.request().postDataJSON(); return route.fulfill({ status: 201, headers, json: { id: 'historico' } }) }
     if (url.pathname === `/oficiais/${oficialId}/acervo-historico`) return route.fulfill({ headers, json: [] })
     if (url.pathname === `/oficiais/${oficialId}/periodos`) return route.fulfill({ headers, json: { mandatos: [], vinculos: [] } })
-    if (url.pathname === '/oficiais/politicas') return route.fulfill({ headers, json: [{ id: 'pol', versao: '1', fonte: 'Norma local', vigente_desde: '2020-01-01', vigente_ate: null }] })
-    if (url.pathname === '/oficiais/conferencias/p') return route.fulfill({ headers, json: [{ id: 'conf', politica_id: 'pol', data_eleicao: '2026-01-01', mandato: null }] })
-    if (url.pathname === '/oficiais/conferencias' && route.request().method() === 'POST') { conferencia = route.request().postDataJSON(); return route.fulfill({ status: 201, headers, json: { id: 'conf' } }) }
-    if (url.pathname === `/oficiais/${oficialId}/mandatos` && route.request().method() === 'POST') { mandato = route.request().postDataJSON(); return route.fulfill({ status: 201, headers, json: { id: 'mandato' } }) }
     if (url.pathname === `/oficiais/${oficialId}/eventos` && route.request().method() === 'POST') { ordenacao = route.request().postDataJSON(); return route.fulfill({ status: 201, headers, json: { id: 'evento' } }) }
     if (url.pathname === '/oficiais/meu-acesso-sensivel') return route.fulfill({ headers, json: { pode_consultar: false, pode_registrar: false } })
     if (url.pathname === '/oficiais/alertas') return route.fulfill({ headers, json: [] })
@@ -48,23 +87,6 @@ test('consulta oficiais e exercício com a funcionalidade habilitada', async ({ 
   await page.getByRole('button', { name: 'Salvar registro' }).click()
   await expect.poll(() => ordenacao).toEqual({ tipo: 'ORDENACAO', data_efeito: '2026-01-01', ordem: 1, autoridade: 'Conselho', evidencia: 'Ata externa' })
   await expect(page.getByRole('status')).toHaveText('Registro salvo.')
-  await page.getByLabel('Operação').selectOption('conferencia')
-  await page.getByLabel('Política vigente').selectOption('pol')
-  await page.getByLabel('Data da eleição', { exact: true }).fill('2026-01-01')
-  await page.getByLabel('Data documental da recepção').fill('2024-01-01')
-  await page.getByLabel('Evidência da recepção').fill('Livro')
-  await page.getByLabel('Capacidade confirmada').check()
-  await page.getByLabel('Evidência da capacidade').fill('Declaração')
-  await page.getByRole('button', { name: 'Salvar registro' }).click()
-  await expect.poll(() => conferencia).toEqual({ pessoa_id: 'p', politica_id: 'pol', data_eleicao: '2026-01-01', data_recepcao: '2024-01-01', evidencia_recepcao: 'Livro', capacidade_confirmada: true, evidencia_capacidade: 'Declaração' })
-  await page.getByLabel('Operação').selectOption('mandato')
-  await page.getByLabel('Conferência da eleição').selectOption('conf')
-  await page.getByLabel('Data da posse').fill('2026-02-01')
-  await page.getByLabel('Evidência de capacidade na posse').fill('Declaração')
-  await page.getByLabel('Autoridade do ato').fill('Assembleia')
-  await page.getByLabel('Evidência do ato').fill('Ata')
-  await page.getByRole('button', { name: 'Salvar registro' }).click()
-  await expect.poll(() => mandato).toEqual({ conferencia_id: 'conf', data_posse: '2026-02-01', autoridade: 'Assembleia', evidencia: 'Ata', evidencia_capacidade_posse: 'Declaração' })
   await page.getByLabel('Operação').selectOption('acervo')
   await page.getByLabel('Data aproximada ou lacuna (opcional)').fill('Década de 1980')
   await page.getByLabel('Situação documental').selectOption('EXTERNO_CONFERIDO')
