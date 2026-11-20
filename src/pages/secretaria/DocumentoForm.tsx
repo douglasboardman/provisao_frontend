@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '../../components/ui/button'
-import { secretariaApi, numeroDocumento, finalidadeTermo, livrosHabilitados, nomeLivro, politicaLivro, type EstadoLivro, type ContextoSecretaria, type ModeloDocumento, type ReuniaoSecretaria, type DocumentoResumo, type DocumentoDetalhe, type VersaoInput } from '../../api/secretaria'
+import { rotulosModalidadeReuniao, secretariaApi, numeroDocumento, finalidadeTermo, livrosHabilitados, nomeLivro, politicaLivro, type EstadoLivro, type ContextoSecretaria, type ModeloDocumento, type ReuniaoSecretaria, type DocumentoResumo, type DocumentoDetalhe, type VersaoInput } from '../../api/secretaria'
 import { Area, Campo, CampoPapeis, Escolha, Check, Salvar, hoje, useComando } from './formulario'
 import { Compositor } from './Compositor'
 import type { NovoTermo } from './LivrosContexto'
@@ -88,7 +88,7 @@ export function DocumentoForm({ contexto, documento, retificar = false, modelos,
         }
       })
     }}><option value="">Selecione um modelo</option>{todasVersoes.map(m => <option key={m.id} value={m.id}>{m.nome} — v{m.numero}</option>)}</Escolha>
-    {modelo?.tipo === 'ATA' && <Escolha label="Reunião da ata" value={v.reuniao_id ?? ''} onChange={s => editar('reuniao_id', s || null)}><option value="">Selecione a reunião</option>{v.reuniao_id && !reunioes.some(r => r.id === v.reuniao_id) && <option value={v.reuniao_id}>Reunião vinculada (histórico)</option>}{reunioes.map(r => <option key={r.id} value={r.id}>{r.data.slice(0, 10)} · {r.modalidade} · {r.dados.local}</option>)}</Escolha>}
+    {modelo?.tipo === 'ATA' && <Escolha label="Reunião da ata" value={v.reuniao_id ?? ''} onChange={s => editar('reuniao_id', s || null)}><option value="">Selecione a reunião</option>{v.reuniao_id && !reunioes.some(r => r.id === v.reuniao_id) && <option value={v.reuniao_id}>Reunião vinculada (histórico)</option>}{reunioes.map(r => <option key={r.id} value={r.id}>{r.data.slice(0, 10)} · {rotulosModalidadeReuniao[r.modalidade]} · {r.dados.local}</option>)}</Escolha>}
     <div className="grid gap-4 md:grid-cols-2"><Campo label="Assunto" value={v.assunto} onChange={s => editar('assunto', s)} /><Campo label="Data do documento" type="date" value={v.data_documento} onChange={s => editar('data_documento', s)} /></div>
     {!documento && !novoTermo && contexto.pode_consultar_restritos && <Check label="Documento restrito" checked={restrito} onChange={valor => { setRestrito(valor); editar('livro_id', null); setPaginaLivros(0) }} />}
     {escolherLivro && <div className="space-y-2">

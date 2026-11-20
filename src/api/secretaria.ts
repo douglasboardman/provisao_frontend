@@ -15,11 +15,25 @@ export interface ConfiguracaoModelo {
 export interface ModeloVersao { id: string; numero: number; tipo: 'ATA' | 'OUTRO'; finalidade: string; configuracao: ConfiguracaoModelo }
 export interface ModeloDocumento { id: string; nome: string; revisao: number; versoes: ModeloVersao[] }
 export interface Participante { pessoa_id: string; presente: boolean; papeis: string[]; pode_propor?: boolean }
+export const rotulosModalidadeReuniao = {
+  ORDINARIA: 'Ordinária',
+  EXTRAORDINARIA: 'Extraordinária',
+  REGULAR: 'Regular',
+  AGO: 'Assembleia geral ordinária',
+  AGE: 'Assembleia geral extraordinária',
+} as const
+type ModalidadeReuniao = keyof typeof rotulosModalidadeReuniao
+export function modalidadesParaContexto(contexto: ContextoSecretaria): ModalidadeReuniao[] {
+  if (contexto.tipo === 'ASSEMBLEIA_GERAL') return ['AGO', 'AGE']
+  return contexto.orgao?.tipo === 'CONSELHO'
+    ? ['ORDINARIA', 'EXTRAORDINARIA', 'REGULAR']
+    : ['ORDINARIA', 'EXTRAORDINARIA']
+}
 export interface DadosReuniao {
-  restrito: boolean; modalidade: 'ORDINARIA' | 'EXTRAORDINARIA' | 'AGO' | 'AGE'; data: string; local: string; inicio: string | null; fim: string | null; pauta: string; competencia: string
+  restrito: boolean; modalidade: ModalidadeReuniao; data: string; local: string; inicio: string | null; fim: string | null; pauta: string; competencia: string
   universo_informado: number; quorum_minimo: number; quorum_conferido: boolean; fundamento_quorum: string; resultado: string; participantes: Participante[]
 }
-export interface ReuniaoSecretaria { id: string; revisao: number; data: string; modalidade: string; dados: DadosReuniao; participantes: (Participante & { retrato: { nome: string } })[] }
+export interface ReuniaoSecretaria { id: string; revisao: number; data: string; modalidade: ModalidadeReuniao; dados: DadosReuniao; participantes: (Participante & { retrato: { nome: string } })[] }
 export interface Arrolado { pessoa_id: string; papeis: string[]; cargo_id: string | null; cargos_ids: string[]; assina: boolean; obrigatorio: boolean; responsavel: boolean; fundamento: string }
 export type BlocoDocumento =
   | { tipo: 'TEXTO'; texto: string; alinhamento: 'ESQUERDA' | 'CENTRO' | 'DIREITA' | 'JUSTIFICADO'; estilo: 'NORMAL' | 'TITULO' | 'SUBTITULO'; rico?: boolean }

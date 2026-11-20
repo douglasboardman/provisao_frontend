@@ -1,14 +1,11 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '../../components/ui/button'
-import { nomeLivro, numeroDocumento, secretariaApi, type AtaLegadaInput, type ContextoSecretaria, type DocumentoDetalhe, type ReuniaoLegada, type ReuniaoSecretaria } from '../../api/secretaria'
+import { modalidadesParaContexto, nomeLivro, numeroDocumento, rotulosModalidadeReuniao, secretariaApi, type AtaLegadaInput, type ContextoSecretaria, type DocumentoDetalhe, type ReuniaoLegada, type ReuniaoSecretaria } from '../../api/secretaria'
 import { formatarDataCivil } from '../../lib/membresia-temporal'
 import { Area, Campo, CampoPapeis, Check, Escolha, Salvar, useComando } from './formulario'
 import { EditarResolucoes, LerResolucoes } from './ResolucoesDocumento'
 
-const modalidadesLegadas = {
-  ORDINARIA: 'Ordinária', EXTRAORDINARIA: 'Extraordinária', AGO: 'Assembleia geral ordinária', AGE: 'Assembleia geral extraordinária',
-}
 const textoOpcional = (v: string) => v.trim() || null
 const horaIso = (v: string) => v ? new Date(v).toISOString() : null
 
@@ -60,7 +57,6 @@ export function AtaLegadaForm({ contexto, reunioes, pessoas, pronto }: {
 
   const ocupados = new Set(v.arrolados.map(p => p.pessoa_id))
   const nome = (id: string) => pessoas.find(p => p.id === id)?.nome_completo ?? 'Pessoa'
-  const modalidades = contexto.tipo === 'ASSEMBLEIA_GERAL' ? ['AGO', 'AGE'] as const : ['ORDINARIA', 'EXTRAORDINARIA'] as const
   const horasLocais = (valor: string | null) => {
     if (!valor) return ''
     const d = new Date(valor)
@@ -86,7 +82,7 @@ export function AtaLegadaForm({ contexto, reunioes, pessoas, pronto }: {
         <Campo label="Local" required={false} value={v.reuniao.local ?? ''} onChange={s => editarReuniao('local', s || null)} />
         <Escolha label="Modalidade" required={false} value={v.reuniao.modalidade ?? ''} onChange={s => editarReuniao('modalidade', s as ReuniaoLegada['modalidade'] || null)}>
           <option value="">Não informada no acervo</option>
-          {modalidades.map(m => <option key={m} value={m}>{modalidadesLegadas[m]}</option>)}
+          {modalidadesParaContexto(contexto).map(m => <option key={m} value={m}>{rotulosModalidadeReuniao[m]}</option>)}
         </Escolha>
         <Campo label="Início da reunião" type="datetime-local" required={false} value={horasLocais(v.reuniao.inicio)} onChange={s => editarReuniao('inicio', horaIso(s))} />
         <Campo label="Fim da reunião" type="datetime-local" required={false} value={horasLocais(v.reuniao.fim)} onChange={s => editarReuniao('fim', horaIso(s))} />
@@ -94,7 +90,7 @@ export function AtaLegadaForm({ contexto, reunioes, pessoas, pronto }: {
       <Area label="Pauta histórica" required={false} value={v.reuniao.pauta ?? ''} onChange={s => editarReuniao('pauta', s || null)} />
       {reunioes.length > 0 && <Escolha label="Vincular reunião já cadastrada" required={false} value={v.reuniao_id ?? ''} onChange={s => editar('reuniao_id', s || null)}>
         <option value="">Selecione se a reunião já existe no sistema</option>
-        {reunioes.map(r => <option key={r.id} value={r.id}>{r.data.slice(0, 10)} · {r.modalidade} · {r.dados.local}</option>)}
+        {reunioes.map(r => <option key={r.id} value={r.id}>{r.data.slice(0, 10)} · {rotulosModalidadeReuniao[r.modalidade]} · {r.dados.local}</option>)}
       </Escolha>}
     </fieldset>
     <fieldset className="space-y-3 rounded border p-3">
@@ -159,7 +155,7 @@ export function AtaLegadaLeitura({ documento }: { documento: DocumentoDetalhe })
     {(reuniao.data || reuniao.local || reuniao.modalidade || reuniao.inicio || reuniao.fim || reuniao.pauta) && <div className="space-y-1">
       <h4 className="font-semibold">Reunião registrada no original</h4>
       <p>{[reuniao.data && formatarDataCivil(reuniao.data), reuniao.local,
-        reuniao.modalidade && modalidadesLegadas[reuniao.modalidade]].filter(Boolean).join(' · ')}</p>
+        reuniao.modalidade && rotulosModalidadeReuniao[reuniao.modalidade]].filter(Boolean).join(' · ')}</p>
       {reuniao.inicio && <p>Início {new Date(reuniao.inicio).toLocaleString('pt-BR')}</p>}
       {reuniao.fim && <p>Fim {new Date(reuniao.fim).toLocaleString('pt-BR')}</p>}
       {reuniao.pauta && <p className="whitespace-pre-wrap">{reuniao.pauta}</p>}

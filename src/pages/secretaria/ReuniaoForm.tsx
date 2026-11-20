@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Button } from '../../components/ui/button'
-import { secretariaApi, type ContextoSecretaria, type ReuniaoSecretaria, type DadosReuniao } from '../../api/secretaria'
+import { modalidadesParaContexto, rotulosModalidadeReuniao, secretariaApi, type ContextoSecretaria, type ReuniaoSecretaria, type DadosReuniao } from '../../api/secretaria'
 import { Area, Campo, Escolha, Check, Salvar, hoje, CampoPapeis, useComando } from './formulario'
 export function ReuniaoForm({ contexto, reuniao, pessoas, pronto }: { contexto: ContextoSecretaria; reuniao?: ReuniaoSecretaria; pessoas: { id: string; nome_completo: string }[]; pronto: () => void }) {
   const [v, set] = useState<DadosReuniao>(reuniao?.dados ?? { restrito: false, modalidade: contexto.tipo === 'ASSEMBLEIA_GERAL' ? 'AGO' : 'ORDINARIA', data: hoje(), local: '', inicio: null, fim: null, pauta: '', competencia: '', universo_informado: 0, quorum_minimo: 0, quorum_conferido: false, fundamento_quorum: '', resultado: '', participantes: [] })
@@ -11,7 +11,7 @@ export function ReuniaoForm({ contexto, reuniao, pessoas, pronto }: { contexto: 
   const enviar = useComando((dados: { dados: DadosReuniao }) => reuniao ? secretariaApi.editarReuniao(reuniao.id, { ...dados, revisao: reuniao.revisao }) : secretariaApi.criarReuniao({ ...dados, contexto_id: contexto.id }), pronto)
   return <form className="space-y-4 rounded border p-4" onSubmit={e => { e.preventDefault(); enviar.mutate({ dados: v }) }}>
     <h3 className="font-semibold">{reuniao ? 'Editar reunião' : 'Nova reunião'}</h3>
-    <div className="grid gap-4 md:grid-cols-2"><Escolha label="Modalidade" value={v.modalidade} onChange={s => editar('modalidade', s as DadosReuniao['modalidade'])}>{contexto.tipo === 'ASSEMBLEIA_GERAL' ? <><option value="AGO">Assembleia geral ordinária</option><option value="AGE">Assembleia geral extraordinária</option></> : <><option value="ORDINARIA">Ordinária</option><option value="EXTRAORDINARIA">Extraordinária</option></>}</Escolha><Campo label="Data da reunião" type="date" value={v.data} onChange={s => editar('data', s)} />
+    <div className="grid gap-4 md:grid-cols-2"><Escolha label="Modalidade" value={v.modalidade} onChange={s => editar('modalidade', s as DadosReuniao['modalidade'])}>{modalidadesParaContexto(contexto).map(m => <option key={m} value={m}>{rotulosModalidadeReuniao[m]}</option>)}</Escolha><Campo label="Data da reunião" type="date" value={v.data} onChange={s => editar('data', s)} />
       <Campo label="Local" value={v.local} onChange={s => editar('local', s)} />
       {(['inicio', 'fim'] as const).map(k => <Campo key={k} label={k === 'inicio' ? 'Início (data e hora local)' : 'Fim (data e hora local)'} type="datetime-local" required={false} value={v[k] ? (() => { const d = new Date(v[k]!); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16) })() : ''} onChange={s => editar(k, s ? new Date(s).toISOString() : null)} />)}
     </div>
