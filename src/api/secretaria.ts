@@ -67,17 +67,29 @@ export interface RelatorioAtuacao {
   itens: ItemAtuacao[]; totais: Record<IndicadorAtuacao | 'total', number>; pagina: number; tamanho: number
 }
 export interface VersaoInput { resolucoes?: ResolucaoInput[]; modelo_versao_id: string; livro_id?: string | null; reuniao_id: string | null; motivador_id: string | null; assunto: string; data_documento: string; conteudo: { teor: string; campos: Record<string, string>; arrolados: Arrolado[]; anexos: { arquivo_id: string; nome: string }[]; estrutura?: EstruturaDocumento } }
-export interface DocumentoVersao extends Omit<VersaoInput, 'resolucoes'> {
+export interface ReuniaoLegada {
+  data: string | null; local: string | null; modalidade: DadosReuniao['modalidade'] | null
+  inicio: string | null; fim: string | null; pauta: string | null
+}
+export interface AtaLegadaInput {
+  contexto_id: string; restrito: boolean; numero_original: string | null; assunto: string; data_documento: string
+  reuniao_id: string | null; reuniao: ReuniaoLegada; pdf: { arquivo_id: string; nome: string }; teor: string
+  autoridade: string; evidencia: string; conferida: boolean
+  arrolados: Pick<Arrolado, 'pessoa_id' | 'papeis' | 'fundamento'>[]; resolucoes: ResolucaoInput[]
+}
+export interface DocumentoVersao extends Omit<VersaoInput, 'resolucoes' | 'modelo_versao_id'> {
   resolucoes?: ResolucaoDocumento[]
-  id: string; numero: number; revisao_conteudo: number; congelado_em: string | null; retifica_versao_id: string | null; modelo: ModeloVersao
-  fonte_congelada: { igreja: { nome: string }; contexto: { nome: string }; numero: string; registro_livro?: Pick<RegistroLivro, 'ordem' | 'posicao_inicio' | 'posicao_fim' | 'numero_visivel_inicio'> & { numero_livro: number; serie_livro: string }; arrolados: { pessoa_id: string; retrato: { nome: string; cargo: { nome: string } | null; cargos?: { id: string; nome: string }[] } }[] } | null
-  arrolados: (Arrolado & { retrato: { nome: string; cargo: { nome: string } | null; cargos?: { id: string; nome: string }[] } })[]
+  id: string; numero: number; revisao_conteudo: number; congelado_em: string | null; retifica_versao_id: string | null; modelo: ModeloVersao | null
+  modelo_versao_id: string | null; numero_original?: string | null; folhas_legadas?: string | null
+  fonte_congelada: { igreja?: { nome: string }; contexto: { nome: string }; numero: string | null; registro_livro?: Pick<RegistroLivro, 'ordem' | 'posicao_inicio' | 'posicao_fim' | 'numero_visivel_inicio'> & { numero_livro: number; serie_livro: string }; arrolados?: { pessoa_id: string; retrato: { nome: string; cargo: { nome: string } | null; cargos?: { id: string; nome: string }[] } }[]; legado?: { autoridade: string; evidencia: string; conferido_em: string; operador: string; arquivo_id: string; sha256: string; reuniao: ReuniaoLegada } } | null
+  arrolados: (Arrolado & { retrato: { nome: string; fundamento?: string; cargo: { nome: string } | null; cargos?: { id: string; nome: string }[] } })[]
   anexos: { arquivo_id: string; nome: string; arquivo: { sha256: string; tamanho: number } }[]
   deliberacoes: { resultado: string; data: string; autoridade: string; evidencia: string; revisao_conteudo: number }[]
 }
-export interface DocumentoResumo { id: string; revisao: number; estado: 'EM_EDICAO' | 'APROVADO' | 'EXPEDIDO' | 'CANCELADO' | 'ANULADO'; versao_atual: number; restrito: boolean; tipo: string; numero: number | null; ano: number | null; sigla: string | null; encaminhado_em: string | null; versoes: { id: string; numero: number; assunto: string; data_documento: string }[] }
+export interface DocumentoResumo { id: string; revisao: number; estado: 'EM_EDICAO' | 'APROVADO' | 'EXPEDIDO' | 'CANCELADO' | 'ANULADO' | 'LEGADA_CONFERIDA'; versao_atual: number; restrito: boolean; tipo: string; numero: number | null; ano: number | null; sigla: string | null; encaminhado_em: string | null; versoes: { id: string; numero: number; assunto: string; data_documento: string; numero_original?: string | null }[] }
 export const estadosDocumento: Record<DocumentoResumo['estado'], string> = {
   EM_EDICAO: 'Em edição', APROVADO: 'Aprovado', EXPEDIDO: 'Expedido', CANCELADO: 'Cancelado', ANULADO: 'Anulado',
+  LEGADA_CONFERIDA: 'Ata legada conferida',
 }
 export interface DocumentoDetalhe extends Omit<DocumentoResumo, 'versoes'> { contexto_id: string; versoes: DocumentoVersao[] }
 export interface ResultadoSecretaria { id: string; revisao?: number; versao_id?: string }
@@ -109,6 +121,7 @@ export interface LivroDetalhe extends LivroResumo {
   termos: { id: string; assunto: string; numero: number; modelo: { finalidade: FinalidadeTermo }; documento: { id: string; estado: DocumentoResumo['estado']; versao_atual: number } }[]
   eventos: { id: string; tipo: string; motivo: string; autoridade: string; evidencia: string; retrato: { nome: string }; criado_em: string }[]
   complementos: { versao_id: string; versao: { documento_id: string; numero: number; assunto: string; documento: { estado: DocumentoResumo['estado'] } } }[]
+  atas_legadas?: { documento_id: string; numero_original: string | null; assunto: string; data_documento: string; folhas_legadas: string | null }[]
 }
 
 export const livrosHabilitados = () => import.meta.env.VITE_FEATURE_SECRETARIA_LIVROS === 'true'
@@ -126,11 +139,12 @@ export const secretariaApi = {
     return apiClient.get<RelatorioAtuacao>(`${base}/atuacao?${params}`)
   },
   exportarAtuacao: (filtros: FiltrosAtuacao) => apiClient.postBlob(`${base}/atuacao/exportar`, filtros),
-  livros: (contexto: string, pagina = 0, filtro?: { serie?: string; restrito: boolean; estado: EstadoLivro }) => {
+  livros: (contexto: string, pagina = 0, filtro?: { serie?: string; restrito: boolean; estado: EstadoLivro; modalidade?: 'FISICO_DIGITALIZADO' }) => {
     const params = new URLSearchParams({ contexto, pagina: String(pagina) })
     if (filtro) {
       params.set('restrito', String(filtro.restrito))
       params.set('estado', filtro.estado)
+      if (filtro.modalidade) params.set('modalidade', filtro.modalidade)
       if (filtro.serie) params.set('serie', filtro.serie)
     }
     return apiClient.get<LivroResumo[]>(`${base}/livros?${params}`)
@@ -164,6 +178,10 @@ export const secretariaApi = {
   criarReuniao: (d: unknown) => apiClient.post<ResultadoSecretaria>(`${base}/reunioes`, d),
   editarReuniao: (id: string, d: unknown) => apiClient.patch<ResultadoSecretaria>(`${base}/reunioes/${id}`, d),
   criarDocumento: (d: unknown) => apiClient.post<ResultadoSecretaria>(`${base}/documentos`, d),
+  criarAtaLegada: (d: AtaLegadaInput & { idempotencia: string }) => apiClient.post<ResultadoSecretaria>(`${base}/atas-legadas`, d),
+  extrairTeorLegado: (d: { contexto_id: string; arquivo_id: string }) => apiClient.post<{ teor: string }>(`${base}/atas-legadas/teor`, d),
+  vincularLivroLegado: (id: string, d: { idempotencia: string; revisao: number; livro_id: string | null; folhas: string | null; autoridade: string; evidencia: string }) =>
+    apiClient.post<ResultadoSecretaria>(`${base}/atas-legadas/${id}/livro`, d),
   editarDocumento: (id: string, d: unknown) => apiClient.patch<ResultadoSecretaria>(`${base}/documentos/${id}`, d),
   comando: (id: string, acao: string, d: unknown) => apiClient.post<ResultadoSecretaria>(`${base}/documentos/${id}/${acao}`, d),
   upload: async (file: File) => {
@@ -174,4 +192,7 @@ export const secretariaApi = {
   },
   anexoUrl: (doc: string, versao: string, arquivo: string) => `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${base}/documentos/${doc}/versoes/${versao}/anexos/${arquivo}`,
 }
-export function numeroDocumento(d: Pick<DocumentoResumo, 'numero' | 'ano' | 'sigla'>) { return d.numero ? `${String(d.numero).padStart(3, '0')}/${d.ano}/${d.sigla}` : 'Sem número reservado' }
+export function numeroDocumento(d: Pick<DocumentoResumo, 'numero' | 'ano' | 'sigla'> & Partial<Pick<DocumentoResumo, 'estado' | 'versoes' | 'versao_atual'>>) {
+  if (d.estado === 'LEGADA_CONFERIDA') return d.versoes?.find(v => v.numero === d.versao_atual)?.numero_original ?? 'Sem número no original'
+  return d.numero ? `${String(d.numero).padStart(3, '0')}/${d.ano}/${d.sigla}` : 'Sem número reservado'
+}

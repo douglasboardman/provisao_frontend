@@ -103,7 +103,7 @@ function FormularioReferencia({ alvo, identidade, revisao, enviar, pendente }: {
     }}>
       <div className="grid gap-2 md:grid-cols-3">
         <label>Órgão<select name="contexto" className={selectClass}><option value="">Todos os compatíveis</option>{busca.data?.contextos.map(c => <option key={c.id} value={c.id}>{c.nome} ({c.sigla})</option>)}</select></label>
-        <label>Número<Input name="numero" placeholder="012/2026/CON" maxLength={56} /></label>
+        <label>Número<Input name="numero" placeholder="Número original ou do sistema" maxLength={100} /></label>
         <label>Data da ata<Input name="data" type="date" /></label>
       </div>
       <Button type="submit" variant="outline">Buscar atas</Button>

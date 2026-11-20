@@ -13,13 +13,13 @@ export function DocumentoForm({ contexto, documento, retificar = false, modelos,
   contexto: ContextoSecretaria; documento?: DocumentoDetalhe; identidade?: string; novoTermo?: NovoTermo; retificar?: boolean; modelos: ModeloDocumento[]; reunioes: ReuniaoSecretaria[]; documentos: DocumentoResumo[]; pessoas: { id: string; nome_completo: string }[]; cargos: { id: string; nome: string }[]; pronto: (id: string) => void
 }) {
   const atual = documento?.versoes.find(v => v.numero === documento.versao_atual)
-  const [v, set] = useState<VersaoInput>(atual ? { modelo_versao_id: atual.modelo_versao_id, livro_id: atual.livro_id, reuniao_id: atual.reuniao_id, motivador_id: atual.motivador_id, assunto: atual.assunto, data_documento: atual.data_documento.slice(0, 10), conteudo: atual.conteudo, resolucoes: prepararResolucoes(atual.resolucoes) } : { modelo_versao_id: '', ...(novoTermo ? { livro_id: novoTermo.livro.id } : {}), reuniao_id: null, motivador_id: null, assunto: novoTermo?.finalidade === 'TERMO_ABERTURA' ? 'Abertura do livro de atas' : novoTermo ? 'Encerramento do livro de atas' : '', data_documento: hoje(), conteudo: { teor: '', campos: {}, arrolados: [], anexos: [] } })
+  const [v, set] = useState<VersaoInput>(atual ? { modelo_versao_id: atual.modelo_versao_id ?? '', livro_id: atual.livro_id, reuniao_id: atual.reuniao_id, motivador_id: atual.motivador_id, assunto: atual.assunto, data_documento: atual.data_documento.slice(0, 10), conteudo: atual.conteudo, resolucoes: prepararResolucoes(atual.resolucoes) } : { modelo_versao_id: '', ...(novoTermo ? { livro_id: novoTermo.livro.id } : {}), reuniao_id: null, motivador_id: null, assunto: novoTermo?.finalidade === 'TERMO_ABERTURA' ? 'Abertura do livro de atas' : novoTermo ? 'Encerramento do livro de atas' : '', data_documento: hoje(), conteudo: { teor: '', campos: {}, arrolados: [], anexos: [] } })
   const [restrito, setRestrito] = useState(documento?.restrito ?? novoTermo?.livro.restrito ?? false)
   const [pessoa, setPessoa] = useState(''), [autoridade, setAutoridade] = useState(''), [evidencia, setEvidencia] = useState('')
   const [upload, setUpload] = useState(false), [erroUpload, setErroUpload] = useState('')
   const todasVersoes = modelos.flatMap(m => m.versoes.map(r => ({ ...r, nome: m.nome })))
     .filter(m => novoTermo ? m.tipo === 'OUTRO' && m.finalidade === novoTermo.finalidade
-      : atual?.id && finalidadeTermo(atual.modelo.finalidade) ? m.finalidade === atual.modelo.finalidade
+      : atual?.modelo && finalidadeTermo(atual.modelo.finalidade) ? m.finalidade === atual.modelo.finalidade
         : m.id === atual?.modelo_versao_id || !finalidadeTermo(m.finalidade))
   const [paginaLivros, setPaginaLivros] = useState(0)
   const modelo = todasVersoes.find(m => m.id === v.modelo_versao_id)

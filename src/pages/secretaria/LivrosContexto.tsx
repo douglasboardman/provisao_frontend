@@ -150,6 +150,14 @@ function DetalheLivro({ livro, contexto, abrirDocumento, novoTermo, identidade }
         </div>
       </article>)}
     </div>}
+    {!!livro.atas_legadas?.length && <div className="space-y-2">
+      <h4 className="font-semibold">Atas legadas vinculadas</h4>
+      {livro.atas_legadas.map(ata => <article key={ata.documento_id} className="flex flex-wrap items-center justify-between gap-2 rounded border p-3">
+        <div><p className="font-medium">{ata.numero_original ? `Ata nº ${ata.numero_original} · ` : ''}{ata.assunto}</p>
+          <p>{ata.data_documento.slice(0, 10)}{ata.folhas_legadas && ` · Folhas ${ata.folhas_legadas}`}</p></div>
+        <Button variant="outline" onClick={() => abrirDocumento(ata.documento_id)}>Abrir ata</Button>
+      </article>)}
+    </div>}
     {livro.complementos.length > 0 && <div className="space-y-2">
       <h4 className="font-semibold">Atos complementares</h4>
       {livro.complementos.map(c => <div key={c.versao_id} className="flex flex-wrap items-center gap-2"><span>{c.versao.assunto} · v{c.versao.numero} · {c.versao.documento.estado.toLowerCase().replace(/_/g, ' ')}</span><Button variant="outline" onClick={() => abrirDocumento(c.versao.documento_id)}>Abrir complemento</Button></div>)}

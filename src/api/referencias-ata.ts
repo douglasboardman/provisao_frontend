@@ -3,10 +3,11 @@ import { apiClient } from './client'
 export type GrupoAta = 'MEMBRESIA' | 'MANDATO' | 'PASTORAL' | 'ORGAO' | 'FINANCEIRO'
 export type EtapaAta = 'ATO' | 'ELEICAO' | 'POSSE' | 'INICIO' | 'ENCERRAMENTO'
 export type AlvoAta = { grupo: GrupoAta; alvo_id: string; etapa: EtapaAta }
-export type SituacaoAta = 'PENDENTE' | 'MINUTA_VINCULADA' | 'FORMALIZADA' | 'EXTERNA_CONFERIDA' | 'ANULADA' | 'SUPERADA'
+export type SituacaoAta = 'PENDENTE' | 'MINUTA_VINCULADA' | 'FORMALIZADA' | 'EXTERNA_CONFERIDA' | 'LEGADA_CONFERIDA' | 'ANULADA' | 'SUPERADA'
 export const situacoesAta: Record<SituacaoAta, string> = {
   PENDENTE: 'Documentação pendente', MINUTA_VINCULADA: 'Minuta vinculada', FORMALIZADA: 'Ata formalizada',
   EXTERNA_CONFERIDA: 'Referência externa conferida', ANULADA: 'Ata anulada', SUPERADA: 'Versão cancelada ou superada',
+  LEGADA_CONFERIDA: 'Ata legada conferida',
 }
 export const etapasAta: Record<EtapaAta, string> = { ATO: 'Ato', ELEICAO: 'Eleição', POSSE: 'Posse', INICIO: 'Início', ENCERRAMENTO: 'Encerramento' }
 export const gruposAta: Record<GrupoAta, string> = { MEMBRESIA: 'Membresia', MANDATO: 'Mandato', PASTORAL: 'Vínculo pastoral', ORGAO: 'Órgão', FINANCEIRO: 'Autorização financeira' }
