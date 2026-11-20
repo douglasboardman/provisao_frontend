@@ -1,3 +1,5 @@
+import { Landmark as PageIcon } from "lucide-react"
+import { WorkspaceHeader } from "../../components/shared/Workspace"
 import { AutorizacoesFinanceiras } from '../secretaria/AutorizacoesFinanceiras'
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
@@ -170,19 +172,15 @@ export function ContasPage() {
     : undefined
 
   return (
-    <div className="p-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-heading font-bold">Contas</h1>
-          <p className="text-sm text-muted-foreground">Gerencie as contas bancárias e caixas</p>
-        </div>
+    <div className="workspace">
+      <WorkspaceHeader icon={PageIcon} title="Contas" description="Gerencie as contas bancárias e caixas">
         {canCreate && (
           <Button onClick={openCreate}>
             <Plus size={18} className="mr-2" />
             Nova Conta
           </Button>
         )}
-      </div>
+      </WorkspaceHeader>
 
       {isLoading ? (
         <div className="py-16 text-center text-muted-foreground">Carregando...</div>
@@ -205,7 +203,7 @@ export function ContasPage() {
               <Input id="descricao" {...form.register("descricao")} />
               {form.formState.errors.descricao && <p className="text-xs text-destructive">{form.formState.errors.descricao.message}</p>}
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Tipo de Conta *</Label>
                 <Select value={form.watch("tipo_conta")} onValueChange={(v) => form.setValue("tipo_conta", v as TipoConta)}>
@@ -222,7 +220,7 @@ export function ContasPage() {
                 <Input id="banco" {...form.register("banco")} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="agencia">Agência</Label>
                 <Input id="agencia" {...form.register("agencia")} />
@@ -232,7 +230,7 @@ export function ContasPage() {
                 <Input id="num_conta" {...form.register("num_conta")} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="saldo_inicial">Saldo Inicial *</Label>
                 <Input id="saldo_inicial" type="number" step="0.01" {...form.register("saldo_inicial", { valueAsNumber: true })} />

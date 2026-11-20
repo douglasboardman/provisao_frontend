@@ -1,3 +1,5 @@
+import { ContactRound as PageIcon } from "lucide-react"
+import { WorkspaceHeader } from "../../components/shared/Workspace"
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Plus, Pencil, Trash2, Users } from "lucide-react"
@@ -56,23 +58,19 @@ export function PessoasPage() {
   const actions = (canEdit || canDelete)
     ? (item: Pessoa) => (
         <div className="flex gap-1">
-          {canEdit && <Button variant="ghost" size="icon" onClick={() => push({ type: "pessoa-edit", pessoaId: item.id })}><Pencil size={16} /></Button>}
-          {canDelete && <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(item)}><Trash2 size={16} className="text-destructive" /></Button>}
+          {canEdit && <Button aria-label={'Editar ' + item.nome_completo} variant="ghost" size="icon" onClick={() => push({ type: "pessoa-edit", pessoaId: item.id })}><Pencil size={16} /></Button>}
+          {canDelete && <Button aria-label={'Excluir ' + item.nome_completo} variant="ghost" size="icon" onClick={() => setDeleteTarget(item)}><Trash2 size={16} className="text-destructive" /></Button>}
         </div>
       )
     : undefined
 
   return (
-    <div className="p-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-heading font-bold">Pessoas</h1>
-          <p className="text-sm text-muted-foreground">Gerencie os membros e participantes</p>
-        </div>
+    <div className="workspace">
+      <WorkspaceHeader icon={PageIcon} title="Pessoas" description="Gerencie os membros e participantes">
         {canCreate && (
           <Button onClick={() => push({ type: "pessoa-edit", pessoaId: null })}><Plus size={18} className="mr-2" />Nova Pessoa</Button>
         )}
-      </div>
+      </WorkspaceHeader>
 
       {isLoading ? (
         <div className="py-16 text-center text-muted-foreground">Carregando...</div>

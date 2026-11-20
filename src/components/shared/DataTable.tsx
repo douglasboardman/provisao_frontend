@@ -65,7 +65,7 @@ export function DataTable<T>({
 
   return (
     <div className="space-y-2">
-      <div className="overflow-x-auto rounded-lg border border-border">
+      <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/50">
@@ -73,14 +73,11 @@ export function DataTable<T>({
                 <th
                   key={col.key}
                   className={`px-4 py-3 text-left font-medium text-muted-foreground ${col.sortable ? "cursor-pointer select-none hover:text-foreground" : ""}`}
-                  onClick={() => col.sortable && handleSort(col.key)}
+                  scope="col" aria-sort={col.sortable ? (sortKey !== col.key ? 'none' : sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
                 >
-                  <span className="flex items-center gap-1">
-                    {col.header}
-                    {col.sortable && sortKey === col.key && (
-                      sortDir === "asc" ? <ChevronUp size={14} /> : <ChevronDown size={14} />
-                    )}
-                  </span>
+                  {col.sortable ? <button className="flex items-center gap-1" onClick={() => handleSort(col.key)}>{col.header}
+                    {sortKey === col.key && (sortDir === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}
+                  </button> : col.header}
                 </th>
               ))}
               {actions && <th className="px-4 py-3 text-right font-medium text-muted-foreground">Ações</th>}
@@ -91,6 +88,8 @@ export function DataTable<T>({
               <tr
                 key={keyExtractor(item)}
                 className={`border-b border-border last:border-0 transition-colors ${onRowClick ? "cursor-pointer hover:bg-muted/30" : ""}`}
+                tabIndex={onRowClick ? 0 : undefined}
+                onKeyDown={e => { if (onRowClick && e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onRowClick(item) } }}
                 onClick={() => onRowClick?.(item)}
               >
                 {columns.map((col) => (
@@ -112,10 +111,11 @@ export function DataTable<T>({
       </div>
 
       {data.length > 0 && (
-        <div className="flex items-center justify-between px-1 text-sm text-muted-foreground">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-wrap gap-2 items-center justify-between px-1 text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-2">
             <span>Registros por página:</span>
             <select
+              aria-label="Registros por página"
               value={pageSize}
               onChange={(e) => handlePageSizeChange(Number(e.target.value))}
               className="h-8 rounded-md border border-border bg-background px-2 text-sm"
@@ -124,13 +124,14 @@ export function DataTable<T>({
                 <option key={size} value={size}>{size}</option>
               ))}
             </select>
-            <span className="ml-2">
+            <span className="tabular-nums">
               {Math.min((safePage - 1) * pageSize + 1, sorted.length)}–{Math.min(safePage * pageSize, sorted.length)} de {sorted.length}
             </span>
           </div>
 
           <div className="flex items-center gap-1">
             <button
+              aria-label="Primeira página"
               onClick={() => setCurrentPage(1)}
               disabled={safePage <= 1}
               className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border hover:bg-muted disabled:opacity-40 disabled:pointer-events-none"
@@ -138,6 +139,7 @@ export function DataTable<T>({
               <ChevronsLeft size={16} />
             </button>
             <button
+              aria-label="Página anterior"
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={safePage <= 1}
               className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border hover:bg-muted disabled:opacity-40 disabled:pointer-events-none"
@@ -148,6 +150,7 @@ export function DataTable<T>({
               {safePage} / {totalPages}
             </span>
             <button
+              aria-label="Próxima página"
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={safePage >= totalPages}
               className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border hover:bg-muted disabled:opacity-40 disabled:pointer-events-none"
@@ -155,6 +158,7 @@ export function DataTable<T>({
               <ChevronRight size={16} />
             </button>
             <button
+              aria-label="Última página"
               onClick={() => setCurrentPage(totalPages)}
               disabled={safePage >= totalPages}
               className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border hover:bg-muted disabled:opacity-40 disabled:pointer-events-none"

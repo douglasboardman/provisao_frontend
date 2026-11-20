@@ -1,3 +1,5 @@
+import { Scale as PageIcon } from "lucide-react"
+import { WorkspaceHeader } from "../../components/shared/Workspace"
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { TrendingUp, TrendingDown, Scale } from "lucide-react"
@@ -32,15 +34,10 @@ export function BalancoMensalPage() {
   const lancamentos = balanco?.lancamentos ?? []
 
   return (
-    <div className="p-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-heading font-bold">Balanço Mensal</h1>
-          <p className="text-sm text-muted-foreground">Resumo financeiro por mês</p>
-        </div>
-      </div>
+    <div className="workspace">
+      <WorkspaceHeader icon={PageIcon} title="Balanço Mensal" description="Resumo financeiro por mês" />
 
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <Select value={String(mes)} onValueChange={(v) => setMes(Number(v))}>
           <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
           <SelectContent>

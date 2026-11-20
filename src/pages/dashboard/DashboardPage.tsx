@@ -1,5 +1,6 @@
+import { WorkspaceHeader } from '../../components/shared/Workspace'
 import { useQuery } from "@tanstack/react-query"
-import { Users, ArrowRightLeft, FileSpreadsheet, KeySquare, TrendingUp, TrendingDown } from "lucide-react"
+import { LayoutDashboard, Users, ArrowRightLeft, FileSpreadsheet, KeySquare, TrendingUp, TrendingDown } from "lucide-react"
 import { pessoasApi } from "../../api/pessoas"
 import { lancamentosApi } from "../../api/lancamentos"
 import { acoesApi } from "../../api/acoes"
@@ -17,8 +18,8 @@ interface StatCardProps {
 
 function StatCard({ icon: Icon, label, value, color }: StatCardProps) {
   return (
-    <div className="bg-card rounded-2xl border border-border p-6 flex items-start gap-4">
-      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${color}`}>
+    <div className="surface flex items-center gap-3">
+      <div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${color}`}>
         <Icon size={22} className="text-white" />
       </div>
       <div>
@@ -44,12 +45,8 @@ export function DashboardPage() {
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
 
   return (
-    <div className="p-8 space-y-8">
-      <div>
-        <h1 className="text-2xl font-heading font-bold">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Bem-vindo, {user?.username ?? "Usuário"}</p>
-      </div>
-
+    <div className="workspace">
+      <WorkspaceHeader icon={LayoutDashboard} title="Dashboard" description={`Bem-vindo, ${user?.username ?? 'Usuário'}`} />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={Users} label="Pessoas" value={pessoas?.length ?? 0} color="bg-purple" />
         <StatCard icon={FileSpreadsheet} label="Ações" value={acoes?.length ?? 0} color="bg-info" />

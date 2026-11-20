@@ -1,3 +1,4 @@
+import { MemoryRouter, Routes, Route } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -13,10 +14,11 @@ const modelo: ModeloDocumento = { id: 'm', nome: 'Carta', revisao: 1, versoes: [
 function documento(): DocumentoDetalhe { return { id: 'doc', contexto_id: 'ctx', revisao: 1, estado: 'EM_EDICAO', versao_atual: 1, restrito: false, tipo: 'OUTRO', numero: null, ano: null, sigla: null, encaminhado_em: null, versoes: [{ id: 'v1', numero: 1, revisao_conteudo: 1, assunto: 'Carta antiga', data_documento: '2026-01-10', modelo_versao_id: 'mv', reuniao_id: null, motivador_id: null, retifica_versao_id: null, modelo: modelo.versoes[0], congelado_em: null, fonte_congelada: null, conteudo: { teor: 'Conteúdo original', campos: {}, arrolados: [], anexos: [] }, arrolados: [], anexos: [], deliberacoes: [] }] } }
 function montar(perfil = Perfil.SECRETARIO) {
   useAuthStore.setState({ status: 'ready', user: { sub: 'u', igreja_id: 'i', perfil, username: 'Pessoa', login: 'x' } })
-  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })}><SecretariaPage /></QueryClientProvider>)
+  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })}><MemoryRouter initialEntries={['/secretaria']}><Routes><Route path="/secretaria" element={<SecretariaPage />} /><Route path="/secretaria/:contextoId/documentos/:documentoId" element={<SecretariaPage />} /></Routes></MemoryRouter></QueryClientProvider>)
 }
 async function selecionarContexto() { fireEvent.change(await screen.findByLabelText('Contexto documental'), { target: { value: 'ctx' } }); await screen.findByRole('button', { name: 'Novo documento' }) }
 beforeEach(() => {
+  vi.spyOn(secretariaApi, 'resumo').mockResolvedValue({ documentos: 1, atas: 1, em_edicao: 1, reunioes: 0 })
   vi.spyOn(secretariaApi, 'historico').mockResolvedValue([])
   vi.spyOn(secretariaApi, 'artefatos').mockResolvedValue([])
   vi.spyOn(secretariaApi, 'contextos').mockResolvedValue([contexto])
@@ -83,7 +85,7 @@ describe('E06: livros da secretaria', () => {
   it('abre a preparação do termo pelo livro e envia seu vínculo no documento', async () => {
     vi.stubEnv('VITE_FEATURE_SECRETARIA_LIVROS', 'true')
     const livro: Awaited<ReturnType<typeof secretariaApi.livro>> = {
-      id: 'livro-1', titular: contexto.nome, serie: 'ATA_ASSEMBLEIA', numero: 1, estado: 'EM_PREPARACAO',
+      id: 'livro-1', contexto_id: contexto.id, titular: contexto.nome, serie: 'ATA_ASSEMBLEIA', numero: 1, estado: 'EM_PREPARACAO',
       revisao: 1, restrito: false, capacidade_folhas: 50, faces_por_folha: 2, modalidade: 'PARA_ENCADERNACAO',
       perfil: 'LOCAL_V1', capacidade_faces: 100, fonte_normativa: 'Regimento local', reserva_exame: 2,
       aberto_em: null, encerrado_em: null, motivo_encerramento: null, manifesto_sha256: null,

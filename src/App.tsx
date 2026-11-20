@@ -1,6 +1,6 @@
+import { lazy } from 'react'
 import { useRecurso } from './lib/recursos'
 import { ConviteAssinaturaPage, VerificacaoAssinaturaPage } from './pages/assinaturas/PortalAssinaturas'
-import { SecretariaPage } from './pages/secretaria/SecretariaPage'
 import { Routes, Route, Navigate } from "react-router"
 import { AppLayout } from "./components/layout/AppLayout"
 import { AuthLayout } from "./components/layout/AuthLayout"
@@ -12,14 +12,8 @@ import { ConfirmAccessPage } from "./pages/confirm-access/ConfirmAccessPage"
 import { RegisterPage } from "./pages/register/RegisterPage"
 import { SobrePage } from "./pages/sobre/SobrePage"
 import { DashboardPage } from "./pages/dashboard/DashboardPage"
-import { OficiaisPage } from "./pages/oficiais/OficiaisPage"
-import { OrgaosPage } from "./pages/orgaos/OrgaosPage"
 import { useAuthStore } from "./stores/auth"
 import { Perfil } from "./types/enums"
-import { PessoasPage } from "./pages/pessoas/PessoasPage"
-import { GruposFamiliaresPage } from "./pages/grupos-familiares/GruposFamiliaresPage"
-import { RolMembrosPage } from "./pages/membresia/RolMembrosPage"
-import { GestaoMembresiaPage } from "./pages/membresia/GestaoMembresiaPage"
 import { ContasPage } from "./pages/contas/ContasPage"
 import { LancamentosPage } from "./pages/lancamentos/LancamentosPage"
 import { TipoReceitaPage } from "./pages/tipo-receita/TipoReceitaPage"
@@ -30,7 +24,16 @@ import { BalancoMensalPage } from "./pages/balanco-mensal/BalancoMensalPage"
 import { AcoesPage } from "./pages/acoes/AcoesPage"
 import { UsuariosPage } from "./pages/configuracoes/UsuariosPage"
 import { MfaPage } from "./pages/configuracoes/MfaPage"
-import { ConfiguracoesPage } from "./pages/configuracoes/ConfiguracoesPage"
+
+const SecretariaPage = lazy(() => import('./pages/secretaria/SecretariaPage').then(m => ({ default: m.SecretariaPage })))
+const PerfilPage = lazy(() => import('./pages/perfil/PerfilPage').then(m => ({ default: m.PerfilPage })))
+const OficiaisPage = lazy(() => import('./pages/oficiais/OficiaisPage').then(m => ({ default: m.OficiaisPage })))
+const OrgaosPage = lazy(() => import('./pages/orgaos/OrgaosPage').then(m => ({ default: m.OrgaosPage })))
+const ConfiguracoesPage = lazy(() => import('./pages/configuracoes/ConfiguracoesPage').then(m => ({ default: m.ConfiguracoesPage })))
+const GestaoMembresiaPage = lazy(() => import('./pages/membresia/GestaoMembresiaPage').then(m => ({ default: m.GestaoMembresiaPage })))
+const RolMembrosPage = lazy(() => import('./pages/membresia/RolMembrosPage').then(m => ({ default: m.RolMembrosPage })))
+const PessoasPage = lazy(() => import('./pages/pessoas/PessoasPage').then(m => ({ default: m.PessoasPage })))
+const GruposFamiliaresPage = lazy(() => import('./pages/grupos-familiares/GruposFamiliaresPage').then(m => ({ default: m.GruposFamiliaresPage })))
 
 function OficiaisRoute() {
   const governancaHabilitada = useRecurso('governanca')
@@ -82,12 +85,14 @@ function App() {
         <Route path="/" element={<AppLayout />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="mfa-obrigatorio" element={<MfaPage />} />
+          <Route path="perfil" element={<PerfilPage />} />
           <Route path="dashboard" element={<DashboardPage />} />
 
           {/* Membresia */}
           <Route path="oficiais" element={<OficiaisRoute />} />
           <Route path="orgaos" element={<OrgaosRoute />} />
           <Route path="secretaria" element={<SecretariaRoute />} />
+          <Route path="secretaria/:contextoId/documentos/:documentoId" element={<SecretariaRoute />} />
           <Route path="pessoas" element={<PessoasPage />} />
           <Route path="grupos-familiares" element={<GruposFamiliaresPage />} />
           <Route path="rol-membros" element={<RolMembrosPage />} />

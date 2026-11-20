@@ -23,7 +23,7 @@
   --color-page:       #F8F7FA;
   --color-card:       #FFFFFF;
   --color-card-foreground: #1A0A2E;
-  --color-sidebar:    #6a489b;
+  --color-sidebar:    #342440;
   --color-text-main:  #1A0A2E;
   --color-text-sub:   #6B7280;
   --color-border:     #E5E0F2;
@@ -62,5 +62,67 @@
   }
   input:disabled, textarea:disabled, select:disabled {
     @apply bg-muted text-muted-foreground;
+  }
+}
+
+@layer components {
+  .app-content { @apply mx-auto w-full max-w-[1540px] p-4 sm:p-6 xl:p-9; }
+  .app-content > :is(.p-8,.p-6) { padding: 0; }
+  .workspace { @apply min-w-0 space-y-5; }
+  .workspace-hero { @apply flex flex-wrap items-center justify-between gap-4 rounded-2xl px-5 py-5 text-white sm:px-7; background: linear-gradient(115deg,#382649,#594174 70%,#695180); }
+  .workspace-hero h1 { @apply text-2xl font-bold tracking-tight text-white sm:text-3xl; }
+  .workspace-hero p { @apply mt-1 text-sm text-white/80; }
+  .hero-icon { @apply grid size-12 shrink-0 place-items-center rounded-xl border border-white/20 bg-white/10 text-lime; }
+  .surface { @apply min-w-0 rounded-2xl border bg-card p-4 shadow-sm sm:p-6; }
+  .metric-grid { @apply grid grid-cols-2 gap-3 xl:grid-cols-4; }
+  .metric { @apply flex min-w-0 items-center gap-3 rounded-xl border bg-card px-3 py-4 sm:px-5; }
+  .metric svg { @apply size-5 shrink-0 text-purple; }
+  .metric strong { @apply block font-heading text-2xl leading-tight; }
+  .metric span { @apply block text-xs text-muted-foreground; }
+  .record-table { @apply w-full border-collapse text-left text-sm; }
+  .record-table th { @apply bg-muted/60 px-3 py-3 text-xs font-semibold text-muted-foreground; }
+  .record-table td { @apply border-t px-3 py-3 align-middle; }
+  .record-table tbody tr:hover { @apply bg-muted/25; }
+  .pill { @apply inline-flex items-center gap-1 rounded-full bg-purple-muted/65 px-2.5 py-1 text-xs font-semibold text-purple; }
+  .workspace [role=alert] { @apply rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900; }
+  .workspace [role=status] { @apply rounded-lg bg-muted p-3 text-sm; }
+  .workspace :is(input,select,textarea) { max-width: 100%; }
+  .workspace summary { @apply cursor-pointer; }
+  .workspace > section { min-width: 0; }
+  .doc-sheet { background: white; @apply min-w-0 space-y-4 rounded-sm border px-5 py-7 font-serif text-[1rem] leading-relaxed shadow-sm sm:px-10 sm:py-10; overflow-wrap: anywhere; }
+  .doc-sheet h3,.doc-sheet h4,.doc-sheet h5 { @apply font-serif; }
+  .doc-aside { @apply space-y-4 self-start rounded-xl border bg-card p-4 text-sm; overflow-wrap: anywhere; }
+}
+@layer base {
+  [role=menuitem], summary { cursor: pointer; }
+  :where(button,a,summary,[tabindex]):focus-visible { outline: 2px solid #8461b1; outline-offset: 3px; }
+}
+@layer components {
+  .workspace-hero > button { @apply border-transparent bg-lime text-[#28310a] hover:bg-[#d5e563]; }
+  .workspace :where(section.rounded.border,form.rounded.border) { @apply rounded-xl bg-card; }
+  .workspace > .max-w-xs:has(input[type=date]) { @apply flex max-w-full flex-wrap items-center gap-3 space-y-0 text-sm; }
+  .workspace > .max-w-xs input[type=date] { @apply w-auto bg-card; }
+  .workspace .flex.gap-2:has(> button) { flex-wrap: wrap; }
+  .workspace .grid > * { min-width: 0; }
+  .workspace .doc-sheet .doc-heading { @apply mb-5 border-b pb-5 text-center; }
+  .workspace [role=tablist] { @apply flex-wrap rounded-xl border bg-card p-1.5; }
+  .workspace [role=tab] { @apply border-transparent; }
+  .workspace [role=tab][aria-selected=true] { @apply bg-purple-muted/60 text-purple; }
+}
+@layer components {
+  progress { appearance: none; border-radius: 1rem; height: .5rem; overflow: hidden; background: #e9e3f0; }
+  progress::-webkit-progress-bar { background: #e9e3f0; }
+  progress::-webkit-progress-value { background: #76539d; border-radius: 1rem; }
+  progress::-moz-progress-bar { background: #76539d; }
+  @media (max-width: 639px) {
+    .record-table, .record-table tbody { display: block; }
+    .record-table thead { @apply sr-only; }
+    .record-table tbody tr { @apply block border-b px-3 py-2 last:border-b-0; }
+    .record-table td { @apply flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-0 px-0 py-1.5; }
+    .record-table td::before { content: attr(data-label); @apply text-xs text-muted-foreground; }
+    .record-table td:first-child { @apply block border-b pb-2; }
+    .record-table td:first-child::before { display: none; }
+    .record-table td[data-label=Ações] { @apply mt-1 justify-start; }
+    .record-table td[data-label=Ações]::before { display: none; }
   }
 }

@@ -1,3 +1,4 @@
+import { TeorDocumento } from './FichaDocumento'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '../../components/ui/button'
@@ -164,7 +165,7 @@ export function AtaLegadaLeitura({ documento }: { documento: DocumentoDetalhe })
     {versao.folhas_legadas && <p>Folhas no livro histórico · {versao.folhas_legadas}</p>}
     <div>
       <h4 className="font-semibold">Teor conferido</h4>
-      <p className="whitespace-pre-wrap break-words">{versao.conteudo.teor}</p>
+      <TeorDocumento texto={versao.conteudo.teor} />
     </div>
     <LerResolucoes resolucoes={versao.resolucoes ?? []} />
     {versao.arrolados.length > 0 && <div>

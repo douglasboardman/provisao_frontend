@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import type { BlocoDocumento, EstruturaDocumento, TipoCampo } from '../../api/secretaria'
+import { secretariaApi, type DocumentoVersao, type BlocoDocumento, type EstruturaDocumento, type TipoCampo } from '../../api/secretaria'
 import { Button } from '../../components/ui/button'
 
 type Secao = keyof EstruturaDocumento
@@ -120,7 +120,7 @@ export function Compositor({ valor, alterar, anexos }: {
   </fieldset>
 }
 
-export function LeituraEstrutura({ valor, campos, tipos }: { valor: EstruturaDocumento; campos: Record<string, string>; tipos?: Record<string, TipoCampo> }) {
+export function LeituraEstrutura({ valor, campos, tipos, secaoUnica, documentoId, versao }: { documentoId?: string; versao?: DocumentoVersao; secaoUnica?: keyof EstruturaDocumento; valor: EstruturaDocumento; campos: Record<string, string>; tipos?: Record<string, TipoCampo> }) {
   const resolver = (texto: string) => texto.replace(/\{\{([A-Z][A-Z0-9_]{0,79})\}\}/g, (original, k: string) => {
     const campo = campos[k]
     if (!campo?.trim()) return original
@@ -128,8 +128,8 @@ export function LeituraEstrutura({ valor, campos, tipos }: { valor: EstruturaDoc
     if (tipos?.[k] === 'SIM_NAO') return campo === 'SIM' ? 'Sim' : 'Não'
     return campo
   })
-  return <div className="space-y-3">{secoes.map(([secao, nome]) => valor[secao].length > 0 && <section key={secao}>
-    <h4 className="font-semibold">{nome}</h4>
+  return <div className="space-y-3">{secoes.map(([secao, nome]) => (!secaoUnica || secao === secaoUnica) && valor[secao].length > 0 && <section key={secao}>
+    {!secaoUnica && <h4 className="font-semibold">{nome}</h4>}
     {valor[secao].map((b, i) => {
       if (b.tipo === 'TEXTO') {
         const Tag = b.estilo === 'TITULO' ? 'h5' : b.estilo === 'SUBTITULO' ? 'h6' : 'p'
@@ -152,6 +152,11 @@ export function LeituraEstrutura({ valor, campos, tipos }: { valor: EstruturaDoc
           <tbody>{(b.primeira_linha_cabecalho ? resto : b.linhas).map((linha, n) => <tr key={n}>{linha.map((c, j) => <td className="border p-1" key={j}>{resolver(c)}</td>)}</tr>)}</tbody>
         </table></div>
       }
+      if (b.tipo === 'IMAGEM' && documentoId && versao?.anexos.some(a => a.arquivo_id === b.arquivo_id)) {
+        return <figure key={i} className="my-3"><img loading="lazy" className="mx-auto max-h-80 max-w-full object-contain" alt={b.descricao} src={secretariaApi.anexoUrl(documentoId, versao.id, b.arquivo_id) + '?visualizacao=imagem'} /></figure>
+      }
+      if (secaoUnica && b.tipo === 'QUEBRA') return <hr key={i} className="my-6 break-after-page border-dashed" />
+      if (secaoUnica && b.tipo === 'ASSINATURAS' && versao) return <div key={i} className="my-6 grid gap-4 text-center sm:grid-cols-2">{versao.arrolados.filter(p => p.assina).map(p => <div key={p.pessoa_id} className="mt-5 border-t pt-2"><strong>{p.retrato.nome}</strong><p className="text-sm">{p.papeis.join(', ')}</p></div>)}</div>
       if (b.tipo === 'IMAGEM') return <p key={i}>Imagem anexada: {b.descricao}</p>
       return <p key={i}>[{nomes[b.tipo]}]</p>
     })}

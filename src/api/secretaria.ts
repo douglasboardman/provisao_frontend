@@ -95,7 +95,7 @@ export interface DocumentoVersao extends Omit<VersaoInput, 'resolucoes' | 'model
   resolucoes?: ResolucaoDocumento[]
   id: string; numero: number; revisao_conteudo: number; congelado_em: string | null; retifica_versao_id: string | null; modelo: ModeloVersao | null
   modelo_versao_id: string | null; numero_original?: string | null; folhas_legadas?: string | null
-  fonte_congelada: { igreja?: { nome: string }; contexto: { nome: string }; numero: string | null; registro_livro?: Pick<RegistroLivro, 'ordem' | 'posicao_inicio' | 'posicao_fim' | 'numero_visivel_inicio'> & { numero_livro: number; serie_livro: string }; arrolados?: { pessoa_id: string; retrato: { nome: string; cargo: { nome: string } | null; cargos?: { id: string; nome: string }[] } }[]; legado?: { autoridade: string; evidencia: string; conferido_em: string; operador: string; arquivo_id: string; sha256: string; reuniao: ReuniaoLegada } } | null
+  fonte_congelada: { reuniao?: ReuniaoSecretaria | null; igreja?: { nome: string }; contexto: { nome: string }; numero: string | null; registro_livro?: Pick<RegistroLivro, 'ordem' | 'posicao_inicio' | 'posicao_fim' | 'numero_visivel_inicio'> & { numero_livro: number; serie_livro: string }; arrolados?: { pessoa_id: string; retrato: { nome: string; cargo: { nome: string } | null; cargos?: { id: string; nome: string }[] } }[]; legado?: { autoridade: string; evidencia: string; conferido_em: string; operador: string; arquivo_id: string; sha256: string; reuniao: ReuniaoLegada } } | null
   arrolados: (Arrolado & { retrato: { nome: string; fundamento?: string; cargo: { nome: string } | null; cargos?: { id: string; nome: string }[] } })[]
   anexos: { arquivo_id: string; nome: string; arquivo: { sha256: string; tamanho: number } }[]
   deliberacoes: { resultado: string; data: string; autoridade: string; evidencia: string; revisao_conteudo: number }[]
@@ -127,6 +127,7 @@ export interface RegistroLivro {
   inicio: FaceLivro; fim: FaceLivro; versao: { documento_id: string; numero: number; assunto: string }; arquivo: { sha256: string } | null
 }
 export interface LivroDetalhe extends LivroResumo {
+  contexto_id: string
   fonte_normativa: string; capacidade_faces: number; reserva_exame: number
   motivo_encerramento: string | null; manifesto_sha256: string | null; arquivo_historico_id: string | null; data_historica: string | null
   aberto_em: string | null; encerrado_em: string | null
@@ -144,10 +145,15 @@ export const politicaLivro = (config: ConfiguracaoModelo) => config.registro_em_
 export const estadosLivro: Record<EstadoLivro, string> = {
   EM_PREPARACAO: 'Em preparação', ABERTO: 'Aberto', SUSPENSO: 'Suspenso', EM_ENCERRAMENTO: 'Em encerramento', ENCERRADO: 'Encerrado',
 }
-export const nomeLivro = (livro: LivroResumo) => `Livro nº ${livro.numero} · ${livro.serie}`
+export const nomeLivro = (livro: LivroResumo) => {
+  const series: Record<string, string> = { ATA_PADRAO: 'Atas', ATA_ASSEMBLEIA: 'Atas da Assembleia' }
+  return `Livro nº ${livro.numero} · ${series[livro.serie] ?? livro.serie}`
+}
 
 const base = 'secretaria'
 export const secretariaApi = {
+  resumo: (id: string) => apiClient.get<{ documentos: number; atas: number; em_edicao: number; reunioes: number }>(`secretaria/contextos/${encodeURIComponent(id)}/resumo`),
+  reuniao: (id: string) => apiClient.get<ReuniaoSecretaria>(`secretaria/reunioes/${encodeURIComponent(id)}`),
   atuacao: (filtros: FiltrosAtuacao, pagina: number) => {
     const params = new URLSearchParams({ ...filtros, pagina: String(pagina) })
     return apiClient.get<RelatorioAtuacao>(`${base}/atuacao?${params}`)

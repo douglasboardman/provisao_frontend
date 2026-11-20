@@ -1,3 +1,6 @@
+import { Badge } from '../../components/ui/badge'
+import { Network, Landmark, UsersRound, Layers, CircleCheck, ArrowRight } from 'lucide-react'
+import { WorkspaceHeader, Metric } from '../../components/shared/Workspace'
 import { ManutencaoOrgao } from './ManutencaoOrgao'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -36,6 +39,7 @@ export function OrgaosPage() {
   const identidade = useAuthStore(s => `${s.user?.igreja_id ?? ''}:${s.user?.sub ?? ''}`)
   const perfil = useAuthStore(s => s.user?.perfil)
   const [dataSelecionada, setData] = useState<string | null>(null)
+  const [filtro, filtrar] = useState('')
   const [cursor, setCursor] = useState<string | undefined>()
   const [anteriores, setAnteriores] = useState<(string | undefined)[]>([])
   const [selecionado, setSelecionado] = useState<string | null>(null)
@@ -54,23 +58,21 @@ export function OrgaosPage() {
   if (relogio.isPending) return <main className="p-6">Consultando a data da igreja...</main>
   if (relogio.isError || !relogio.data) return <main className="p-6"><p role="alert">Não foi possível conferir a data usada nos atos.</p></main>
   if (!relogio.data.data_operacional) return <main className="space-y-4 p-6"><p role="alert">O fuso cadastrado é inválido; corrija-o antes de registrar atos.</p>{gestaoHabilitada && perfil === Perfil.ADMINISTRADOR && <ConfiguracaoFuso identidade={identidade} />}</main>
-  return <RelogioIgreja dia={relogio.data.data_operacional}><main className="space-y-6 p-6">
-    <div><h1 className="text-2xl font-semibold">Órgãos e unidades</h1><p className="text-sm text-muted-foreground">Consulta de composição e histórico de ocupações.</p></div>
+  return <RelogioIgreja dia={relogio.data.data_operacional}><div className="workspace">
+    <WorkspaceHeader icon={Network} title="Órgãos e unidades" description="Estrutura institucional, composição e histórico de ocupações." />
+    <div className="metric-grid">{([{icon:Landmark,label:'Conselhos',tipo:'CONSELHO'},{icon:UsersRound,label:'Juntas',tipo:'JUNTA'},{icon:Layers,label:'Unidades',tipo:'UNIDADE_MINISTERIAL'},{icon:CircleCheck,label:'Cadastros ativos',tipo:'ativos'}]).map(m => <Metric key={m.tipo} icon={m.icon} label={m.label + (cursor || lista.data?.proximo_cursor ? ' nesta página' : '')} value={lista.data?.itens.filter(o => m.tipo === 'ativos' ? o.ativo : o.tipo === m.tipo).length ?? '—'} />)}</div>
     <p className="text-sm text-muted-foreground">Data adotada para atos: {exibirData(relogio.data.data_operacional)} ({relogio.data.fuso_iana ?? 'UTC, sem fuso cadastrado'}).</p>
-    {import.meta.env.VITE_FEATURE_ORGAOS_GESTAO === 'true' && perfil && [Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO].includes(perfil) && <InstituirOrgao perfil={perfil} identidade={identidade} />}
-    {import.meta.env.VITE_FEATURE_ORGAOS_GESTAO === 'true' && perfil === Perfil.ADMINISTRADOR && <CompetenciaUnidades identidade={identidade} />}
-    {import.meta.env.VITE_FEATURE_ORGAOS_GESTAO === 'true' && perfil === Perfil.ADMINISTRADOR && <GestaoAutoridades identidade={identidade} />}
-    {import.meta.env.VITE_FEATURE_ORGAOS_GESTAO === 'true' && perfil === Perfil.ADMINISTRADOR && <ConfiguracaoFuso identidade={identidade} />}
-    {import.meta.env.VITE_FEATURE_ORGAOS_GESTAO === 'true' && perfil && [Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO].includes(perfil) && <PreviaImpactosMembresia identidade={identidade} />}
     <div className="max-w-xs space-y-2"><Label htmlFor="data-orgaos">Data de referência</Label><Input id="data-orgaos" type="date" value={data} onChange={e => setData(e.target.value)} /></div>
-    <section className="space-y-3"><h2 className="text-lg font-semibold">Órgãos cadastrados</h2>
+    <section className="surface space-y-4"><h2 className="text-lg font-semibold">Órgãos cadastrados</h2>
       {lista.isPending && <p>Carregando órgãos...</p>}
       {lista.isError && <p role="alert">Não foi possível consultar os órgãos.</p>}
       {lista.data?.itens.length === 0 && <p>Nenhum órgão cadastrado.</p>}
-      {lista.data?.itens.map(o => <div key={o.id} className="flex flex-wrap items-center justify-between gap-3 rounded border p-3"><div><p className="font-medium">{o.nome}{o.sigla ? ` (${o.sigla})` : ''}</p><p className="text-sm text-muted-foreground">{tipos[o.tipo]} · {constituicoes[o.constituicao]} · {o.ativo ? 'Cadastro ativo' : 'Cadastro inativo'}</p></div><Button type="button" variant="outline" onClick={() => { setSelecionado(o.id); limparHistoricos() }}>Consultar</Button></div>)}
+      <label className="block max-w-sm text-sm font-medium">Filtrar por tipo<select className="mt-1 block w-full rounded-lg border bg-white p-2" value={filtro} onChange={e => filtrar(e.target.value)}><option value="">Todos os tipos</option>{Object.entries(tipos).map(([v,n]) => <option key={v} value={v}>{n}</option>)}</select></label>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{lista.data?.itens.filter(o => !filtro || o.tipo === filtro).map(o => <article key={o.id} className="flex min-w-0 flex-col items-start gap-3 rounded-xl border p-4"><div className="flex w-full items-center justify-between"><span className="rounded-lg bg-purple-muted/60 p-2 text-purple">{o.tipo === 'UNIDADE_MINISTERIAL' ? <Layers size={20} /> : <Landmark size={20} />}</span><Badge variant={o.ativo ? 'success' : 'outline'}>{o.ativo ? 'Cadastro ativo' : 'Cadastro inativo'}</Badge></div><div className="flex-1"><p className="font-semibold">{o.nome}{o.sigla ? ` (${o.sigla})` : ''}</p><p className="text-sm text-muted-foreground">{tipos[o.tipo]} · {constituicoes[o.constituicao]}</p></div><Button type="button" variant="outline" onClick={() => { setSelecionado(o.id); limparHistoricos(); requestAnimationFrame(() => document.getElementById('composicao-orgao')?.focus()) }}>Consultar<ArrowRight /></Button></article>)}</div>
+      {filtro && lista.data && !lista.data.itens.some(o => o.tipo === filtro) && <p>Nenhum órgão deste tipo nesta página.</p>}
       <div className="flex gap-2"><Button type="button" variant="outline" disabled={!anteriores.length} onClick={anterior}>Anterior</Button><Button type="button" variant="outline" disabled={!lista.data?.proximo_cursor} onClick={proxima}>Próxima</Button></div>
     </section>
-    {selecionado && <section className="space-y-4 rounded border p-4" aria-live="polite">
+    {selecionado && <section id="composicao-orgao" tabIndex={-1} className="surface space-y-4" aria-live="polite"><Button variant="outline" onClick={() => setSelecionado(null)}>Fechar composição</Button>
       {!data ? <p>Informe a data de referência.</p> : detalhe.isPending ? <p>Carregando detalhes...</p> : detalhe.isError ? <p role="alert">Não foi possível consultar os detalhes.</p> : detalhe.data && <>
         <div><h2 className="text-lg font-semibold">{detalhe.data.orgao.nome}</h2><p>{detalhe.data.orgao.finalidade}</p><p className="text-sm text-muted-foreground">Criado em {exibirData(detalhe.data.orgao.data_criacao)}. {detalhe.data.vigente_na_data ? 'Vigente' : 'Não vigente ou histórico incompleto'} na data informada.</p></div>
         {detalhe.data.composicao && <div className="space-y-2"><h3 className="font-semibold">Composição em {exibirData(detalhe.data.data_referencia)}</h3>
@@ -102,5 +104,12 @@ export function OrgaosPage() {
         <HistoricoAtos key={`atos:${detalhe.data.orgao.id}`} orgaoId={detalhe.data.orgao.id} identidade={identidade} />
       </>}
     </section>}
-  </main></RelogioIgreja>
+    {gestaoHabilitada && perfil !== Perfil.AUDITOR && <section className="surface space-y-3"><h2 className="text-lg font-semibold">Administração institucional</h2>
+    {import.meta.env.VITE_FEATURE_ORGAOS_GESTAO === 'true' && perfil && [Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO].includes(perfil) && <InstituirOrgao perfil={perfil} identidade={identidade} />}
+    {import.meta.env.VITE_FEATURE_ORGAOS_GESTAO === 'true' && perfil === Perfil.ADMINISTRADOR && <CompetenciaUnidades identidade={identidade} />}
+    {import.meta.env.VITE_FEATURE_ORGAOS_GESTAO === 'true' && perfil === Perfil.ADMINISTRADOR && <GestaoAutoridades identidade={identidade} />}
+    {import.meta.env.VITE_FEATURE_ORGAOS_GESTAO === 'true' && perfil === Perfil.ADMINISTRADOR && <ConfiguracaoFuso identidade={identidade} />}
+    {import.meta.env.VITE_FEATURE_ORGAOS_GESTAO === 'true' && perfil && [Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO].includes(perfil) && <PreviaImpactosMembresia identidade={identidade} />}
+    </section>}
+  </div></RelogioIgreja>
 }

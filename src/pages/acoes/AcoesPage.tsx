@@ -1,3 +1,5 @@
+import { Sprout as PageIcon } from "lucide-react"
+import { WorkspaceHeader } from "../../components/shared/Workspace"
 import { AutorizacoesFinanceiras } from '../secretaria/AutorizacoesFinanceiras'
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
@@ -156,16 +158,12 @@ export function AcoesPage() {
     : undefined
 
   return (
-    <div className="p-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-heading font-bold">Ações</h1>
-          <p className="text-sm text-muted-foreground">Gerencie as ações e projetos da igreja</p>
-        </div>
+    <div className="workspace">
+      <WorkspaceHeader icon={PageIcon} title="Ações" description="Gerencie as ações e projetos da igreja">
         {canCreate && (
           <Button onClick={openCreate}><Plus size={18} className="mr-2" />Nova Ação</Button>
         )}
-      </div>
+      </WorkspaceHeader>
 
       {isLoading ? (
         <div className="py-16 text-center text-muted-foreground">Carregando...</div>
@@ -192,7 +190,7 @@ export function AcoesPage() {
               <Label htmlFor="descricao_detalhada">Descrição Detalhada</Label>
               <Textarea id="descricao_detalhada" {...form.register("descricao_detalhada")} rows={3} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Responsável *</Label>
                 <Select value={form.watch("responsavel_pessoa_id")} onValueChange={(v) => form.setValue("responsavel_pessoa_id", v)}>
@@ -214,7 +212,7 @@ export function AcoesPage() {
                 {form.formState.errors.conta_id && <p className="text-xs text-destructive">{form.formState.errors.conta_id.message}</p>}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="data_inicio">Data Início *</Label>
                 <Input id="data_inicio" type="date" {...form.register("data_inicio")} />
@@ -225,7 +223,7 @@ export function AcoesPage() {
                 <Input id="data_fim" type="date" {...form.register("data_fim")} />
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="orcamento_receita">Orçamento Receita *</Label>
                 <Input id="orcamento_receita" type="number" step="0.01" {...form.register("orcamento_receita", { valueAsNumber: true })} />

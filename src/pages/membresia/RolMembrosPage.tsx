@@ -1,3 +1,5 @@
+import { BookUser as PageIcon } from "lucide-react"
+import { WorkspaceHeader } from "../../components/shared/Workspace"
 import { useState, useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { ScrollText, FilterX } from "lucide-react"
@@ -223,11 +225,8 @@ export function RolMembrosPage() {
   ]
 
   return (
-    <div className="p-8 space-y-6">
-      <div>
-        <h1 className="text-2xl font-heading font-bold">Rol de Membros</h1>
-        <p className="text-sm text-muted-foreground">Composição na data civil deste dispositivo. Eventos futuros não alteram o rol atual.</p>
-      </div>
+    <div className="workspace">
+      <WorkspaceHeader icon={PageIcon} title="Rol de Membros" description="Composição na data civil deste dispositivo. Eventos futuros não alteram o rol atual." />
 
       {isLoading ? (
         <div className="py-16 text-center text-muted-foreground">Carregando...</div>
@@ -318,7 +317,7 @@ export function RolMembrosPage() {
               {/* Idade */}
               <div className="space-y-2">
                 <Label className="text-xs font-semibold text-muted-foreground">Idade</Label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <Input
                     type="number"
                     placeholder="Mín"
@@ -364,7 +363,7 @@ export function RolMembrosPage() {
               {/* Tempo no Rol */}
               <div className="space-y-2">
                 <Label className="text-xs font-semibold text-muted-foreground">Tempo no Rol (meses)</Label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <Input
                     type="number"
                     placeholder="Mín"

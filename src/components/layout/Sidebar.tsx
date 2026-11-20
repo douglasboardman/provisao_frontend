@@ -78,7 +78,7 @@ function filterNav(entries: NavEntry[], perfil: Perfil): NavEntry[] {
   return filtered
 }
 
-export function Sidebar() {
+export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const user = useAuthStore((s) => s.user)
   const governanca = useRecurso('governanca')
   const orgaos = useRecurso('orgaos')
@@ -108,7 +108,7 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="w-[280px] bg-sidebar flex-shrink-0 flex flex-col h-full text-white/90 overflow-y-auto">
+    <aside className="w-64 max-w-[90vw] bg-sidebar flex-shrink-0 flex flex-col h-full text-white/90 overflow-y-auto">
       <div className="h-20 px-4 flex items-center">
         <img src={logo} alt="ProVisão" className="h-14 w-auto" />
       </div>
@@ -117,7 +117,7 @@ export function Sidebar() {
         {visibleEntries.map((entry, i) => {
           if (entry.kind === "group") {
             return (
-              <div key={i} className="pt-6 pb-2 px-2 text-xs font-semibold uppercase tracking-wider text-purple-muted/60 font-sans">
+              <div key={i} className="pt-4 pb-1.5 px-3 text-[10px] tracking-widest font-semibold uppercase tracking-wider text-white/65 font-sans">
                 {entry.label}
               </div>
             )
@@ -128,12 +128,13 @@ export function Sidebar() {
             <NavLink
               key={entry.path}
               to={entry.path}
+              onClick={onNavigate}
               className={({ isActive }) =>
                 cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors font-sans",
                   isActive
-                    ? "bg-purple-light/40 text-white font-semibold shadow-sm"
-                    : "text-purple-muted hover:bg-white/5 hover:text-white",
+                    ? "bg-white/15 text-white font-semibold shadow-[inset_3px_0_0_#c5d44e]"
+                    : "text-white/80 hover:bg-white/10 hover:text-white",
                 )
               }
             >
@@ -147,13 +148,13 @@ export function Sidebar() {
 
       <div className="p-4 border-t border-purple-light/20">
         <div className="flex items-center gap-3 p-2 rounded-lg bg-white/5 border border-white/10">
-          <div className="w-9 h-9 rounded-full bg-purple-light flex items-center justify-center text-sm font-bold shadow-sm">
+          <NavLink to="/perfil" onClick={onNavigate} className="flex flex-1 min-w-0 items-center gap-3 rounded-md hover:bg-white/10" aria-label="Abrir meu perfil"><div className="w-9 h-9 shrink-0 rounded-full bg-purple-light flex items-center justify-center text-sm font-bold shadow-sm">
             {initials}
           </div>
           <div className="flex flex-col flex-1 min-w-0">
             <span className="text-sm font-semibold truncate font-sans">{user?.username ?? "Usuário"}</span>
             <span className="text-xs text-purple-muted truncate font-sans">{PERFIL_LABELS[perfil]}</span>
-          </div>
+          </div></NavLink>
           <button onClick={handleLogout} className="p-1.5 rounded-md hover:bg-white/10 transition-colors" title="Sair">
             <LogOut size={16} className="text-purple-muted" />
           </button>

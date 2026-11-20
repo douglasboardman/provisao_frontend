@@ -1,3 +1,7 @@
+import { Badge } from '../../components/ui/badge'
+import { useSearchParams } from 'react-router'
+import { LibraryBig, BookMarked, BookOpen, FileText, Layers, Hourglass, BookmarkCheck, Archive, PenLine, ArrowLeft, ArrowRight, LockKeyhole } from 'lucide-react'
+import { Metric } from '../../components/shared/Workspace'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '../../components/ui/button'
@@ -18,17 +22,29 @@ const nomesAcoes: Record<AcaoLivro, string> = {
   'desistir-encerramento': 'Desistir do encerramento',
 }
 
+function SituacaoLivro({ estado }: { estado: LivroResumo['estado'] }) {
+  const variantes = { EM_PREPARACAO:'secondary', ABERTO:'success', SUSPENSO:'warning', EM_ENCERRAMENTO:'warning', ENCERRADO:'outline' } as const
+  return <Badge variant={variantes[estado]}>{estadosLivro[estado]}</Badge>
+}
+
 export function LivrosContexto({ contexto, identidade, abrirDocumento, novoTermo }: {
   contexto: ContextoSecretaria; identidade: string; abrirDocumento: (id: string) => void
   novoTermo: (termo: NovoTermo) => void
 }) {
-  const [selecionado, selecionar] = useState('')
+  const [busca, setBusca] = useSearchParams()
+  const selecionado = busca.get('livro') ?? ''
+  const selecionar = (id: string) => setBusca(anterior => {
+    const params = new URLSearchParams(anterior)
+    if (id) params.set('livro', id)
+    else params.delete('livro')
+    return params
+  })
   const [form, setForm] = useState<'novo' | 'importar' | null>(null)
   const [pagina, setPagina] = useState(0)
   const lista = useQuery({ queryKey: ['secretaria', identidade, 'livros', contexto.id, pagina], queryFn: () => secretariaApi.livros(contexto.id, pagina), gcTime: 0 })
   const livro = useQuery({ queryKey: ['secretaria', identidade, 'livro', selecionado], queryFn: () => secretariaApi.livro(selecionado), enabled: !!selecionado, gcTime: 0 })
   const pronto = (id: string) => { selecionar(id); setForm(null); setPagina(0) }
-  return <div className="space-y-4">
+  return <div className="space-y-4">{selecionado ? <Button variant="outline" onClick={() => selecionar('')}><ArrowLeft />Voltar ao acervo</Button> : <section className="surface space-y-5"><div className="flex items-center gap-3"><span className="grid size-12 place-items-center rounded-xl bg-purple-muted/60 text-purple"><LibraryBig /></span><div><h3 className="text-xl font-semibold">Livros de atas</h3><p className="text-sm text-muted-foreground">{contexto.nome}</p></div></div>
     <div className="flex flex-wrap gap-2">
       {contexto.pode_preparar && <Button onClick={() => setForm('novo')}>Novo livro</Button>}
       {contexto.pode_aprovar && <Button variant="outline" onClick={() => setForm('importar')}>Cadastrar acervo físico</Button>}
@@ -38,18 +54,21 @@ export function LivrosContexto({ contexto, identidade, abrirDocumento, novoTermo
     {lista.isPending && <p>Carregando livros…</p>}
     {lista.isError && <p role="alert">{lista.error.message}</p>}
     {lista.data?.length === 0 && <p>Nenhum livro cadastrado nesta página.</p>}
-    {lista.data?.map(item => <article key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded border p-3">
-      <div><h3 className="font-semibold">{nomeLivro(item)}</h3><p>{estadosLivro[item.estado]} · {item.capacidade_folhas} folhas · {modalidadeLivro[item.modalidade]}{item.restrito ? ' · Restrito' : ''}</p></div>
-      <Button variant="outline" onClick={() => selecionar(item.id)}>Consultar livro</Button>
-    </article>)}
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{lista.data?.map(item => <article key={item.id} className="flex min-w-0 flex-col gap-3 rounded-r-xl rounded-l-sm border border-l-4 border-l-purple bg-gradient-to-br from-white to-purple-muted/20 p-4"><div className="flex items-center justify-between gap-2"><BookMarked size={23} className="text-purple" /><SituacaoLivro estado={item.estado} /></div>
+      <div className="flex-1"><h4 className="font-heading text-lg font-semibold">{nomeLivro(item)}</h4><p className="text-sm text-muted-foreground">{item.titular} · {modalidadeLivro[item.modalidade]}</p></div>
+      <div className="flex flex-wrap gap-3 border-t pt-3 text-sm"><span className="flex items-center gap-1"><Layers size={15} />{item.capacidade_folhas} folhas</span>{item.restrito && <span className="flex items-center gap-1"><LockKeyhole size={15} />Restrito</span>}</div>
+      <Button variant="outline" onClick={() => selecionar(item.id)}>Consultar livro<ArrowRight /></Button>
+    </article>)}</div>
     <div className="flex items-center gap-2">
       <Button variant="outline" disabled={pagina === 0} onClick={() => setPagina(pagina - 1)}>Anterior</Button>
       <span>Página {pagina + 1}</span>
       <Button variant="outline" disabled={lista.data?.length !== 30} onClick={() => setPagina(pagina + 1)}>Próxima</Button>
     </div>
+    </section>}
     {selecionado && livro.isPending && <p>Carregando livro…</p>}
-    {livro.isError && <p role="alert">{livro.error.message}</p>}
-    {livro.data && <DetalheLivro key={livro.data.id} livro={livro.data} contexto={contexto} abrirDocumento={abrirDocumento} novoTermo={novoTermo} identidade={identidade} />}
+    {selecionado && livro.isError && <p role="alert">{livro.error.message}</p>}
+    {selecionado && livro.data && livro.data.contexto_id !== contexto.id && <p role="alert">Este livro pertence a outro contexto.</p>}
+    {selecionado && livro.data?.contexto_id === contexto.id && <DetalheLivro key={livro.data.id} livro={livro.data} contexto={contexto} abrirDocumento={abrirDocumento} novoTermo={novoTermo} identidade={identidade} />}
   </div>
 }
 
@@ -115,11 +134,12 @@ function DetalheLivro({ livro, contexto, abrirDocumento, novoTermo, identidade }
   const t = livro.totais
   const finalidade = livro.estado === 'EM_PREPARACAO' ? 'TERMO_ABERTURA' : livro.estado === 'EM_ENCERRAMENTO' ? 'TERMO_ENCERRAMENTO' : null
   const termoAtivo = livro.termos.some(t => t.modelo.finalidade === finalidade && !['CANCELADO', 'ANULADO'].includes(t.documento.estado))
-  return <section className="space-y-4 rounded border p-4" aria-label="Detalhes do livro">
-    <div><h3 className="text-lg font-semibold">{nomeLivro(livro)}</h3><p>{livro.titular} · {estadosLivro[livro.estado]} · {modalidadeLivro[livro.modalidade]}</p></div>
+  return <section className="surface space-y-5" aria-label="Detalhes do livro">
+    <div className="flex flex-wrap items-center gap-3 border-b pb-4"><span className="grid size-12 place-items-center rounded-xl bg-purple-muted/60 text-purple"><BookOpen /></span><div className="flex-1"><h3 className="text-xl font-semibold">{nomeLivro(livro)}</h3><p className="text-sm">{livro.titular} · {modalidadeLivro[livro.modalidade]}</p></div><SituacaoLivro estado={livro.estado} /></div>
     <p>{perfis[livro.perfil]} · {livro.fonte_normativa}</p>
     <p>Capacidade declarada de {livro.capacidade_folhas} folhas e {livro.capacidade_faces} faces ({livro.faces_por_folha} por folha).</p>
-    {t && <>
+    {t && <><div className="metric-grid"><Metric icon={FileText} value={t.total_atas} label="Atas efetivadas" /><Metric icon={Layers} value={t.folhas_utilizadas} label="Folhas utilizadas" /><Metric icon={BookOpen} value={t.saldo_folhas} label="Folhas disponíveis" /><Metric icon={Hourglass} value={t.pendencias} label="Reservas pendentes" /></div>
+      {livro.capacidade_folhas > 0 && <label className="block rounded-xl bg-muted/50 p-4 text-sm font-semibold">Ocupação das folhas · {Math.round(100*t.folhas_utilizadas/livro.capacidade_folhas)}%<progress className="mt-2 block h-2 w-full accent-purple" value={t.folhas_utilizadas} max={livro.capacidade_folhas} /></label>}
       <p>{t.total_atas} atas efetivadas · {t.paginas_utilizadas} páginas em {t.folhas_utilizadas} folhas · saldo físico de {t.saldo_faces} faces e {t.saldo_folhas} folhas inteiramente sem conteúdo efetivado.</p>
       <p>{t.pendencias} reservas pendentes · {livro.reserva_exame} faces previstas para exames · última posição ocupada ou reservada {t.ultima_posicao || '—'}.</p>
     </>}
@@ -134,13 +154,13 @@ function DetalheLivro({ livro, contexto, abrirDocumento, novoTermo, identidade }
       <span className="break-all text-xs">SHA-256 do manifesto · {livro.manifesto_sha256}</span>
     </div>}
     {(finalidade || livro.termos.length > 0) && <div className="space-y-2">
-      <h4 className="font-semibold">Termos</h4>
+      <h4 className="flex items-center gap-2 border-t pt-4 font-semibold"><PenLine size={18} className="text-purple" />Termos</h4>
       {finalidade && <p>O termo precisa ser assinado e expedido para efetivar {finalidade === 'TERMO_ABERTURA' ? 'a abertura' : 'o encerramento'}.</p>}
       {contexto.pode_preparar && finalidade && !termoAtivo && <Button onClick={() => novoTermo({ livro, finalidade })}>{finalidade === 'TERMO_ABERTURA' ? 'Preparar termo de abertura' : 'Preparar termo de encerramento'}</Button>}
       {livro.termos.map(t => <div key={t.id} className="flex flex-wrap items-center gap-2"><span>{t.assunto} · v{t.numero} · {t.documento.estado.toLowerCase().replace(/_/g, ' ')}</span><Button variant="outline" onClick={() => abrirDocumento(t.documento.id)}>Abrir termo</Button></div>)}
     </div>}
     {livro.registros.length > 0 && <div className="space-y-2">
-      <h4 className="font-semibold">Registros e reservas</h4>
+      <h4 className="flex items-center gap-2 border-t pt-4 font-semibold"><BookmarkCheck size={18} className="text-purple" />Registros e reservas</h4>
       {livro.registros.map(r => <article key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded border p-3">
         <div><p className="font-medium">{r.ordem}. {naturezas[r.natureza]} · {r.versao.assunto} · v{r.versao.numero}</p>
           <p>{estadoRegistro[r.estado]} · folha {r.inicio.folha}, {r.inicio.face.toLowerCase()}{r.posicao_inicio !== r.posicao_fim && ` até folha ${r.fim.folha}, ${r.fim.face.toLowerCase()}`} · {r.numero_visivel_inicio == null ? 'Termo sem número de página' : `Numeração visível ${r.numero_visivel_inicio}${r.posicao_inicio === r.posicao_fim ? '' : ` a ${r.numero_visivel_inicio + r.posicao_fim - r.posicao_inicio}`}`}</p></div>
@@ -151,7 +171,7 @@ function DetalheLivro({ livro, contexto, abrirDocumento, novoTermo, identidade }
       </article>)}
     </div>}
     {!!livro.atas_legadas?.length && <div className="space-y-2">
-      <h4 className="font-semibold">Atas legadas vinculadas</h4>
+      <h4 className="flex items-center gap-2 border-t pt-4 font-semibold"><Archive size={18} className="text-purple" />Atas legadas vinculadas</h4>
       {livro.atas_legadas.map(ata => <article key={ata.documento_id} className="flex flex-wrap items-center justify-between gap-2 rounded border p-3">
         <div><p className="font-medium">{ata.numero_original ? `Ata nº ${ata.numero_original} · ` : ''}{ata.assunto}</p>
           <p>{ata.data_documento.slice(0, 10)}{ata.folhas_legadas && ` · Folhas ${ata.folhas_legadas}`}</p></div>

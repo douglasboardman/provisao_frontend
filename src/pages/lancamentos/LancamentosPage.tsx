@@ -1,3 +1,5 @@
+import { ArrowRightLeft as PageIcon } from "lucide-react"
+import { WorkspaceHeader } from "../../components/shared/Workspace"
 import { useState, useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
@@ -188,16 +190,12 @@ export function LancamentosPage() {
     : undefined
 
   return (
-    <div className="p-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-heading font-bold">Lançamentos</h1>
-          <p className="text-sm text-muted-foreground">Gerencie os lançamentos financeiros</p>
-        </div>
+    <div className="workspace">
+      <WorkspaceHeader icon={PageIcon} title="Lançamentos" description="Gerencie os lançamentos financeiros">
         {canCreate && (
           <Button onClick={openCreate}><Plus size={18} className="mr-2" />Novo Lançamento</Button>
         )}
-      </div>
+      </WorkspaceHeader>
 
       <div className="flex gap-3 flex-wrap">
         <Select value={filters.tipo ?? "all"} onValueChange={(v) => setFilters((f) => ({ ...f, tipo: v === "all" ? undefined : v, page: 1 }))}>
@@ -246,7 +244,7 @@ export function LancamentosPage() {
             <DialogTitle>{editing ? "Editar" : "Novo"} Lançamento</DialogTitle>
           </DialogHeader>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="data_transacao">Data *</Label>
                 <Input id="data_transacao" type="date" {...form.register("data_transacao")} />
@@ -267,7 +265,7 @@ export function LancamentosPage() {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Conta *</Label>
                 <Select value={form.watch("conta_id")} onValueChange={(v) => form.setValue("conta_id", v)}>
@@ -289,7 +287,7 @@ export function LancamentosPage() {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>{tipoWatch === TipoTransacao.RECEITA ? "Tipo de Receita" : "Tipo de Despesa"}</Label>
                 {tipoWatch === TipoTransacao.RECEITA ? (

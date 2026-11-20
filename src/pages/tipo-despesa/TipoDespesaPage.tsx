@@ -1,3 +1,5 @@
+import { TrendingDown as PageIcon } from "lucide-react"
+import { WorkspaceHeader } from "../../components/shared/Workspace"
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
@@ -88,14 +90,10 @@ export function TipoDespesaPage() {
   ) : undefined
 
   return (
-    <div className="p-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-heading font-bold">Tipos de Despesa</h1>
-          <p className="text-sm text-muted-foreground">Gerencie os tipos de despesa</p>
-        </div>
+    <div className="workspace">
+      <WorkspaceHeader icon={PageIcon} title="Tipos de Despesa" description="Gerencie os tipos de despesa">
         {canCreate && <Button onClick={openCreate}><Plus size={18} className="mr-2" />Novo Tipo</Button>}
-      </div>
+      </WorkspaceHeader>
       {isLoading ? <div className="py-16 text-center text-muted-foreground">Carregando...</div>
         : !data?.length ? <EmptyState icon={Calculator} title="Nenhum tipo" description="Nenhum tipo de despesa cadastrado" />
         : <DataTable data={data} columns={columns} keyExtractor={(i) => i.id} actions={actions} />}
@@ -119,7 +117,7 @@ export function TipoDespesaPage() {
             </div>
             <div className="space-y-3">
               <Label>Requisitos do lançamento</Label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {(["requer_pessoa", "requer_acao", "requer_conta", "requer_comprovante"] as const).map((f) => (
                   <label key={f} className="flex items-center gap-2 text-sm cursor-pointer">
                     <Checkbox checked={form.watch(f)} onCheckedChange={(v) => form.setValue(f, !!v)} />

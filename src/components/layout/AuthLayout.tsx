@@ -17,7 +17,7 @@ export function AuthLayout() {
       }}
     >
       {/* Nav superior */}
-      <nav className="flex justify-center gap-16 pt-8">
+      <nav className="flex justify-center gap-6 sm:gap-16 pt-8">
         <NavLink
           to="/sobre"
           className={({ isActive }) => (isActive ? linkActive : linkInactive)}
@@ -39,7 +39,7 @@ export function AuthLayout() {
       </nav>
 
       {/* Conteúdo */}
-      <div className="flex flex-1 items-center justify-center p-8">
+      <div className="flex flex-1 items-center justify-center p-4 sm:p-8">
         <Outlet />
       </div>
     </div>

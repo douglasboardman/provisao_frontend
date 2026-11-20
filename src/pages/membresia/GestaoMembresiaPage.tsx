@@ -482,7 +482,7 @@ export function GestaoMembresiaPage() {
                 </p>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Rol *</Label>
                 <Select
@@ -518,7 +518,7 @@ export function GestaoMembresiaPage() {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="adm_data">Data de Admissão *</Label>
                 <Input
@@ -599,7 +599,7 @@ export function GestaoMembresiaPage() {
                 </p>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="dem_data">Data de Demissão *</Label>
                 <Input
@@ -700,7 +700,7 @@ export function GestaoMembresiaPage() {
                 </p>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Rol de Origem</Label>
                 <Input value={rolOrigem} disabled className="bg-muted" />
@@ -722,7 +722,7 @@ export function GestaoMembresiaPage() {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Motivação *</Label>
                 <Select

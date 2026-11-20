@@ -1,3 +1,5 @@
+import { Settings as PageIcon } from "lucide-react"
+import { WorkspaceHeader } from "../../components/shared/Workspace"
 import { useState } from "react"
 import { Briefcase, Building2, FileText, SlidersHorizontal, ShieldCheck } from "lucide-react"
 import { useAuthStore } from "../../stores/auth"
@@ -37,11 +39,8 @@ export function ConfiguracoesPage() {
   const ActiveComponent = activeTab.component
 
   return (
-    <div className="p-8 space-y-6">
-      <div>
-        <h1 className="text-2xl font-heading font-bold">Configurações</h1>
-        <p className="text-sm text-muted-foreground">Configurações da igreja e logs do sistema</p>
-      </div>
+    <div className="workspace">
+      <WorkspaceHeader icon={PageIcon} title="Configurações" description="Configurações da igreja e logs do sistema" />
 
       {visibleTabs.length > 1 && (
         <div className="flex gap-1 border-b border-border overflow-x-auto">

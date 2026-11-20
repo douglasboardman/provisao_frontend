@@ -1,3 +1,5 @@
+import { Tags as PageIcon } from "lucide-react"
+import { WorkspaceHeader } from "../../components/shared/Workspace"
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
@@ -126,13 +128,10 @@ export function CatReceitaPage() {
   function onSubmitTipo(d: TipoFormData) { editingTipo ? updateTipoMut.mutate({ id: editingTipo.id, d }) : createTipoMut.mutate(d) }
 
   return (
-    <div className="p-8 space-y-6">
-      <div>
-        <h1 className="text-2xl font-heading font-bold">Categorias de Receita</h1>
-        <p className="text-sm text-muted-foreground">Gerencie as categorias e suas receitas</p>
-      </div>
+    <div className="workspace">
+      <WorkspaceHeader icon={PageIcon} title="Categorias de Receita" description="Gerencie as categorias e suas receitas" />
 
-      <div className="grid grid-cols-[360px_1fr] gap-6" style={{ minHeight: "520px" }}>
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(240px,340px)_minmax(0,1fr)] gap-6" style={{ minHeight: "520px" }}>
         {/* Painel esquerdo: categorias */}
         <div className="flex flex-col border border-border rounded-2xl overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
@@ -293,7 +292,7 @@ export function CatReceitaPage() {
             </div>
             <div className="space-y-3">
               <Label>Requisitos do lançamento</Label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {(["requer_pessoa", "requer_acao", "requer_conta", "requer_comprovante"] as const).map((f) => (
                   <label key={f} className="flex items-center gap-2 text-sm cursor-pointer">
                     <Checkbox checked={tipoForm.watch(f)} onCheckedChange={(v) => tipoForm.setValue(f, !!v)} />

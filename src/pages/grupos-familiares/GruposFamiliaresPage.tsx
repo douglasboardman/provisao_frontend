@@ -1,3 +1,5 @@
+import { UsersRound as PageIcon } from "lucide-react"
+import { WorkspaceHeader } from "../../components/shared/Workspace"
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
@@ -129,19 +131,15 @@ export function GruposFamiliaresPage() {
   )
 
   return (
-    <div className="p-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-heading font-bold">Grupos Familiares</h1>
-          <p className="text-sm text-muted-foreground">Gerencie os grupos familiares da igreja</p>
-        </div>
+    <div className="workspace">
+      <WorkspaceHeader icon={PageIcon} title="Grupos Familiares" description="Gerencie os grupos familiares da igreja">
         {canCreate && (
           <Button onClick={openCreate}>
             <Plus size={18} className="mr-2" />
             Novo Grupo
           </Button>
         )}
-      </div>
+      </WorkspaceHeader>
 
       {isLoading ? (
         <div className="py-16 text-center text-muted-foreground">Carregando...</div>

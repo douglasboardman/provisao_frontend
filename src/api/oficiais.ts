@@ -37,7 +37,9 @@ export interface PropostaOficialRetroativa { tipo: string; data_efeito: string; 
 export interface PreviaOficialRetroativa { hash: string; proposta: PropostaOficialRetroativa; bloqueada: boolean; posse_invalida: boolean; observacao: string; alteracoes: { id: string; tipo: string; data: string; antes: { em_exercicio: boolean; motivo: string }; depois: { em_exercicio: boolean; motivo: string } }[] }
 export interface InclusaoOficialRegistrada { id: string; justificativa: string; criado_em: string; criado_por: { nome_usuario: string }; impacto: PreviaOficialRetroativa }
 export interface RevisaoEleitoral { id: string; operacao: string; hash_previa: string; autoridade: string; evidencia: string; justificativa: string; criado_em: string; aplicado_em: string | null; criado_por: { nome_usuario: string }; itens: { id: string; conferencia_id: string | null; mandato_id: string | null; revisado_em: string | null; autoridade_revisao: string | null; evidencia_revisao: string | null; conclusao_revisao: string | null; permite_reutilizacao: boolean | null; revisado_por: { nome_usuario: string } | null }[] }
+export type MandatoVigente = Pick<PeriodosOficial['mandatos'][number], 'id' | 'data_posse' | 'termino_previsto' | 'termino_efetivo'> & { oficial: { tipo: OficialResumo['tipo']; pessoa: { nome_completo: string } } }
 export const oficiaisApi = {
+  vigentes: (data: string) => apiClient.get<MandatoVigente[]>(`oficiais/mandatos-vigentes?data=${encodeURIComponent(data)}`),
   concluirRevisaoEleitoral: (id: string, dados: unknown) => apiClient.post<unknown>(`oficiais/revisoes-eleitorais/${encodeURIComponent(id)}/concluir`, dados),
   revisoesEleitorais: (pessoaId: string) => apiClient.get<RevisaoEleitoral[]>(`oficiais/pessoas/${encodeURIComponent(pessoaId)}/revisoes-eleitorais`),
   registrarDecisaoEleitoral: (pessoaId: string, dados: unknown) => apiClient.post<{ id: string }>(`oficiais/pessoas/${encodeURIComponent(pessoaId)}/revisoes-eleitorais`, dados),
