@@ -8,6 +8,7 @@ import { PendenciasDocumentais } from '../pages/secretaria/RegistrosDocumentais'
 const alvo = { grupo: 'MANDATO', alvo_id: 'mandato', etapa: 'POSSE' } as const
 const ata = {
   documento_id: 'ata-id', versao_id: 'ata-v1', versao: 1, numero: 1234, ano: 2026, sigla: 'CON',
+  pauta: 'Pauta sintética', arrolados: ['Pessoa sintética'], resolucoes: [], numero_formatado: '1234/2026/CON',
   data: '2026-01-20', contexto: 'Conselho', contexto_id: 'con', assunto: 'Posse', estado: 'EM_EDICAO',
 }
 
@@ -28,14 +29,16 @@ describe('E09 – referência documental', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Ata e documentação' }))
     await screen.findByText('Documentação pendente')
     fireEvent.click(screen.getByRole('button', { name: 'Registrar referência' }))
-    await screen.findByRole('option', { name: 'Conselho (CON)' })
-    fireEvent.change(screen.getByLabelText('Órgão'), { target: { value: 'con' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Selecionar' }))
+    await screen.findByRole('option', { name: 'Conselho' })
+    fireEvent.change(screen.getByLabelText('Contexto documental'), { target: { value: 'con' } })
     fireEvent.change(screen.getByLabelText('Número'), { target: { value: '1234/2026/CON' } })
-    fireEvent.change(screen.getByLabelText('Data da ata'), { target: { value: '2026-01-20' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Buscar atas' }))
-    await waitFor(() => expect(buscar).toHaveBeenLastCalledWith(alvo, { contexto: 'con', numero: '1234/2026/CON', data: '2026-01-20', pagina: '0' }))
-    await screen.findByRole('option', { name: /1234\/2026\/CON.*20\/01\/2026/ })
-    fireEvent.change(screen.getByLabelText('Ata', { exact: true }), { target: { value: 'ata-v1' } })
+    fireEvent.change(screen.getByLabelText('Data inicial'), { target: { value: '2026-01-20' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Filtrar' }))
+    await waitFor(() => expect(buscar).toHaveBeenLastCalledWith(alvo, { contexto: 'con', numero: '1234/2026/CON', de: '2026-01-20', pagina: '0' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Detalhes' }))
+    expect(screen.getByText('Pauta sintética')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Selecionar' }))
     fireEvent.change(screen.getByLabelText('Justificativa da inclusão ou correção'), { target: { value: 'Ata conferida' } })
     fireEvent.click(screen.getByRole('button', { name: 'Salvar referência' }))
     await screen.findByText('Referência registrada.')

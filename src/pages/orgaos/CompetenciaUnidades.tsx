@@ -1,3 +1,4 @@
+import { SeletorPessoa } from '../../components/shared/SeletorPessoa'
 import { useHojeIgreja } from './RelogioIgreja'
 import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -31,7 +32,7 @@ export function CompetenciaUnidades({ identidade }: { identidade: string }) {
     {aberto && <form className="max-w-2xl space-y-3 rounded border p-4" onSubmit={e => { e.preventDefault(); salvar.mutate() }}>
       <h2 className="font-semibold">Competência para unidades ministeriais</h2>
       <p className="text-sm text-muted-foreground">Registre a autoridade e a evidência conferidas. O perfil de gestor, sozinho, não estabelece essa competência.</p>
-      <div className="space-y-1"><Label htmlFor="competencia-gestor">Gestor vinculado a pessoa</Label><select id="competencia-gestor" className="w-full rounded border bg-background p-2" value={usuario} onChange={e => setUsuario(e.target.value)} required><option value="">Selecione o gestor</option>{usuarios.data?.filter(u => u.ativo && u.perfil === Perfil.GESTOR && u.pessoa_id).map(u => <option key={u.id} value={u.id}>{u.nome_usuario}</option>)}</select>{usuarios.isError && <p role="alert">Não foi possível carregar os usuários.</p>}</div>
+      <div className="space-y-1"><Label htmlFor="competencia-gestor">Gestor vinculado a pessoa</Label><SeletorPessoa id="competencia-gestor" value={usuario} onChange={id => setUsuario(id)} required opcoes={usuarios.data?.filter(u => u.ativo && u.perfil === Perfil.GESTOR && u.pessoa_id).map(u => ({ id: u.id, nome: u.nome_usuario }))} />{usuarios.isError && <p role="alert">Não foi possível carregar os usuários.</p>}</div>
       <div className="space-y-1"><Label htmlFor="competencia-inicio">Início da competência</Label><Input id="competencia-inicio" type="date" value={inicio} onChange={e => setInicio(e.target.value)} required /></div>
       <div className="space-y-1"><Label htmlFor="competencia-fim">Primeiro dia sem competência (opcional)</Label><Input id="competencia-fim" type="date" min={inicio} value={fim} onChange={e => setFim(e.target.value)} /></div>
       <div className="space-y-1"><Label htmlFor="competencia-autoridade">Autoridade declarada</Label><Input id="competencia-autoridade" value={autoridade} onChange={e => setAutoridade(e.target.value)} maxLength={255} required /></div>

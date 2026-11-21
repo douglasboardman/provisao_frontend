@@ -1,3 +1,5 @@
+import { SeletorAta, descreverAta } from '../../components/shared/SeletorAta'
+import type { BuscaAtaOpcao } from '../../api/referencias-ata'
 import { Badge } from '../../components/ui/badge'
 import { useSearchParams } from 'react-router'
 import { LibraryBig, BookMarked, BookOpen, FileText, Layers, Hourglass, BookmarkCheck, Archive, PenLine, ArrowLeft, ArrowRight, LockKeyhole } from 'lucide-react'
@@ -195,36 +197,22 @@ function ComandosLivro({ livro, identidade }: { livro: LivroDetalhe; identidade:
     : livro.estado === 'SUSPENSO' ? ['retomar', 'preparar-encerramento']
       : livro.estado === 'EM_ENCERRAMENTO' ? ['desistir-encerramento'] : livro.estado === 'ENCERRADO' ? ['complementar'] : []
   const [acao, setAcao] = useState(''), [autoridade, setAutoridade] = useState(''), [motivo, setMotivo] = useState(''), [evidencia, setEvidencia] = useState('')
-  const [versao, setVersao] = useState(''), [pagina, setPagina] = useState(0)
-  const candidatos = useQuery({
-    queryKey: ['secretaria', identidade, 'candidatos-complemento', livro.id, pagina],
-    queryFn: () => secretariaApi.candidatosComplemento(livro.id, pagina),
-    enabled: acao === 'complementar', gcTime: 0,
-  })
+  const [versao, setVersao] = useState<BuscaAtaOpcao | null>(null)
   const enviar = useComando((d: { revisao: number; autoridade: string; motivo: string; evidencia: string; versao_id?: string }) => acao === 'complementar'
     ? secretariaApi.complementarLivro(livro.id, d) : secretariaApi.acaoLivro(livro.id, acao as AcaoLivro, d), () => setAcao(''), acao)
   if (!opcoes.length) return null
   return <form className="space-y-3 rounded border p-3" onSubmit={e => {
-    e.preventDefault(); enviar.mutate({ revisao: livro.revisao, autoridade, motivo, evidencia, ...(acao === 'complementar' ? { versao_id: versao } : {}) })
+    e.preventDefault(); enviar.mutate({ revisao: livro.revisao, autoridade, motivo, evidencia, ...(acao === 'complementar' ? { versao_id: versao?.versao_id } : {}) })
   }}>
     <Escolha label="Ação do livro" value={acao} onChange={setAcao}><option value="">Selecione uma ação</option>{opcoes.map(opcao => <option key={opcao} value={opcao}>{opcao === 'complementar' ? 'Vincular exame ou retificação' : nomesAcoes[opcao]}</option>)}</Escolha>
     {acao && <>
       {acao === 'desistir-encerramento' && <p>O termo de encerramento pendente será cancelado e preservado no histórico.</p>}
-      {acao === 'complementar' && <div className="space-y-2"><Escolha label="Versão do documento complementar" value={versao} onChange={setVersao}>
-        <option value="">Selecione uma versão aprovada ou expedida</option>
-        {candidatos.data?.map(v => <option key={v.id} value={v.id}>{v.assunto} · v{v.numero}</option>)}
-      </Escolha>
-        {candidatos.isError && <p role="alert">{candidatos.error.message}</p>}
-        {candidatos.data?.length === 0 && <p>Nenhum documento complementar aprovado nesta página.</p>}
-        {(pagina > 0 || candidatos.data?.length === 30) && <div className="flex gap-2">
-          <Button type="button" variant="outline" disabled={pagina === 0} onClick={() => { setPagina(pagina - 1); setVersao('') }}>Anteriores</Button>
-          <Button type="button" variant="outline" disabled={candidatos.data?.length !== 30} onClick={() => { setPagina(pagina + 1); setVersao('') }}>Próximos</Button>
-        </div>}
-      </div>}
+      {acao === 'complementar' && <SeletorAta documento label="Versão do documento complementar" chave={[identidade, 'complemento', livro.id]}
+        valor={versao ? descreverAta(versao) : ''} selecionar={setVersao} buscar={f => secretariaApi.selecaoComplementos(livro.id, f)} />}
       <Campo label="Autoridade da ação" value={autoridade} onChange={setAutoridade} />
       <Area label="Motivo" value={motivo} onChange={setMotivo} />
       <Area label="Evidência e referência institucional" value={evidencia} onChange={setEvidencia} />
-      <Salvar pending={enviar.isPending} error={enviar.error} success={enviar.isSuccess} label="Registrar ação" />
+      <Salvar pending={enviar.isPending} error={enviar.error} success={enviar.isSuccess} label="Registrar ação" disabled={acao === 'complementar' && !versao} />
     </>}
   </form>
 }

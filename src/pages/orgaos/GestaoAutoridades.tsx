@@ -1,3 +1,4 @@
+import { SeletorPessoa } from '../../components/shared/SeletorPessoa'
 import { useHojeIgreja } from './RelogioIgreja'
 import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -36,23 +37,30 @@ function EncerrarAutoridade({ tipo, id, identidade, aoFechar }: { tipo: 'compete
 
 function RegistrarPresidencia({ identidade, aoFechar }: { identidade: string; aoFechar: () => void }) {
   const hoje = useHojeIgreja()
-  const [cursor, setCursor] = useState<string | undefined>(), [anteriores, setAnteriores] = useState<(string | undefined)[]>([])
   const [oficial, setOficial] = useState(''), [inicio, setInicio] = useState(hoje), [evidencia, setEvidencia] = useState('')
   const tentativa = useRef<{ conteudo: string; id: string } | null>(null)
   const queryClient = useQueryClient()
-  const docentes = useQuery({ queryKey: ['orgaos', identidade, 'docentes', cursor], queryFn: () => gestaoOrgaosApi.docentes(cursor), gcTime: 0 })
+  const docentes = useQuery({
+    queryKey: ['orgaos', identidade, 'docentes'], gcTime: 0,
+    queryFn: async () => {
+      let pagina = await gestaoOrgaosApi.docentes()
+      const itens = [...pagina.itens]
+      while (pagina.proximo_cursor) {
+        pagina = await gestaoOrgaosApi.docentes(pagina.proximo_cursor)
+        itens.push(...pagina.itens)
+      }
+      return itens
+    },
+  })
   const salvar = useMutation({ mutationFn: async () => {
     const corpo = { oficial_id: oficial, inicio, evidencia: evidencia.trim() }, conteudo = JSON.stringify(corpo)
     if (tentativa.current?.conteudo !== conteudo) tentativa.current = { conteudo, id: crypto.randomUUID() }
     return gestaoOrgaosApi.registrarPresidencia({ ...corpo, idempotencia: tentativa.current.id })
   }, onSuccess: async () => { tentativa.current = null; await queryClient.invalidateQueries({ queryKey: ['orgaos', identidade] }); aoFechar() } })
-  function proxima() { if (!docentes.data?.proximo_cursor) return; setAnteriores(a => [...a, cursor]); setCursor(docentes.data.proximo_cursor); setOficial('') }
-  function anterior() { const lista = [...anteriores]; setCursor(lista.pop()); setAnteriores(lista); setOficial('') }
   return <form className="max-w-xl space-y-3 rounded border p-4" onSubmit={e => { e.preventDefault(); salvar.mutate() }}>
     <h3 className="font-semibold">Registrar presidência institucional</h3>
     <p className="text-sm text-muted-foreground">O registro exige presbítero docente com vínculo pastoral institucional e exercício comprovado. Informe a evidência da presidência.</p>
-    <div className="space-y-1"><Label htmlFor="presidencia-docente">Presbítero docente</Label><select id="presidencia-docente" className="w-full rounded border bg-background p-2" value={oficial} onChange={e => setOficial(e.target.value)} required><option value="">Selecione o docente</option>{docentes.data?.itens.map(o => <option key={o.id} value={o.id}>{o.pessoa.nome_completo}</option>)}</select>{docentes.isError && <p role="alert">Não foi possível carregar os docentes.</p>}</div>
-    <div className="flex gap-2"><Button type="button" variant="outline" disabled={!anteriores.length} onClick={anterior}>Docentes anteriores</Button><Button type="button" variant="outline" disabled={!docentes.data?.proximo_cursor} onClick={proxima}>Próximos docentes</Button></div>
+    <div className="space-y-1"><Label htmlFor="presidencia-docente">Presbítero docente</Label><SeletorPessoa id="presidencia-docente" value={oficial} onChange={id => setOficial(id)} required opcoes={docentes.data?.map(o => ({ id: o.id, nome: o.pessoa.nome_completo }))} />{docentes.isError && <p role="alert">Não foi possível carregar os docentes.</p>}</div>
     <div className="space-y-1"><Label htmlFor="presidencia-inicio">Início da presidência</Label><Input id="presidencia-inicio" type="date" value={inicio} onChange={e => setInicio(e.target.value)} required /></div>
     <div className="space-y-1"><Label htmlFor="presidencia-evidencia">Evidência da presidência</Label><Input id="presidencia-evidencia" value={evidencia} onChange={e => setEvidencia(e.target.value)} maxLength={1000} required /></div>
     {salvar.isError && <p role="alert">{salvar.error instanceof ApiRequestError ? salvar.error.messages.join(' ') : 'Não foi possível registrar a presidência.'}</p>}

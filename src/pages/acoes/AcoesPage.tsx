@@ -1,3 +1,4 @@
+import { SeletorPessoa } from '../../components/shared/SeletorPessoa'
 import { Sprout as PageIcon } from "lucide-react"
 import { WorkspaceHeader } from "../../components/shared/Workspace"
 import { AutorizacoesFinanceiras } from '../secretaria/AutorizacoesFinanceiras'
@@ -193,12 +194,7 @@ export function AcoesPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Responsável *</Label>
-                <Select value={form.watch("responsavel_pessoa_id")} onValueChange={(v) => form.setValue("responsavel_pessoa_id", v)}>
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>
-                    {pessoas?.map((p) => <SelectItem key={p.id} value={p.id}>{p.nome_completo}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <SeletorPessoa value={form.watch("responsavel_pessoa_id")} onChange={(v) => form.setValue("responsavel_pessoa_id", v)} rotulo="Responsável" opcoes={pessoas?.map(p => ({ id: p.id, nome: p.nome_completo }))} />
                 {form.formState.errors.responsavel_pessoa_id && <p className="text-xs text-destructive">{form.formState.errors.responsavel_pessoa_id.message}</p>}
               </div>
               <div className="space-y-2">

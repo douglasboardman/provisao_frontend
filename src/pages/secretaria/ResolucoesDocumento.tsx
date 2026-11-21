@@ -1,3 +1,4 @@
+import { SeletorPessoa } from '../../components/shared/SeletorPessoa'
 import { Button } from '../../components/ui/button'
 import { resultadosResolucao, rotulosApuracao, type ResolucaoDocumento, type ResolucaoInput } from '../../api/secretaria'
 import { Area, Campo, Check, Escolha } from './formulario'
@@ -66,14 +67,19 @@ export function EditarResolucoes({ valor, pessoas, obrigatorio, permitido, alter
         <fieldset className="space-y-1"><legend>Proponentes</legend>
           {!r.proponentes_pessoas_ids.length && <p className="text-sm text-muted-foreground">Sem proponente informado</p>}
           {!candidatos.length && <p className="text-sm text-muted-foreground">Para indicar autoria, arrole a pessoa e registre sua competência para propor.</p>}
-          {candidatos.map(p => <Check key={p.id} label={p.podePropor ? p.nome : `${p.nome} (competência pendente)`}
-            checked={r.proponentes_pessoas_ids.includes(p.id)} onChange={b => marcar('proponentes_pessoas_ids', p.id, b)} />)}
+          <SeletorPessoa rotulo="Adicionar proponente" value="" opcoes={candidatos.filter(p => !r.proponentes_pessoas_ids.includes(p.id))}
+            onChange={id => marcar('proponentes_pessoas_ids', id, true)} />
+          {candidatos.filter(p => r.proponentes_pessoas_ids.includes(p.id)).map(p =>
+            <Button key={p.id} type="button" variant="outline" size="sm" onClick={() => marcar('proponentes_pessoas_ids', p.id, false)}>Retirar {p.nome}{!p.podePropor && ' (competência pendente)'}</Button>)}
         </fieldset>
         <Check label="Votação secreta" checked={r.votacao_secreta} disabled={r.dissidentes_pessoas_ids.length > 0}
           onChange={votacao_secreta => atualizar({ votacao_secreta })} />
         {r.dissidentes_pessoas_ids.length > 0 && <p className="text-sm text-muted-foreground">Retire os dissidentes nominais para registrar votação secreta.</p>}
         {!r.votacao_secreta && <fieldset className="space-y-1"><legend>Dissidentes (opcional)</legend>
-          {pessoas.map(p => <Check key={p.id} label={p.nome} checked={r.dissidentes_pessoas_ids.includes(p.id)} onChange={b => marcar('dissidentes_pessoas_ids', p.id, b)} />)}
+          <SeletorPessoa rotulo="Adicionar dissidente" value="" opcoes={pessoas.filter(p => !r.dissidentes_pessoas_ids.includes(p.id))}
+            onChange={id => marcar('dissidentes_pessoas_ids', id, true)} />
+          {pessoas.filter(p => r.dissidentes_pessoas_ids.includes(p.id)).map(p =>
+            <Button key={p.id} type="button" variant="outline" size="sm" onClick={() => marcar('dissidentes_pessoas_ids', p.id, false)}>Retirar {p.nome}</Button>)}
         </fieldset>}
         <fieldset className="grid gap-2 sm:grid-cols-3 lg:grid-cols-5"><legend>Apuração (opcional)</legend>
           {apuracaoCampos.map(k => <label className="grid gap-1 text-sm" key={k}>{rotulosApuracao[k]}

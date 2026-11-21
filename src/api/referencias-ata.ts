@@ -1,3 +1,4 @@
+import type { ResultadoResolucao } from './secretaria'
 import { apiClient } from './client'
 
 export type GrupoAta = 'MEMBRESIA' | 'MANDATO' | 'PASTORAL' | 'ORGAO' | 'FINANCEIRO'
@@ -29,7 +30,11 @@ export interface AtaOpcao {
   documento_id: string; versao: number; numero: number | null; ano: number | null; sigla: string | null
   data: string; contexto: string; numero_formatado?: string; estado: string
 }
-export interface BuscaAtaOpcao extends AtaOpcao { versao_id: string; contexto_id: string; assunto: string }
+export interface BuscaAtaOpcao extends AtaOpcao {
+  versao_id: string; contexto_id: string; assunto: string; pauta: string; arrolados: string[]
+  resolucoes: { assunto: string; resultado: ResultadoResolucao; texto: string | null }[]
+}
+export type PaginaSelecao = Pagina<BuscaAtaOpcao> & { contextos: { id: string; nome: string; sigla: string }[] }
 interface Revisao {
   id: string; justificativa: string; criado_em: string; operador: string
   situacao: SituacaoAta; referencia_externa: ReferenciaExterna | null; ata: AtaOpcao | null
@@ -53,7 +58,7 @@ const params = (filtros: Record<string, string>) => new URLSearchParams(filtros)
 export const referenciasAtaApi = {
   consultar: (alvo: AlvoAta, pagina = 0) => apiClient.get<Pagina<Revisao> & { situacao?: SituacaoAta; pode_editar: boolean }>(`${caminho(alvo)}?pagina=${pagina}`),
   registrar: (alvo: AlvoAta, dados: EntradaReferencia) => apiClient.post<{ id: string }>(caminho(alvo), dados),
-  buscar: (alvo: AlvoAta, filtros: Record<string, string>) => apiClient.get<Pagina<BuscaAtaOpcao> & { contextos: { id: string; nome: string; sigla: string }[] }>(`${caminho(alvo)}/atas?${params(filtros)}`),
+  buscar: (alvo: AlvoAta, filtros: Record<string, string>) => apiClient.get<PaginaSelecao>(`${caminho(alvo)}/atas?${params(filtros)}`),
   vinculados: (id: string, pagina: number) => apiClient.get<Pagina<ItemDocumental>>(`${base}/documentos/${encodeURIComponent(id)}/registros-vinculados?pagina=${pagina}`),
   pendencias: (pagina: number, grupo?: GrupoAta) => apiClient.get<Pagina<ItemDocumental>>(`${base}/pendencias-documentais?${params({ pagina: String(pagina), ...(grupo ? { grupo } : {}) })}`),
   autorizacoes: (pagina: number, projeto?: string, conta?: string) => apiClient.get<Pagina<Autorizacao> & { pode_criar: boolean }>(`${base}/autorizacoes-financeiras?${params({ pagina: String(pagina), ...(projeto ? { projeto } : {}), ...(conta ? { conta } : {}) })}`),

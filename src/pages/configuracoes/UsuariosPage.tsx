@@ -1,3 +1,4 @@
+import { SeletorPessoa } from '../../components/shared/SeletorPessoa'
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
@@ -202,13 +203,7 @@ export function UsuariosPage() {
         <DialogContent>
           <DialogHeader><DialogTitle>Vincular pessoa a {linkTarget?.nome_usuario}</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">Confirme a identidade antes de associar os cadastros. Alterar o vínculo encerra eventuais competências de aprovação deste usuário.</p>
-          <Select value={selectedPerson} onValueChange={setSelectedPerson}>
-            <SelectTrigger aria-label="Pessoa"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Sem vínculo</SelectItem>
-              {pessoas?.map(p => <SelectItem key={p.id} value={p.id}>{p.nome_completo}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <SeletorPessoa value={selectedPerson} onChange={id => setSelectedPerson(id || "none")} rotulo="Pessoa" opcoes={[{ id: "none", nome: "Sem vínculo" }, ...(pessoas?.map(p => ({ id: p.id, nome: p.nome_completo })) ?? [])]} />
           <DialogFooter><Button type="button" onClick={() => linkMut.mutate()} disabled={linkMut.isPending || !pessoas}>Salvar vínculo</Button></DialogFooter>
         </DialogContent>
       </Dialog>

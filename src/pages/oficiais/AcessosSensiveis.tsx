@@ -1,3 +1,4 @@
+import { SeletorPessoa } from '../../components/shared/SeletorPessoa'
 import { useRef, useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { oficiaisApi } from '../../api/oficiais'
@@ -26,7 +27,7 @@ export function AcessosSensiveis({ identidade }: { identidade: string }) {
   return <section className="space-y-3 rounded border p-4"><Button type="button" variant="outline" onClick={() => setAberto(!aberto)}>{aberto ? 'Fechar gestão de acessos' : 'Gerir acessos a eventos restritos'}</Button>
     {aberto && <><p className="text-sm text-muted-foreground">A concessão é individual e não atribui competência institucional. Não é possível conceder acesso a si próprio.</p>
       {usuarios.isError && <p role="alert">Não foi possível carregar usuários.</p>}{acessos.isError && <p role="alert">Não foi possível carregar concessões.</p>}
-      <form ref={formRef} className="max-w-xl space-y-3" onSubmit={enviar}><label className="block">Usuário<select className={classe} value={alvo} required onChange={e => setAlvo(e.target.value)}><option value="">Selecione</option>{usuarios.data?.filter(u => u.ativo && u.id !== usuarioAtual && [Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO, Perfil.AUDITOR].includes(u.perfil)).map(u => <option key={u.id} value={u.id}>{u.nome_usuario} — {u.email_login}</option>)}</select></label>
+      <form ref={formRef} className="max-w-xl space-y-3" onSubmit={enviar}><label className="block">Usuário<SeletorPessoa rotulo="Usuário" value={alvo} required onChange={id => setAlvo(id)} opcoes={usuarios.data?.filter(u => u.ativo && u.id !== usuarioAtual && [Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO, Perfil.AUDITOR].includes(u.perfil)).map(u => ({ id: u.id, nome: `${u.nome_usuario} — ${u.email_login}` }))} /></label>
         <label className="block"><input type="checkbox" name="consultar" /> Consultar eventos restritos</label><label className="block"><input type="checkbox" name="registrar" disabled={escolhido?.perfil === Perfil.AUDITOR} /> Registrar eventos restritos</label>
         <label className="block">Fundamento da concessão<input className={classe} name="fundamento" required maxLength={1000} /></label><Button type="submit" disabled={!alvo || conceder.isPending}>Conceder acesso</Button>
       </form>

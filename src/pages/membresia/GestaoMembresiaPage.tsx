@@ -1,3 +1,4 @@
+import { SeletorPessoa } from '../../components/shared/SeletorPessoa'
 import { useRecurso } from '../../lib/recursos'
 import { ReferenciaAta } from '../../components/shared/ReferenciaAta';
 import { useAuthStore } from '../../stores/auth';
@@ -461,21 +462,11 @@ export function GestaoMembresiaPage() {
           >
             <div className="space-y-2">
               <Label>Pessoa *</Label>
-              <Select
+              <SeletorPessoa
                 value={admForm.watch("pessoa_id")}
-                onValueChange={(v) => admForm.setValue("pessoa_id", v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent>
-                  {pessoasAdmissao.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.nome_completo}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onChange={(v) => admForm.setValue("pessoa_id", v)}
+                rotulo="Pessoa"
+                opcoes={pessoasAdmissao.map(p => ({ id: p.id, nome: p.nome_completo }))} />
               {admForm.formState.errors.pessoa_id && (
                 <p className="text-xs text-destructive">
                   {admForm.formState.errors.pessoa_id.message}
@@ -578,21 +569,11 @@ export function GestaoMembresiaPage() {
           >
             <div className="space-y-2">
               <Label>Pessoa *</Label>
-              <Select
+              <SeletorPessoa
                 value={demForm.watch("pessoa_id")}
-                onValueChange={(v) => demForm.setValue("pessoa_id", v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent>
-                  {pessoasAtivas.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.nome_completo}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onChange={(v) => demForm.setValue("pessoa_id", v)}
+                rotulo="Pessoa"
+                opcoes={pessoasAtivas.map(p => ({ id: p.id, nome: p.nome_completo }))} />
               {demForm.formState.errors.pessoa_id && (
                 <p className="text-xs text-destructive">
                   {demForm.formState.errors.pessoa_id.message}
@@ -679,21 +660,11 @@ export function GestaoMembresiaPage() {
           >
             <div className="space-y-2">
               <Label>Pessoa *</Label>
-              <Select
+              <SeletorPessoa
                 value={mudForm.watch("pessoa_id")}
-                onValueChange={handleMudancaPessoaChange}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent>
-                  {pessoasAtivas.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.nome_completo}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onChange={handleMudancaPessoaChange}
+                rotulo="Pessoa"
+                opcoes={pessoasAtivas.map(p => ({ id: p.id, nome: p.nome_completo }))} />
               {mudForm.formState.errors.pessoa_id && (
                 <p className="text-xs text-destructive">
                   {mudForm.formState.errors.pessoa_id.message}

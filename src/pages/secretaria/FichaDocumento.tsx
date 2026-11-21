@@ -83,7 +83,7 @@ export function Metadados({
         <span className="pill">{estadosDocumento[documento.estado]}</span>
         <h3 className="mt-2 text-lg font-semibold">{v.assunto}</h3>
         <p>
-          {numeroDocumento(documento)} · v{v.numero}
+          {numeroDocumento({ ...documento, versao_atual: v.numero })} · v{v.numero}
         </p>
       </div>
       <dl className="grid gap-3 rounded-xl bg-muted/50 p-4 sm:grid-cols-2">

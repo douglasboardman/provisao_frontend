@@ -1,3 +1,5 @@
+import { SeletorAta, descreverAta } from '../../components/shared/SeletorAta'
+import { SeletorPessoa } from '../../components/shared/SeletorPessoa'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '../../components/ui/button'
@@ -14,6 +16,8 @@ export function DocumentoForm({ contexto, documento, retificar = false, modelos,
 }) {
   const atual = documento?.versoes.find(v => v.numero === documento.versao_atual)
   const [v, set] = useState<VersaoInput>(atual ? { modelo_versao_id: atual.modelo_versao_id ?? '', livro_id: atual.livro_id, reuniao_id: atual.reuniao_id, motivador_id: atual.motivador_id, assunto: atual.assunto, data_documento: atual.data_documento.slice(0, 10), conteudo: atual.conteudo, resolucoes: prepararResolucoes(atual.resolucoes) } : { modelo_versao_id: '', ...(novoTermo ? { livro_id: novoTermo.livro.id } : {}), reuniao_id: null, motivador_id: null, assunto: novoTermo?.finalidade === 'TERMO_ABERTURA' ? 'Abertura do livro de atas' : novoTermo ? 'Encerramento do livro de atas' : '', data_documento: hoje(), conteudo: { teor: '', campos: {}, arrolados: [], anexos: [] } })
+  const [nomeMotivador, setNomeMotivador] = useState('')
+  const motivador = documentos.find(d => d.versoes.some(r => r.id === v.motivador_id))
   const [restrito, setRestrito] = useState(documento?.restrito ?? novoTermo?.livro.restrito ?? false)
   const [pessoa, setPessoa] = useState(''), [autoridade, setAutoridade] = useState(''), [evidencia, setEvidencia] = useState('')
   const [upload, setUpload] = useState(false), [erroUpload, setErroUpload] = useState('')
@@ -105,7 +109,11 @@ export function DocumentoForm({ contexto, documento, retificar = false, modelos,
       </div>}
     </div>}
     {termo && <p>Os dados do livro e os totais do termo são preenchidos pelo sistema ao salvar.</p>}
-    {modelo?.configuracao.motivador !== 'NAO_PERMITE' && <Escolha label="Documento motivador" required={modelo?.configuracao.motivador === 'OBRIGATORIO'} value={v.motivador_id ?? ''} onChange={s => editar('motivador_id', s || null)}><option value="">Sem motivador</option>{v.motivador_id && !documentos.some(d => d.versoes.some(x => x.id === v.motivador_id)) && <option value={v.motivador_id}>Referência histórica preservada</option>}{documentos.filter(d => d.id !== documento?.id).flatMap(d => d.versoes.map(r => <option key={r.id} value={r.id}>{numeroDocumento(d)} · {r.assunto} · v{r.numero}</option>))}</Escolha>}
+    {modelo?.configuracao.motivador !== 'NAO_PERMITE' && <SeletorAta documento label="Documento motivador" chave={[identidade, 'motivador', documento?.id, restrito]}
+      contextoInicial={contexto.id} valor={v.motivador_id ? nomeMotivador || (motivador ? numeroDocumento(motivador) + ' · ' + motivador.versoes.find(r => r.id === v.motivador_id)?.assunto : 'Referência histórica preservada') : ''}
+      buscar={f => secretariaApi.selecaoMotivadores({ ...f, restrito: String(restrito), ...(documento ? { excluir: documento.id } : {}) })}
+      selecionar={a => { setNomeMotivador(descreverAta(a)); editar('motivador_id', a.versao_id) }}
+      limpar={() => { setNomeMotivador(''); editar('motivador_id', null) }} />}
     {campos.filter(k => !campoAutomatico(k)).map(k => {
       const tipo = modelo?.configuracao.tipos_campos?.[k]
       const label = `Campo: ${k.toLowerCase().replace(/_/g, ' ')}`
@@ -120,7 +128,7 @@ export function DocumentoForm({ contexto, documento, retificar = false, modelos,
     {!v.conteudo.estrutura && <Button type="button" variant="outline" onClick={() => conteudo('estrutura', { cabecalho: [], corpo: [], rodape: [] })}>Adicionar compositor estruturado</Button>}
     {v.conteudo.estrutura && <Compositor valor={v.conteudo.estrutura} alterar={estrutura => conteudo('estrutura', estrutura)} anexos={v.conteudo.anexos} />}
     <fieldset className="space-y-3"><legend className="font-semibold">Arrolados, responsáveis e signatários</legend><p className="text-sm">Uma pessoa pode exercer vários papéis. Participar não implica assinar. Documente o fundamento de quem assina ou responde pelo documento.</p>
-      <div className="flex items-end gap-2"><Escolha label="Adicionar arrolado" value={pessoa} onChange={setPessoa} required={false}><option value="">Selecione uma pessoa</option>{pessoas.filter(p => !v.conteudo.arrolados.some(r => r.pessoa_id === p.id)).map(p => <option key={p.id} value={p.id}>{p.nome_completo}</option>)}</Escolha><Button type="button" variant="outline" disabled={!pessoa} onClick={() => { conteudo('arrolados', [...v.conteudo.arrolados, { pessoa_id: pessoa, papeis: ['PARTICIPANTE'], cargo_id: null, cargos_ids: [], assina: false, obrigatorio: false, responsavel: false, fundamento: '' }]); setPessoa('') }}>Arrolar pessoa</Button></div>
+      <div className="flex items-end gap-2"><label className="min-w-0 flex-1 text-sm">Adicionar arrolado<SeletorPessoa rotulo="Adicionar arrolado" value={pessoa} onChange={setPessoa} opcoes={pessoas.filter(p => !v.conteudo.arrolados.some(r => r.pessoa_id === p.id)).map(p => ({ id: p.id, nome: p.nome_completo }))} /></label><Button type="button" variant="outline" disabled={!pessoa} onClick={() => { conteudo('arrolados', [...v.conteudo.arrolados, { pessoa_id: pessoa, papeis: ['PARTICIPANTE'], cargo_id: null, cargos_ids: [], assina: false, obrigatorio: false, responsavel: false, fundamento: '' }]); setPessoa('') }}>Arrolar pessoa</Button></div>
       {v.conteudo.arrolados.map((p, i) => {
         const atualizar = (patch: Partial<typeof p>) => conteudo('arrolados', v.conteudo.arrolados.map((x, n) => n === i ? { ...x, ...patch } : x))
         const vinculado = resolucoes.some(r => r.proponentes_pessoas_ids.includes(p.pessoa_id) || r.dissidentes_pessoas_ids.includes(p.pessoa_id))
@@ -133,6 +141,6 @@ export function DocumentoForm({ contexto, documento, retificar = false, modelos,
     />}
     <fieldset className="space-y-2"><legend className="font-semibold">Anexos privados</legend><label className="grid gap-1 text-sm">Enviar anexo (até 10 MB)<input type="file" disabled={upload} onChange={e => { const f = e.target.files?.[0]; if (f) void anexar(f); e.target.value = '' }} /></label>{upload && <p role="status">Enviando anexo…</p>}{erroUpload && <p role="alert">{erroUpload}</p>}{v.conteudo.anexos.map((f, i) => <div className="flex items-center gap-3" key={f.arquivo_id}><span>{f.nome}</span><Button type="button" variant="outline" onClick={() => conteudo('anexos', v.conteudo.anexos.filter((_, n) => n !== i))}>Retirar anexo</Button></div>)}</fieldset>
     {retificar && <><Campo label="Autoridade da retificação" value={autoridade} onChange={setAutoridade} /><Area label="Fundamento e evidência da retificação" value={evidencia} onChange={setEvidencia} /><p>A versão anterior permanece preservada. Documento já expedido gera um novo ato.</p></>}
-    <Salvar pending={enviar.isPending || upload} disabled={!!novoTermo && todasVersoes.length === 0} error={enviar.error} success={enviar.isSuccess} label={retificar ? 'Criar retificação' : 'Salvar documento'} />
+    <Salvar pending={enviar.isPending || upload} disabled={!!novoTermo && todasVersoes.length === 0 || modelo?.configuracao.motivador === 'OBRIGATORIO' && !v.motivador_id} error={enviar.error} success={enviar.isSuccess} label={retificar ? 'Criar retificação' : 'Salvar documento'} />
   </form>
 }

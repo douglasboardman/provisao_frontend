@@ -1,3 +1,4 @@
+import type { PaginaSelecao } from './referencias-ata'
 import { apiClient } from './client'
 export type PoliticaDocumento = 'NAO_PERMITE' | 'OPCIONAL' | 'OBRIGATORIO'
 export type TipoCampo = 'TEXTO' | 'DATA' | 'NUMERO' | 'SIM_NAO'
@@ -91,6 +92,9 @@ export interface AtaLegadaInput {
   autoridade: string; evidencia: string; conferida: boolean
   arrolados: Pick<Arrolado, 'pessoa_id' | 'papeis' | 'fundamento'>[]; resolucoes: ResolucaoInput[]
 }
+export type EdicaoAtaLegada = Pick<AtaLegadaInput, 'numero_original' | 'assunto' | 'data_documento' |
+  'reuniao_id' | 'reuniao' | 'teor' | 'arrolados' | 'resolucoes'> & { revisao: number; idempotencia: string }
+
 export interface DocumentoVersao extends Omit<VersaoInput, 'resolucoes' | 'modelo_versao_id'> {
   resolucoes?: ResolucaoDocumento[]
   id: string; numero: number; revisao_conteudo: number; congelado_em: string | null; retifica_versao_id: string | null; modelo: ModeloVersao | null
@@ -173,6 +177,10 @@ export const secretariaApi = {
   criarLivro: (d: unknown) => apiClient.post<ResultadoSecretaria>(`${base}/livros`, d),
   importarLivro: (d: unknown) => apiClient.post<ResultadoSecretaria>(`${base}/livros/importar`, d),
   acaoLivro: (id: string, acao: AcaoLivro, d: unknown) => apiClient.post<ResultadoSecretaria>(`${base}/livros/${id}/acoes/${acao}`, d),
+  selecaoComplementos: (livro: string, filtros: Record<string, string>) =>
+    apiClient.get<PaginaSelecao>(`${base}/livros/${livro}/complementos/selecao?${new URLSearchParams(filtros)}`),
+  selecaoMotivadores: (filtros: Record<string, string>) =>
+    apiClient.get<PaginaSelecao>(`${base}/motivadores?${new URLSearchParams(filtros)}`),
   candidatosComplemento: (id: string, pagina: number) => apiClient.get<{ id: string; assunto: string; numero: number }[]>(`${base}/livros/${id}/complementos/candidatos?pagina=${pagina}`),
   complementarLivro: (id: string, d: unknown) => apiClient.post<ResultadoSecretaria>(`${base}/livros/${id}/complementos`, d),
   arquivoRegistroUrl: (livro: string, registro: string) => `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${base}/livros/${livro}/registros/${registro}/arquivo`,
@@ -199,6 +207,7 @@ export const secretariaApi = {
   editarReuniao: (id: string, d: unknown) => apiClient.patch<ResultadoSecretaria>(`${base}/reunioes/${id}`, d),
   criarDocumento: (d: unknown) => apiClient.post<ResultadoSecretaria>(`${base}/documentos`, d),
   criarAtaLegada: (d: AtaLegadaInput & { idempotencia: string }) => apiClient.post<ResultadoSecretaria>(`${base}/atas-legadas`, d),
+  editarAtaLegada: (id: string, d: EdicaoAtaLegada) => apiClient.patch<ResultadoSecretaria>(`${base}/atas-legadas/${id}`, d),
   extrairTeorLegado: (d: { contexto_id: string; arquivo_id: string }) => apiClient.post<{ teor: string }>(`${base}/atas-legadas/teor`, d),
   vincularLivroLegado: (id: string, d: { idempotencia: string; revisao: number; livro_id: string | null; folhas: string | null; autoridade: string; evidencia: string }) =>
     apiClient.post<ResultadoSecretaria>(`${base}/atas-legadas/${id}/livro`, d),

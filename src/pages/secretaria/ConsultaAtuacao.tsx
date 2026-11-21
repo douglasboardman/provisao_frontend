@@ -1,3 +1,4 @@
+import { SeletorPessoa } from '../../components/shared/SeletorPessoa'
 import { useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import {
@@ -62,10 +63,7 @@ export function ConsultaAtuacao({ contextos, identidade, abrir }: {
           <option value="">Todos os contextos</option>
           {contextos.map(c => <option key={c.id} value={c.id}>{c.nome} ({c.sigla})</option>)}
         </Escolha>
-        <Escolha label="Pessoa" required={false} value={campos.pessoa ?? ''} onChange={s => alterar('pessoa', s)}>
-          <option value="">Todas as pessoas</option>
-          {pessoas.data?.map(p => <option key={p.id} value={p.id}>{p.nome_completo}</option>)}
-        </Escolha>
+        <div className="grid min-w-0 flex-1 gap-1 text-sm"><span>Pessoa</span><SeletorPessoa rotulo="Pessoa" required={false} value={campos.pessoa ?? ''} onChange={s => alterar('pessoa', s)} opcoes={pessoas.data?.map(p => ({ id: p.id, nome: p.nome_completo }))} /></div>
         <Campo label="Data inicial do documento" type="date" required={false} value={campos.de ?? ''} onChange={s => alterar('de', s)} />
         <Campo label="Data final do documento" type="date" required={false} value={campos.ate ?? ''} onChange={s => alterar('ate', s)} />
         <Campo label={campos.tipo === 'resolucoes' ? 'Assunto da resolução' : 'Assunto do documento'}

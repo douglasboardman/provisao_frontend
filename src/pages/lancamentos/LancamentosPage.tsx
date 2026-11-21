@@ -1,3 +1,4 @@
+import { SeletorPessoa } from '../../components/shared/SeletorPessoa'
 import { ArrowRightLeft as PageIcon } from "lucide-react"
 import { WorkspaceHeader } from "../../components/shared/Workspace"
 import { useState, useEffect } from "react"
@@ -308,13 +309,7 @@ export function LancamentosPage() {
               </div>
               <div className="space-y-2">
                 <Label>Pessoa</Label>
-                <Select value={form.watch("pessoa_id") ?? ""} onValueChange={(v) => form.setValue("pessoa_id", v === "__none__" ? "" : v)}>
-                  <SelectTrigger><SelectValue placeholder="Nenhuma" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Nenhuma</SelectItem>
-                    {pessoas?.map((p) => <SelectItem key={p.id} value={p.id}>{p.nome_completo}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <SeletorPessoa value={form.watch("pessoa_id") ?? ""} onChange={(v) => form.setValue("pessoa_id", v)} rotulo="Pessoa" opcoes={pessoas?.map(p => ({ id: p.id, nome: p.nome_completo }))} />
               </div>
             </div>
             <div className="space-y-2">

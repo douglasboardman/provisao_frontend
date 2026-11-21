@@ -1,3 +1,4 @@
+import { SeletorPessoa } from './SeletorPessoa'
 import { useState, useCallback, useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
@@ -363,21 +364,11 @@ export function PessoaEditDialog({ pessoaId, open, onClose, onBack }: PessoaEdit
             </div>
             <div className="space-y-2">
               <Label>Cônjuge</Label>
-              <Select
+              <SeletorPessoa
                 value={form.watch("conjuge_id") ?? ""}
-                onValueChange={(v) => form.setValue("conjuge_id", v)}
-              >
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  {allPessoas
-                    ?.filter((p) => p.id !== pessoaId)
-                    .map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.nome_completo}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
+                onChange={(v) => form.setValue("conjuge_id", v)}
+                rotulo="Cônjuge"
+                opcoes={allPessoas?.filter((p) => p.id !== pessoaId).map(p => ({ id: p.id, nome: p.nome_completo }))} />
             </div>
           </div>
 

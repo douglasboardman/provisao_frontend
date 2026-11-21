@@ -1,48 +1,32 @@
+import { SeletorAta, descreverAta } from '../../components/shared/SeletorAta'
+import type { BuscaAtaOpcao } from '../../api/referencias-ata'
+import { SeletorPessoa } from '../../components/shared/SeletorPessoa'
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiRequestError } from '../../api/client'
-import { oficiaisApi, type AtaDeEleicao, type OficioEletivo } from '../../api/oficiais'
+import { oficiaisApi, type OficioEletivo } from '../../api/oficiais'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 
 const tipos: Record<OficioEletivo, string> = { DIACONO: 'Diácono', PRESBITERO_REGENTE: 'Presbítero regente' }
 const selectClass = 'block w-full rounded border bg-background p-2'
 const civil = (data: string) => data.slice(0, 10)
-const exibirData = (data: string) => civil(data).split('-').reverse().join('/')
 const mensagem = (erro: unknown) => erro instanceof ApiRequestError ? erro.messages.join(' ') : 'Não foi possível salvar o registro.'
 
 function SelecionarAta({ tipo, identidade, ata, selecionar }: {
   tipo: 'CONSELHO' | 'ASSEMBLEIA'
   identidade: string
-  ata: AtaDeEleicao | null
-  selecionar: (ata: AtaDeEleicao | null) => void
+  ata: BuscaAtaOpcao | null
+  selecionar: (ata: BuscaAtaOpcao | null) => void
 }) {
-  const [busca, setBusca] = useState('')
-  const atas = useQuery({
-    queryKey: ['oficiais', identidade, 'atas-eleicao', tipo, busca],
-    queryFn: () => oficiaisApi.atasDeEleicao(tipo, busca),
-  })
-  return <div className="space-y-2">
-    <label className="block">Buscar ata por número ou assunto
-      <Input value={busca} maxLength={100} onChange={e => { setBusca(e.target.value); selecionar(null) }} />
-    </label>
-    <label className="block">{tipo === 'CONSELHO' ? 'Ata do Conselho que aprovou a indicação' : 'Ata da Assembleia que registrou a eleição'}
-      <select className={selectClass} required value={ata?.versao_id ?? ''} onChange={e => selecionar(atas.data?.find(a => a.versao_id === e.target.value) ?? null)}>
-        <option value="">Selecione a ata</option>
-        {atas.data?.map(a => <option key={a.versao_id} value={a.versao_id}>
-          {[a.numero && `Ata ${a.numero}`, exibirData(a.data), a.assunto].filter(Boolean).join(' · ')}
-        </option>)}
-      </select>
-    </label>
-    {atas.isPending && <p>Buscando atas…</p>}
-    {atas.isError && <p role="alert">Não foi possível buscar as atas.</p>}
-    {atas.data?.length === 0 && <p>Nenhuma ata encontrada.</p>}
-  </div>
+  return <SeletorAta label={tipo === 'CONSELHO' ? 'Ata do Conselho que aprovou a indicação' : 'Ata da Assembleia que registrou a eleição'}
+    valor={ata ? descreverAta(ata) : ''} chave={[identidade, 'eleicao', tipo]}
+    buscar={filtros => oficiaisApi.selecaoAtas(tipo, filtros)} selecionar={selecionar} />
 }
 
 function FormularioIndicacao({ identidade }: { identidade: string }) {
   const client = useQueryClient()
-  const [ata, setAta] = useState<AtaDeEleicao | null>(null)
+  const [ata, setAta] = useState<BuscaAtaOpcao | null>(null)
   const [pessoa, setPessoa] = useState('')
   const [busca, setBusca] = useState('')
   const candidatos = useQuery({
@@ -67,16 +51,10 @@ function FormularioIndicacao({ identidade }: { identidade: string }) {
     })
   }
   return <form className="max-w-xl space-y-3" onSubmit={enviar}>
-    <SelecionarAta tipo="CONSELHO" identidade={identidade} ata={ata} selecionar={a => { setAta(a); setPessoa(''); salvar.reset() }} />
+    <SelecionarAta tipo="CONSELHO" identidade={identidade} ata={ata} selecionar={a => { setAta(a); setBusca(''); setPessoa(''); salvar.reset() }} />
     {ata && <>
-      <label className="block">Buscar membro pelo nome
-        <Input value={busca} maxLength={100} onChange={e => { setBusca(e.target.value); setPessoa('') }} />
-      </label>
       <label className="block">Membro indicado
-        <select className={selectClass} required value={pessoa} onChange={e => setPessoa(e.target.value)}>
-          <option value="">Selecione o membro</option>
-          {candidatos.data?.map(p => <option key={p.id} value={p.id}>{p.nome_completo}</option>)}
-        </select>
+        <SeletorPessoa key={ata.versao_id} rotulo="Membro indicado" onBusca={setBusca} carregando={candidatos.isFetching} required value={pessoa} onChange={id => setPessoa(id)} opcoes={candidatos.data?.map(p => ({ id: p.id, nome: p.nome_completo }))} />
       </label>
       {candidatos.isPending && <p>Buscando membros…</p>}
       {candidatos.isError && <p role="alert">Não foi possível consultar os membros aptos.</p>}
@@ -98,7 +76,7 @@ function FormularioIndicacao({ identidade }: { identidade: string }) {
 
 function FormularioMandato({ identidade }: { identidade: string }) {
   const client = useQueryClient()
-  const [ata, setAta] = useState<AtaDeEleicao | null>(null)
+  const [ata, setAta] = useState<BuscaAtaOpcao | null>(null)
   const [indicacao, setIndicacao] = useState('')
   const indicacoes = useQuery({
     queryKey: ['oficiais', identidade, 'indicacoes', ata?.versao_id],
@@ -122,10 +100,7 @@ function FormularioMandato({ identidade }: { identidade: string }) {
     <SelecionarAta tipo="ASSEMBLEIA" identidade={identidade} ata={ata} selecionar={a => { setAta(a); setIndicacao(''); salvar.reset() }} />
     {ata && <>
       <label className="block">Indicação para esta eleição
-        <select className={selectClass} required value={indicacao} onChange={e => setIndicacao(e.target.value)}>
-          <option value="">Selecione a indicação</option>
-          {indicacoes.data?.map(i => <option key={i.id} value={i.id}>{i.pessoa.nome_completo} · {tipos[i.oficio]}</option>)}
-        </select>
+        <SeletorPessoa rotulo="Indicação para esta eleição" required value={indicacao} onChange={id => setIndicacao(id)} opcoes={indicacoes.data?.map(i => ({ id: i.id, nome: `${i.pessoa.nome_completo} · ${tipos[i.oficio]}` }))} />
       </label>
       {indicacoes.isPending && <p>Buscando indicações…</p>}
       {indicacoes.isError && <p role="alert">Não foi possível consultar as indicações.</p>}

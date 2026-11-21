@@ -1,3 +1,4 @@
+import type { PaginaSelecao } from './referencias-ata'
 export type BloqueioOrgao = { bloqueia: boolean; participacoes: number; ocupacoes: number; rol_alterado?: number; rol_preservado?: number; rol_indeterminado?: number; detalhes?: { id: string; inicio: string; tipo: 'PARTICIPACAO' | 'OCUPACAO'; orgao: string; cargo: string | null; comparacao_rol: 'ALTERADO' | 'PRESERVADO' | 'INDETERMINADO' }[]; detalhes_limitados?: boolean }
 import { apiClient } from './client'
 
@@ -76,6 +77,8 @@ export const oficiaisApi = {
   concederAcesso: (dados: { usuario_id: string; pode_consultar: boolean; pode_registrar: boolean; fundamento: string }) => apiClient.post<ConcessaoSensivel>('oficiais/acessos-sensiveis', dados),
   revogarAcesso: (id: string, motivo: string) => apiClient.patch<unknown>(`oficiais/acessos-sensiveis/${encodeURIComponent(id)}/revogar`, { motivo }),
   eventosSensiveis: (id: string) => apiClient.get<EventoSensivel[]>(`oficiais/${encodeURIComponent(id)}/eventos-sensiveis`),
+  selecaoAtas: (tipo: 'CONSELHO' | 'ASSEMBLEIA', filtros: Record<string, string>) =>
+    apiClient.get<PaginaSelecao>(`oficiais/indicacoes/selecao-atas?${new URLSearchParams({ ...filtros, tipo })}`),
   atasDeEleicao: (tipo: 'CONSELHO' | 'ASSEMBLEIA', busca: string) =>
     apiClient.get<AtaDeEleicao[]>(`oficiais/indicacoes/atas?${new URLSearchParams({ tipo, busca })}`),
   candidatos: (ata: string, busca: string) =>

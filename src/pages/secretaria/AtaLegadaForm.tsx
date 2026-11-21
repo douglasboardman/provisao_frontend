@@ -1,3 +1,4 @@
+import { SeletorPessoa } from '../../components/shared/SeletorPessoa'
 import { TeorDocumento } from './FichaDocumento'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -5,15 +6,23 @@ import { Button } from '../../components/ui/button'
 import { modalidadesParaContexto, nomeLivro, numeroDocumento, rotulosModalidadeReuniao, secretariaApi, type AtaLegadaInput, type ContextoSecretaria, type DocumentoDetalhe, type ReuniaoLegada, type ReuniaoSecretaria } from '../../api/secretaria'
 import { formatarDataCivil } from '../../lib/membresia-temporal'
 import { Area, Campo, CampoPapeis, Check, Escolha, Salvar, useComando } from './formulario'
-import { EditarResolucoes, LerResolucoes } from './ResolucoesDocumento'
+import { EditarResolucoes, LerResolucoes, prepararResolucoes } from './ResolucoesDocumento'
 
 const textoOpcional = (v: string) => v.trim() || null
 const horaIso = (v: string) => v ? new Date(v).toISOString() : null
 
-export function AtaLegadaForm({ contexto, reunioes, pessoas, pronto }: {
-  contexto: ContextoSecretaria; reunioes: ReuniaoSecretaria[]; pessoas: { id: string; nome_completo: string }[]; pronto: (id: string) => void
+export function AtaLegadaForm({ contexto, reunioes, pessoas, pronto, documento, cancelar }: {
+  documento?: DocumentoDetalhe; cancelar?: () => void; contexto: ContextoSecretaria; reunioes: ReuniaoSecretaria[]; pessoas: { id: string; nome_completo: string }[]; pronto: (id: string) => void
 }) {
-  const [v, set] = useState<Omit<AtaLegadaInput, 'pdf'>>({
+  const atual = documento?.versoes.find(v => v.numero === documento.versao_atual)
+  const [revisao] = useState(documento?.revisao)
+  const [v, set] = useState<Omit<AtaLegadaInput, 'pdf'>>(() => atual && documento ? {
+    contexto_id: contexto.id, restrito: documento.restrito, numero_original: atual.numero_original ?? null,
+    assunto: atual.assunto, data_documento: atual.data_documento.slice(0, 10), reuniao_id: atual.reuniao_id,
+    reuniao: atual.fonte_congelada!.legado!.reuniao, teor: atual.conteudo.teor,
+    arrolados: atual.arrolados.map(p => ({ pessoa_id: p.pessoa_id, papeis: p.papeis, fundamento: p.retrato.fundamento ?? '' })),
+    resolucoes: prepararResolucoes(atual.resolucoes), autoridade: '', evidencia: '', conferida: false,
+  } : {
     contexto_id: contexto.id, restrito: false, numero_original: null, assunto: '', data_documento: '',
     reuniao_id: null, reuniao: { data: null, local: null, modalidade: null, inicio: null, fim: null, pauta: null },
     teor: '', arrolados: [], resolucoes: [], autoridade: '', evidencia: '', conferida: false,
@@ -29,7 +38,10 @@ export function AtaLegadaForm({ contexto, reunioes, pessoas, pronto }: {
   const editarReuniao = <K extends keyof ReuniaoLegada>(campo: K, valor: ReuniaoLegada[K]) => set(atual => ({
     ...atual, reuniao: { ...atual.reuniao, [campo]: valor }, conferida: false,
   }))
-  const salvar = useComando(secretariaApi.criarAtaLegada, r => pronto(r.id), contexto.id)
+  const criar = useComando(secretariaApi.criarAtaLegada, r => pronto(r.id), contexto.id)
+  const corrigir = useComando<Omit<Parameters<typeof secretariaApi.editarAtaLegada>[1], 'idempotencia'>>(dados =>
+    secretariaApi.editarAtaLegada(documento!.id, dados), r => pronto(r.id), documento?.id)
+  const salvar = documento ? corrigir : criar
 
   async function enviarPdf(arquivo: File) {
     setPdf(null)
@@ -65,17 +77,20 @@ export function AtaLegadaForm({ contexto, reunioes, pessoas, pronto }: {
   }
   return <form className="space-y-4 rounded border p-4" onSubmit={e => {
     e.preventDefault()
-    if (pdf && v.conferida && !arquivoPendente && !extracaoPendente) {
-      salvar.mutate({ ...v, numero_original: textoOpcional(v.numero_original ?? ''), pdf })
+    if (documento && revisao) {
+      const { numero_original, assunto, data_documento, reuniao_id, reuniao, teor, arrolados, resolucoes } = v
+      corrigir.mutate({ revisao, numero_original: textoOpcional(numero_original ?? ''), assunto, data_documento, reuniao_id, reuniao, teor, arrolados, resolucoes })
+    } else if (pdf && v.conferida && !arquivoPendente && !extracaoPendente) {
+      criar.mutate({ ...v, numero_original: textoOpcional(v.numero_original ?? ''), pdf })
     }
   }}>
-    <h3 className="text-lg font-semibold">Cadastrar ata legada</h3>
+    <h3 className="text-lg font-semibold">{documento ? 'Editar ata legada' : 'Cadastrar ata legada'}</h3>
     <div className="grid gap-3 md:grid-cols-3">
       <Campo label="Número original (se houver)" required={false} value={v.numero_original ?? ''} onChange={s => editar('numero_original', s || null)} />
       <Campo label="Assunto" value={v.assunto} onChange={s => editar('assunto', s)} />
       <Campo label="Data do documento original" type="date" value={v.data_documento} onChange={s => editar('data_documento', s)} />
     </div>
-    {contexto.pode_consultar_restritos && <Check label="Ata restrita" checked={v.restrito} onChange={s => editar('restrito', s)} />}
+    {!documento && contexto.pode_consultar_restritos && <Check label="Ata restrita" checked={v.restrito} onChange={s => editar('restrito', s)} />}
     <fieldset className="space-y-3 rounded border p-3">
       <legend className="px-1 font-semibold">Reunião registrada no original</legend>
       <div className="grid gap-3 md:grid-cols-3">
@@ -89,14 +104,16 @@ export function AtaLegadaForm({ contexto, reunioes, pessoas, pronto }: {
         <Campo label="Fim da reunião" type="datetime-local" required={false} value={horasLocais(v.reuniao.fim)} onChange={s => editarReuniao('fim', horaIso(s))} />
       </div>
       <Area label="Pauta histórica" required={false} value={v.reuniao.pauta ?? ''} onChange={s => editarReuniao('pauta', s || null)} />
-      {reunioes.length > 0 && <Escolha label="Vincular reunião já cadastrada" required={false} value={v.reuniao_id ?? ''} onChange={s => editar('reuniao_id', s || null)}>
+      {(reunioes.length > 0 || v.reuniao_id) && <Escolha label="Vincular reunião já cadastrada" required={false} value={v.reuniao_id ?? ''} onChange={s => editar('reuniao_id', s || null)}>
         <option value="">Selecione se a reunião já existe no sistema</option>
+        {v.reuniao_id && !reunioes.some(r => r.id === v.reuniao_id) && <option value={v.reuniao_id}>Reunião vinculada</option>}
         {reunioes.map(r => <option key={r.id} value={r.id}>{r.data.slice(0, 10)} · {rotulosModalidadeReuniao[r.modalidade]} · {r.dados.local}</option>)}
       </Escolha>}
+      {documento && v.reuniao_id && v.reuniao_id === atual?.reuniao_id && <p className="text-sm text-muted-foreground">As correções destes campos também atualizam a reunião vinculada.</p>}
     </fieldset>
     <fieldset className="space-y-3 rounded border p-3">
-      <legend className="px-1 font-semibold">PDF e teor</legend>
-      <label className="grid gap-1 text-sm">PDF original (até 10 MB)
+      <legend className="px-1 font-semibold">{documento ? 'Transcrição da ata' : 'PDF e teor'}</legend>
+      {!documento && <><label className="grid gap-1 text-sm">PDF original (até 10 MB)
         <input type="file" accept="application/pdf,.pdf" disabled={arquivoPendente || extracaoPendente || salvar.isPending} onChange={e => {
           const arquivo = e.target.files?.[0]; if (arquivo) void enviarPdf(arquivo)
         }} />
@@ -108,15 +125,13 @@ export function AtaLegadaForm({ contexto, reunioes, pessoas, pronto }: {
         </Button>
       </div>}
       {erroArquivo && <p role="alert" className="text-destructive">{erroArquivo}</p>}
+      </>}
       <Area label="Teor conferido" value={v.teor} onChange={s => editar('teor', s)} />
     </fieldset>
     <fieldset className="space-y-3 rounded border p-3">
       <legend className="px-1 font-semibold">Pessoas arroladas na ata original</legend>
       <div className="flex flex-wrap items-end gap-2">
-        <Escolha label="Adicionar arrolado" required={false} value={pessoa} onChange={setPessoa}>
-          <option value="">Selecione uma pessoa cadastrada</option>
-          {pessoas.filter(p => !ocupados.has(p.id)).map(p => <option key={p.id} value={p.id}>{p.nome_completo}</option>)}
-        </Escolha>
+        <div className="grid min-w-0 flex-1 gap-1 text-sm"><span>Adicionar arrolado</span><SeletorPessoa rotulo="Adicionar arrolado" required={false} value={pessoa} onChange={setPessoa} opcoes={pessoas.filter(p => !ocupados.has(p.id)).map(p => ({ id: p.id, nome: p.nome_completo }))} /></div>
         <Button type="button" variant="outline" disabled={!pessoa || ocupados.has(pessoa)} onClick={() => {
           editar('arrolados', [...v.arrolados, { pessoa_id: pessoa, papeis: ['PARTICIPANTE'], fundamento: '' }]); setPessoa('')
         }}>Arrolar pessoa</Button>
@@ -134,16 +149,17 @@ export function AtaLegadaForm({ contexto, reunioes, pessoas, pronto }: {
     </fieldset>
     <EditarResolucoes valor={v.resolucoes} pessoas={v.arrolados.map(p => ({ id: p.pessoa_id, nome: nome(p.pessoa_id), podePropor: true }))}
       obrigatorio={false} permitido alterar={r => editar('resolucoes', r)} />
-    <Campo label="Autoridade da conferência" value={v.autoridade} onChange={s => editar('autoridade', s)} />
+    {!documento && <><Campo label="Autoridade da conferência" value={v.autoridade} onChange={s => editar('autoridade', s)} />
     <Area label="Evidência da origem e da conferência" value={v.evidencia} onChange={s => editar('evidencia', s)} />
-    <Check label="Conferi o teor, os arrolados e as resoluções com o PDF original" checked={v.conferida} onChange={s => editar('conferida', s)} />
-    <Salvar pending={salvar.isPending} error={salvar.error} success={salvar.isSuccess} label="Salvar ata legada conferida"
-      disabled={!pdf || !v.conferida || arquivoPendente || extracaoPendente} />
+    <Check label="Conferi o teor, os arrolados e as resoluções com o PDF original" checked={v.conferida} onChange={s => editar('conferida', s)} /></>}
+    <Salvar pending={salvar.isPending} error={salvar.error} success={salvar.isSuccess} label={documento ? "Salvar alterações" : "Salvar ata legada conferida"}
+      disabled={!documento && (!pdf || !v.conferida || arquivoPendente || extracaoPendente)} />
+    {cancelar && <Button variant="outline" type="button" disabled={salvar.isPending} onClick={cancelar}>Cancelar edição</Button>}
   </form>
 }
 
-export function AtaLegadaLeitura({ documento }: { documento: DocumentoDetalhe }) {
-  const versao = documento.versoes.find(v => v.numero === documento.versao_atual)
+export function AtaLegadaLeitura({ documento, versaoId }: { documento: DocumentoDetalhe; versaoId?: string }) {
+  const versao = documento.versoes.find(v => v.id === versaoId) ?? documento.versoes.find(v => v.numero === documento.versao_atual)
   const legado = versao?.fonte_congelada?.legado
   if (!versao || !legado) return <p role="alert">Evidência histórica indisponível.</p>
   const { reuniao } = legado
@@ -151,7 +167,7 @@ export function AtaLegadaLeitura({ documento }: { documento: DocumentoDetalhe })
   return <div className="space-y-4">
     <div>
       <h3 className="text-lg font-semibold">{versao.assunto}</h3>
-      <p className="text-sm">{numeroDocumento(documento)} · {formatarDataCivil(versao.data_documento)} · Ata legada conferida</p>
+      <p className="text-sm">{numeroDocumento({ ...documento, versao_atual: versao.numero })} · {formatarDataCivil(versao.data_documento)} · Ata legada conferida</p>
     </div>
     {(reuniao.data || reuniao.local || reuniao.modalidade || reuniao.inicio || reuniao.fim || reuniao.pauta) && <div className="space-y-1">
       <h4 className="font-semibold">Reunião registrada no original</h4>

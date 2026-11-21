@@ -1,7 +1,8 @@
+import { SeletorAta, descreverAta } from './SeletorAta'
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiRequestError } from '../../api/client'
-import { referenciasAtaApi, situacoesAta, type AlvoAta, type AtaOpcao, type EntradaReferencia } from '../../api/referencias-ata'
+import { referenciasAtaApi, situacoesAta, type AlvoAta, type AtaOpcao, type BuscaAtaOpcao, type EntradaReferencia } from '../../api/referencias-ata'
 import { formatarDataCivil } from '../../lib/membresia-temporal'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
@@ -61,15 +62,7 @@ function FormularioReferencia({ alvo, identidade, revisao, enviar, pendente }: {
   alvo: AlvoAta; identidade: string; revisao: string | null; enviar: (dados: EntradaReferencia) => void; pendente: boolean
 }) {
   const [modo, setModo] = useState('local')
-  const [filtros, setFiltros] = useState<Record<string, string>>({})
-  const [pagina, setPagina] = useState(0)
-  const [versao, setVersao] = useState('')
-  const busca = useQuery({
-    queryKey: ['referencias-ata', identidade, 'atas', alvo, filtros, pagina],
-    queryFn: () => referenciasAtaApi.buscar(alvo, { ...filtros, pagina: String(pagina) }),
-    enabled: modo === 'local', gcTime: 0,
-  })
-  const ata = busca.data?.itens.find(item => item.versao_id === versao)
+  const [ata, setAta] = useState<BuscaAtaOpcao | null>(null)
   function salvar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const campos = new FormData(e.currentTarget)
@@ -90,35 +83,13 @@ function FormularioReferencia({ alvo, identidade, revisao, enviar, pendente }: {
   }
   return <div className="space-y-3">
     <label className="block">Fonte documental
-      <select className={selectClass} value={modo} onChange={e => { setModo(e.target.value); setVersao('') }}>
+      <select className={selectClass} value={modo} onChange={e => { setModo(e.target.value); setAta(null) }}>
         <option value="local">Ata da igreja</option><option value="externa">Acervo externo</option><option value="pendente">Pendente</option>
       </select>
     </label>
-    {modo === 'local' && <form className="space-y-2" onSubmit={e => {
-      e.preventDefault()
-      const campos = new FormData(e.currentTarget)
-      setFiltros(Object.fromEntries([...campos].map(([k, v]) => [k, String(v).trim()]).filter(([, v]) => v)))
-      setPagina(0)
-      setVersao('')
-    }}>
-      <div className="grid gap-2 md:grid-cols-3">
-        <label>Órgão<select name="contexto" className={selectClass}><option value="">Todos os compatíveis</option>{busca.data?.contextos.map(c => <option key={c.id} value={c.id}>{c.nome} ({c.sigla})</option>)}</select></label>
-        <label>Número<Input name="numero" placeholder="Número original ou do sistema" maxLength={100} /></label>
-        <label>Data da ata<Input name="data" type="date" /></label>
-      </div>
-      <Button type="submit" variant="outline">Buscar atas</Button>
-    </form>}
     <form className="space-y-2" onSubmit={salvar}>
-      {modo === 'local' && <>
-        {busca.isPending && <p>Buscando atas…</p>}
-        {busca.isError && <p role="alert">{busca.error instanceof ApiRequestError ? busca.error.message : 'Não foi possível buscar atas.'}</p>}
-        {busca.data && !busca.data.itens.length && <p>Nenhuma ata encontrada.</p>}
-        <label className="block">Ata<select value={versao} onChange={e => setVersao(e.target.value)} required className={selectClass}>
-          <option value="">Selecione uma ata</option>
-          {busca.data?.itens.map(opcao => <option key={opcao.versao_id} value={opcao.versao_id}>{identificacao(opcao)} · {opcao.assunto} · {opcao.estado === 'EXPEDIDO' ? 'Expedida' : 'Provisória'}</option>)}
-        </select></label>
-        <PaginacaoAta pagina={pagina} mudar={n => { setPagina(n); setVersao('') }} proxima={busca.data?.tem_proxima} />
-      </>}
+      {modo === 'local' && <SeletorAta label="Ata" chave={[identidade, 'referencia', alvo]}
+        valor={ata ? descreverAta(ata) : ''} buscar={f => referenciasAtaApi.buscar(alvo, f)} selecionar={setAta} />}
       {modo === 'externa' && <div className="grid gap-2 md:grid-cols-2">
         <label>Concílio ou órgão<Input name="concilio" maxLength={255} required /></label>
         <label>Número ou identificação<Input name="identificacao" maxLength={255} required /></label>

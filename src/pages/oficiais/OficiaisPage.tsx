@@ -1,3 +1,4 @@
+import { SeletorPessoa } from '../../components/shared/SeletorPessoa'
 import { UsersRound, CalendarClock, BellRing, Vote, ShieldCheck, LayoutList } from 'lucide-react'
 import { WorkspaceHeader } from '../../components/shared/Workspace'
 import { useState } from 'react'
@@ -79,7 +80,7 @@ export function OficiaisPage() {
       {!auditor && <Button type="button" variant="outline" onClick={() => { cadastrar.reset(); setHistorico(false); setFormAberto(!formAberto) }}>{formAberto ? 'Cancelar' : 'Registrar ofício'}</Button>}
       {formAberto && <form className="max-w-xl space-y-3 rounded border p-4" onSubmit={e => { e.preventDefault(); if (pessoaId) cadastrar.mutate({ pessoa_id: pessoaId, tipo, ...(historico ? { ativo: false } : {}) }) }}>
         <p className="text-sm text-muted-foreground">O registro do ofício não cria ordenação, mandato ou competência.</p>
-        <div className="space-y-1"><Label htmlFor="pessoa-oficial">Pessoa</Label><select id="pessoa-oficial" className="w-full rounded border bg-background p-2" value={pessoaId} onChange={e => setPessoaId(e.target.value)} required><option value="">Selecione a pessoa</option>{pessoas.data?.map(p => <option key={p.id} value={p.id}>{p.nome_completo}</option>)}</select>{pessoas.isError && <p role="alert">Não foi possível carregar as pessoas.</p>}</div>
+        <div className="space-y-1"><Label htmlFor="pessoa-oficial">Pessoa</Label><SeletorPessoa id="pessoa-oficial" value={pessoaId} onChange={id => setPessoaId(id)} required opcoes={pessoas.data?.map(p => ({ id: p.id, nome: p.nome_completo }))} />{pessoas.isError && <p role="alert">Não foi possível carregar as pessoas.</p>}</div>
         <div className="space-y-1"><Label htmlFor="tipo-oficial">Ofício</Label><select id="tipo-oficial" className="w-full rounded border bg-background p-2" value={tipo} onChange={e => setTipo(e.target.value as OficialResumo['tipo'])}>{Object.entries(tipos).map(([valor, nome]) => <option key={valor} value={valor}>{nome}</option>)}</select></div>
         <label className="flex items-center gap-2">
           <input type="checkbox" checked={historico} onChange={e => setHistorico(e.target.checked)} />

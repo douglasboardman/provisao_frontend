@@ -274,3 +274,40 @@ for (const largura of [320, 390, 768, 1440]) {
     expect(erros).toEqual([])
   })
 }
+
+test('secretário corrige dados da ata legada, reunião, arrolados e resoluções sem reenviar o PDF', async ({ page }) => {
+  await preparar(page)
+  const reuniao = { data: '2026-02-09', local: 'Salão', modalidade: 'AGO', inicio: null, fim: null, pauta: 'Pauta anterior' }
+  const legada = { ...versao, numero_original: null, fonte_congelada: { legado: {
+    reuniao, autoridade: 'Secretaria', operador: 'Secretário', evidencia: 'Original', conferido_em: '2026-02-10',
+  } } }
+  const headers = {
+    'Access-Control-Allow-Origin': 'http://127.0.0.1:4179', 'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Allow-Methods': 'GET, PATCH, OPTIONS', 'Access-Control-Allow-Headers': 'content-type,x-provisao-request',
+  }
+  await page.route('**/secretaria/documentos/ata', route => route.fulfill({ headers, json: {
+    ...documento, estado: 'LEGADA_CONFERIDA', numero: null, versoes: [legada],
+  } }))
+  await page.route('**/pessoas', route => route.fulfill({ headers, json: [{ id: 'p1', nome_completo: 'Pessoa de teste' }] }))
+  await page.route('**/secretaria/atas-legadas/ata', route => route.request().method() === 'OPTIONS'
+    ? route.fulfill({ status: 204, headers }) : route.fulfill({ headers, json: { id: 'ata', revisao: 2 } }))
+  await page.goto('/secretaria/assembleia/documentos/ata')
+  await page.getByRole('button', { name: 'Editar ata legada' }).click()
+  await expect(page.getByLabel('Teor conferido')).toHaveValue(versao.conteudo.teor)
+  await page.getByLabel('Número original (se houver)').fill('18')
+  await page.getByLabel('Teor conferido').fill('Transcrição revisada.')
+  await page.getByLabel('Pauta histórica').fill('Pauta revisada')
+  await page.getByLabel('Adicionar arrolado').fill('teste')
+  await page.getByRole('option', { name: 'Pessoa de teste' }).click()
+  await page.getByRole('button', { name: 'Arrolar pessoa' }).click()
+  await page.getByRole('button', { name: 'Adicionar resolução' }).click()
+  await page.getByLabel('Assunto da resolução').fill('Orçamento')
+  await page.getByLabel('Texto deliberado').fill('Aprovação do orçamento.')
+  const envio = page.waitForRequest(r => r.method() === 'PATCH' && r.url().endsWith('/atas-legadas/ata'))
+  await page.getByRole('button', { name: 'Salvar alterações' }).click()
+  expect((await envio).postDataJSON()).toMatchObject({
+    numero_original: '18', teor: 'Transcrição revisada.', reuniao: { pauta: 'Pauta revisada' },
+    arrolados: [{ pessoa_id: 'p1' }], resolucoes: [{ assunto: 'Orçamento' }], revisao: 1,
+  })
+  await expect(page.getByRole('button', { name: 'Editar ata legada' })).toBeVisible()
+})

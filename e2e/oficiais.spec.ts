@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test'
 
-test('registra indicação e cria mandato usando a data da ata da Assembleia', async ({ page }) => {
+for (const largura of [320, 1280]) test(`registra indicação e mandato com seleção de ata em ${largura}px`, async ({ page }) => {
   test.skip(process.env.VITE_FEATURE_GOVERNANCA !== 'true' || process.env.VITE_FEATURE_SECRETARIA !== 'true', 'O fluxo usa governança e secretaria.')
+  await page.setViewportSize({ width: largura, height: 800 })
   const headers = { 'Access-Control-Allow-Origin': 'http://127.0.0.1:4179', 'Access-Control-Allow-Credentials': 'true', 'Access-Control-Allow-Headers': 'content-type,x-provisao-request', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' }
   let indicacao: unknown
   let mandato: unknown
@@ -10,9 +11,11 @@ test('registra indicação e cria mandato usando a data da ata da Assembleia', a
     const url = new URL(route.request().url())
     if (url.pathname === '/auth/profile') return route.fulfill({ headers, json: { sub: 'u', igreja_id: 'i', perfil: 'GESTOR', username: 'Gestor', login: 'g@example.invalid' } })
     if (url.pathname === '/oficiais') return route.fulfill({ headers, json: { itens: [], proximo_cursor: null } })
-    if (url.pathname === '/oficiais/indicacoes/atas') {
+    if (url.pathname === '/oficiais/indicacoes/selecao-atas') {
       const conselho = url.searchParams.get('tipo') === 'CONSELHO'
-      return route.fulfill({ headers, json: [{ versao_id: conselho ? 'con' : 'ass', numero: '10', data: conselho ? '2026-08-01' : '2026-09-01', assunto: 'Eleições' }] })
+      const segunda = url.searchParams.get('pagina') === '1'
+      const filtrada = url.searchParams.get('assunto') === 'Eleições'
+      return route.fulfill({ headers, json: { contextos: [{ id: 'ctx', nome: conselho ? 'Conselho' : 'Assembleia' }], tem_proxima: conselho && !segunda && !filtrada, itens: [{ pauta: 'Pauta eleitoral', resolucoes: [], arrolados: ['Pessoa Sintética'], versao: 1, numero_formatado: '10', versao_id: conselho ? 'con' : 'ass', numero: '10', data: conselho ? '2026-08-01' : '2026-09-01', assunto: segunda ? 'Ata anterior' : 'Eleições' }] } })
     }
     if (url.pathname === '/oficiais/indicacoes/candidatos') return route.fulfill({ headers, json: [{ id: 'p', nome_completo: 'Pessoa Sintética' }] })
     if (url.pathname === '/oficiais/indicacoes' && route.request().method() === 'POST') {
@@ -31,15 +34,33 @@ test('registra indicação e cria mandato usando a data da ata da Assembleia', a
   await page.goto('/oficiais')
   await page.getByRole('button', { name: 'Processo eleitoral' }).click()
   await page.getByRole('button', { name: 'Registrar indicação' }).click()
-  await page.getByLabel('Ata do Conselho que aprovou a indicação').selectOption('con')
-  await page.getByLabel('Membro indicado').selectOption('p')
+  await page.getByRole('button', { name: 'Selecionar', exact: true }).click()
+  const modal = page.getByRole('dialog')
+  await modal.getByRole('button', { name: 'Próxima' }).click()
+  await expect(modal.getByText('Ata anterior')).toBeVisible()
+  await modal.getByLabel('Título ou assunto').fill('Eleições')
+  await modal.getByRole('button', { name: 'Filtrar' }).click()
+  await expect(modal.getByText('Página 1')).toBeVisible()
+  await expect(modal.getByRole('button', { name: 'Próxima' })).toBeDisabled()
+  await page.getByRole('button', { name: 'Detalhes' }).click()
+  await expect(page.getByText('Pauta eleitoral')).toBeVisible()
+  expect(await modal.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true)
+  await page.getByRole('dialog').getByRole('button', { name: 'Selecionar', exact: true }).click()
+  await page.getByLabel('Membro indicado').fill('Sintética')
+  await expect(page.getByRole('option', { name: /Sintética/ })).toBeVisible()
+  await page.getByLabel('Membro indicado').press('ArrowDown')
+  await page.getByLabel('Membro indicado').press('Enter')
   await page.getByLabel('Data da assembleia de eleição').fill('2026-09-01')
   await page.getByRole('button', { name: 'Salvar indicação' }).click()
   await expect.poll(() => indicacao).toEqual({ pessoa_id: 'p', oficio: 'DIACONO', ata_conselho_versao_id: 'con', data_assembleia: '2026-09-01' })
   await expect(page.getByText('Indicação registrada.')).toBeVisible()
   await page.getByRole('button', { name: 'Registrar mandato' }).click()
-  await page.getByLabel('Ata da Assembleia que registrou a eleição').selectOption('ass')
-  await page.getByLabel('Indicação para esta eleição').selectOption('ind')
+  await page.getByRole('button', { name: 'Selecionar', exact: true }).click()
+  await page.getByRole('button', { name: 'Detalhes' }).click()
+  await expect(page.getByText('Pauta eleitoral')).toBeVisible()
+  await page.getByRole('dialog').getByRole('button', { name: 'Selecionar', exact: true }).click()
+  await page.getByLabel('Indicação para esta eleição').fill('Sintética')
+  await page.getByRole('option', { name: /Sintética/ }).click()
   await page.getByLabel('Data da posse').fill('2026-09-08')
   await page.getByRole('button', { name: 'Salvar mandato' }).click()
   await expect.poll(() => mandato).toEqual({ indicacao_id: 'ind', ata_assembleia_versao_id: 'ass', data_posse: '2026-09-08' })
@@ -75,7 +96,8 @@ test('consulta oficiais e exercício com a funcionalidade habilitada', async ({ 
   await expect(page.getByText(/Em exercício em/)).toBeVisible()
   await expect(page.getByText(/não substitui a verificação de competência/)).toBeVisible()
   await page.getByRole('button', { name: 'Registrar ofício' }).click()
-  await page.getByLabel('Pessoa', { exact: true }).selectOption('p')
+  await page.getByLabel('Pessoa', { exact: true }).fill('Sintética')
+  await page.getByRole('option', { name: /Sintética/ }).click()
   await page.getByLabel('Ofício', { exact: true }).selectOption('PRESBITERO_REGENTE')
   await page.getByRole('button', { name: 'Salvar ofício' }).click()
   await expect.poll(() => criacao).toEqual({ pessoa_id: 'p', tipo: 'PRESBITERO_REGENTE' })
@@ -136,7 +158,8 @@ test('administrador concede acesso específico a outro usuário', async ({ page 
   await page.goto('/oficiais')
   await page.getByRole('button', { name: 'Permissões', exact: true }).click()
   await page.getByRole('button', { name: 'Gerir acessos a eventos restritos' }).click()
-  await page.getByRole('combobox', { name: 'Usuário' }).selectOption('sec')
+  await page.getByRole('combobox', { name: 'Usuário' }).fill('Secretário')
+  await page.getByRole('option', { name: /Secretário/ }).click()
   await page.getByLabel('Consultar eventos restritos').check()
   await page.getByLabel('Fundamento da concessão').fill('Ato de autorização')
   await page.getByRole('button', { name: 'Conceder acesso' }).click()
@@ -252,7 +275,8 @@ test('avisos internos exigem configuração e destinatário escolhido', async ({
   await page.getByLabel('Fundamento da configuração').fill('Ata externa')
   await page.getByRole('button', { name: 'Salvar configuração' }).click()
   await expect.poll(() => politica).toMatchObject({ ativo: true, dias_antecedencia: 90, dias_apos_termino: 15, fuso_iana: 'America/Sao_Paulo', autoridade: 'Conselho', fundamento: 'Ata externa' })
-  await page.getByRole('combobox', { name: 'Destinatário' }).selectOption('sec')
+  await page.getByRole('combobox', { name: 'Destinatário' }).fill('Secretário')
+  await page.getByRole('option', { name: /Secretário/ }).click()
   await page.getByRole('button', { name: 'Adicionar destinatário' }).click()
   await expect.poll(() => adicionado).toEqual({ usuario_id: 'sec' })
 })
