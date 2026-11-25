@@ -19,17 +19,26 @@ export type ComparacaoConversao = { previa: string; perfil_anterior: string; out
   rotas_legadas?: string[];
   existentes: { acao: Servico; inicio: string; fim: string | null }[];
 }
+type AcaoPerfil = { acao: Servico; rotulo: string }
+export type PerfilAtuacao = { id: string; nome: string; requisito: string; acoes: AcaoPerfil[] }
+type ContaElegivel = { id: string; nome_usuario: string; email_login: string }
+export type ConcessaoPerfil = {
+  id: string; usuario_id: string; nome_usuario: string; email_login: string; inicio: string; fim: string | null; vigente: boolean
+}
+type PreviaPerfil = { previa: string; fim: string | null; itens: (AcaoPerfil & { sobreposta: boolean })[] }
+export type RequisitoPerfil = { tipo: 'cargo'; id: string } | { tipo: 'oficio'; oficio: string }
 export interface AtuacaoConta {
   pessoa_id: string | null
   conta_atuacao: boolean
   competencias?: { id: string; inicio: string; fim: string | null; pode_aprovar: boolean; pode_deliberar: boolean;
     pode_consultar_restritos: boolean; pode_instalar_mesa: boolean; contexto: { nome: string } }[]
   pode_converter?: boolean
+  pode_salvar_modelo_atuacao?: boolean
   catalogo?: { acao: Servico; rotulo: string }[]
   selecionada_id?: string | null
   servicos_propostos: { acao: Servico; permite: boolean; rotulo?: string }[]
   cargos_propostos: { contexto_id: string; contexto: string; cargo: string; origem_id: string }[]
-  atribuicoes: { id: string; acao: Servico; inicio: string; fim: string | null }[]
+  atribuicoes: { id: string; acao: Servico; inicio: string; fim: string | null; concessao_modelo_id?: string | null }[]
 }
 export interface EventoAutorizacao {
   id: string; instante: string; operador_id: string; destinatario_id: string | null; acao: string;
@@ -54,6 +63,18 @@ export const autorizacaoApi = {
     apiClient.post('autorizacao/conta-atuacao', { pessoa_id, anterior_id, conta_id, fundamento }),
   conceder: (id: string, acao: Servico, inicio: string, fim: string | null, fundamento: string) =>
     apiClient.post(`autorizacao/contas/${id}/atribuicoes`, { acao, inicio, fim, fundamento }),
+  perfisAtuacao: () => apiClient.get<{ pode_criar: boolean; modelos: PerfilAtuacao[] }>('autorizacao/modelos-atuacao'),
+  opcoesPerfisAtuacao: () => apiClient.get<{ cargos: { id: string; nome: string }[]; oficios: { oficio: string; nome: string }[];
+    catalogo: AcaoPerfil[] }>('autorizacao/modelos-atuacao/opcoes'),
+  salvarPerfilAtuacao: (nome: string, requisito: RequisitoPerfil, acoes: Servico[], fundamento: string) =>
+    apiClient.post<{ id: string; nome: string }>('autorizacao/modelos-atuacao', { nome, requisito, acoes, fundamento }),
+  concessoesPerfil: (id: string) => apiClient.get<{ contas: ContaElegivel[]; concessoes: ConcessaoPerfil[] }>(
+    `autorizacao/modelos-atuacao/${id}/concessoes`),
+  previaConcessaoPerfil: (id: string, usuario_id: string) =>
+    apiClient.post<PreviaPerfil>(`autorizacao/modelos-atuacao/${id}/concessoes/previa`, { usuario_id }),
+  concederPerfil: (id: string, usuario_id: string, previa: string, fundamento: string) =>
+    apiClient.post<{ id: string; atribuidas: number }>(`autorizacao/modelos-atuacao/${id}/concessoes`, { usuario_id, previa, fundamento }),
+  revogarPerfil: (id: string, fundamento: string) => apiClient.post(`autorizacao/concessoes-modelo/${id}/revogar`, { fundamento }),
   revogar: (id: string, fundamento: string) => apiClient.post(`autorizacao/atribuicoes/${id}/revogar`, { fundamento }),
   presidencia: (id: string, etapa: 'conferir' | 'encaminhar', fundamento: string) =>
     apiClient.post(`autorizacao/presidencias/${id}/${etapa}`, { fundamento }),

@@ -1,4 +1,3 @@
-import { AccessRequestsPanel } from './pages/configuracoes/AccessRequestsPanel'
 import { AutorizacoesFinanceiras } from './pages/secretaria/AutorizacoesFinanceiras'
 import { FormularioSenha } from './pages/perfil/FormularioSenha'
 import { MinhaContaComum } from './pages/configuracoes/AtuacaoConta'
@@ -37,6 +36,7 @@ const PerfilPage = lazy(() => import('./pages/perfil/PerfilPage').then(m => ({ d
 const OficiaisPage = lazy(() => import('./pages/oficiais/OficiaisPage').then(m => ({ default: m.OficiaisPage })))
 const OrgaosPage = lazy(() => import('./pages/orgaos/OrgaosPage').then(m => ({ default: m.OrgaosPage })))
 const ConfiguracoesPage = lazy(() => import('./pages/configuracoes/ConfiguracoesPage').then(m => ({ default: m.ConfiguracoesPage })))
+const PerfisAtuacaoPage = lazy(() => import('./pages/configuracoes/PerfisAtuacaoPage').then(m => ({ default: m.PerfisAtuacaoPage })))
 const GestaoMembresiaPage = lazy(() => import('./pages/membresia/GestaoMembresiaPage').then(m => ({ default: m.GestaoMembresiaPage })))
 const RolMembrosPage = lazy(() => import('./pages/membresia/RolMembrosPage').then(m => ({ default: m.RolMembrosPage })))
 const PessoasPage = lazy(() => import('./pages/pessoas/PessoasPage').then(m => ({ default: m.PessoasPage })))
@@ -124,9 +124,10 @@ function App() {
 
           {/* Administração */}
           <Route path="acoes" element={<AcoesPage />} />
-          <Route path="solicitacoes-acesso" element={<AccessRequestsPanel />} />
+          <Route path="solicitacoes-acesso" element={<Navigate to="/usuarios?aba=solicitacoes" replace />} />
           <Route path="autorizacoes-financeiras" element={<AutorizacoesFinanceiras />} />
           <Route path="usuarios" element={<UsuariosPage />} />
+          <Route path="perfis-atuacao" element={<PerfisAtuacaoPage />} />
           <Route path="configuracoes" element={<ConfiguracoesPage />} />
         </Route>
       </Route>

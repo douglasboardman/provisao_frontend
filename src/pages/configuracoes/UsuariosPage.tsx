@@ -1,16 +1,18 @@
 import { AcessosDaConta, HistoricoAcessos } from './AtuacaoConta'
 import { SeletorPessoa } from '../../components/shared/SeletorPessoa'
 import { useState } from "react"
+import { useSearchParams } from "react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { Plus, Pencil, Trash2, UserCheck, Users, Link2 } from "lucide-react"
+import { Plus, Pencil, Trash2, UserCheck, Users, UserCog, Link2 } from "lucide-react"
+import { Abas, type Aba } from "../../components/ui/abas"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { Label } from "../../components/ui/label"
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
 } from "../../components/ui/dialog"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -18,6 +20,7 @@ import {
 import { DataTable, type Column } from "../../components/shared/DataTable"
 import { DeleteDialog } from "../../components/shared/DeleteDialog"
 import { EmptyState } from "../../components/shared/EmptyState"
+import { WorkspaceHeader } from "../../components/shared/Workspace"
 import { Badge } from "../../components/ui/badge"
 import { usePermissions } from "../../hooks/use-permissions"
 import { toast } from "../../components/ui/use-toast"
@@ -51,6 +54,7 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>
 
 export function UsuariosPage() {
+  const [parametros, definirParametros] = useSearchParams()
   const [acessos, abrirAcessos] = useState<Usuario | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [linkTarget, setLinkTarget] = useState<Usuario | null>(null)
@@ -58,10 +62,12 @@ export function UsuariosPage() {
   const [editing, setEditing] = useState<Usuario | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Usuario | null>(null)
   const perfilAtual = useAuthStore(s => s.user?.perfil)
-  const { canCreate, canEdit, canDelete } = usePermissions("usuarios")
+  const { canView, canCreate, canEdit, canDelete } = usePermissions("usuarios")
+  const { canView: podeVerSolicitacoes } = usePermissions("solicitacoes-acesso")
   const queryClient = useQueryClient()
 
-  const { data, isLoading } = useQuery({ queryKey: ["usuarios"], queryFn: usuariosApi.list })
+  const { data, isPending, isError } = useQuery({ queryKey: ["usuarios"], queryFn: usuariosApi.list, enabled: canView })
+  const usuarios = canView ? data ?? [] : []
 
   const { data: pessoas } = useQuery({ queryKey: ["pessoas"], queryFn: pessoasApi.list, enabled: !!linkTarget })
   const linkMut = useMutation({
@@ -144,33 +150,47 @@ export function UsuariosPage() {
       )
     : undefined
 
+  const abas: Aba[] = []
+  if (canView || canCreate) abas.push({
+    id: "contas", nome: "Contas", manter: true,
+    conteudo: !canView ? <p className="text-sm text-muted-foreground">A consulta de contas está indisponível.</p>
+      : isPending ? <p role="status">Carregando contas…</p>
+      : isError ? <p role="alert">Não foi possível carregar as contas.</p>
+      : usuarios.length ? <DataTable data={usuarios} columns={columns} keyExtractor={u => u.id} actions={actions} />
+      : <EmptyState icon={Users} title="Nenhum usuário" description="Nenhum usuário cadastrado" />,
+  })
+  if (podeVerSolicitacoes) abas.push({ id: "solicitacoes", nome: "Solicitações de acesso", conteudo: <AccessRequestsPanel /> })
+  if (canCreate) abas.push(
+    { id: "competencias", nome: "Competências", conteudo: <AccessAuthoritiesPanel usuarios={usuarios} /> },
+    { id: "historico", nome: "Histórico", conteudo: <HistoricoAcessos usuarios={usuarios} /> },
+  )
+  if (perfilAtual === Perfil.ADMINISTRADOR) abas.push({ id: "emails", nome: "Envio de e-mails", conteudo: <EmailQueuePanel /> })
+  const aba = abas.find(item => item.id === parametros.get("aba")) ?? abas[0]
+
+  function selecionarAba(id: string) {
+    if (id === aba?.id) return
+    const proximos = new URLSearchParams(parametros)
+    if (id === abas[0]?.id) proximos.delete("aba")
+    else proximos.set("aba", id)
+    definirParametros(proximos)
+  }
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-heading font-bold">Usuários</h2>
-          <p className="text-sm text-muted-foreground">Gerencie os usuários do sistema</p>
-        </div>
-        {canCreate && (
-          <Button onClick={openCreate}><Plus size={18} className="mr-2" />Novo Usuário</Button>
+    <div className="workspace">
+      <WorkspaceHeader icon={UserCog} title="Usuários" description="Administração de contas e acessos">
+        {aba?.id === "contas" && canCreate && (
+          <Button onClick={openCreate}><Plus size={18} />Novo usuário</Button>
         )}
-      </div>
+      </WorkspaceHeader>
 
-      {(canCreate || perfilAtual === Perfil.GESTOR) && <AccessRequestsPanel />}
-      {canCreate && <HistoricoAcessos usuarios={data ?? []} />}
-      {canCreate && <AccessAuthoritiesPanel usuarios={data ?? []} />}
-      {perfilAtual === Perfil.ADMINISTRADOR && <EmailQueuePanel />}
+      {aba ? <Abas titulo="Administração de usuários" abas={abas} ativa={aba.id} selecionar={selecionarAba} />
+        : <p className="text-sm text-muted-foreground">Nenhuma seção disponível para esta conta.</p>}
 
-      {isLoading ? (
-        <div className="py-16 text-center text-muted-foreground">Carregando...</div>
-      ) : !data?.length ? (
-        <EmptyState icon={Users} title="Nenhum usuário" description="Nenhum usuário cadastrado" />
-      ) : (
-        <DataTable data={data} columns={columns} keyExtractor={(u) => u.id} actions={actions} />
-      )}
-
-      <Dialog open={!!acessos} onOpenChange={aberto => { if (!aberto) abrirAcessos(null) }}><DialogContent className="max-h-[85vh] overflow-auto">
-        <DialogHeader><DialogTitle>Atuação de {acessos?.nome_usuario}</DialogTitle></DialogHeader>
+      <Dialog open={!!acessos} onOpenChange={aberto => { if (!aberto) abrirAcessos(null) }}><DialogContent className="flex h-[min(46rem,calc(100dvh-2rem))] max-h-none max-w-4xl flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="shrink-0 px-4 pb-3 pt-5 pr-12 text-left sm:px-6 sm:pr-12">
+          <DialogTitle className="text-xl leading-tight">Atuação de {acessos?.nome_usuario}</DialogTitle>
+          <DialogDescription className="break-all">{acessos?.email_login}</DialogDescription>
+        </DialogHeader>
         {acessos && <AcessosDaConta key={acessos.id} usuario={acessos}/>}
       </DialogContent></Dialog>
       <Dialog open={dialogOpen} onOpenChange={(o) => !o && closeDialog()}>

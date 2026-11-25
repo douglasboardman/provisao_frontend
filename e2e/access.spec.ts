@@ -46,7 +46,7 @@ test('administrador confirma vínculo de pessoa', async ({ page }) => {
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
     const path = new URL(route.request().url()).pathname
     if (path === '/auth/profile') return route.fulfill({ headers, json: { sub: 'admin', igreja_id: 'igreja', perfil: 'ADMINISTRADOR', username: 'Admin', login: 'admin@example.invalid' } })
-    if (path === '/usuarios/indicadores-fila') return route.fulfill({ headers, json: { pendentes: 0, processando: 0, falhas: 0, mais_antigo_pendente: null, falhas_recentes: [] } })
+    if (path === '/autorizacao/navegacao') return route.fulfill({ headers, json: { permissoes: {} } })
     if (path === '/usuarios' && route.request().method() === 'GET') return route.fulfill({ headers, json: [{ id: 'conta', nome_usuario: 'Conta Teste', email_login: 'conta@example.invalid', perfil: 'OPERADOR', ativo: true, pessoa_id: null }] })
     if (path === '/pessoas') return route.fulfill({ headers, json: [{ id: 'pessoa', nome_completo: 'Pessoa Teste' }] })
     if (path === '/usuarios/conta/pessoa') { linked = route.request().postDataJSON(); return route.fulfill({ headers, json: { pessoa_id: 'pessoa' } }) }
@@ -198,13 +198,16 @@ test('administrador registra competência com referência institucional', async 
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
     const path = new URL(route.request().url()).pathname
     if (path === '/auth/profile') return route.fulfill({ headers, json: { sub: 'admin', igreja_id: 'igreja', perfil: 'ADMINISTRADOR', username: 'Admin', login: 'admin@example.invalid' } })
+    if (path === '/autorizacao/navegacao') return route.fulfill({ headers, json: { permissoes: {} } })
     if (path === '/usuarios/indicadores-fila') return route.fulfill({ headers, json: { pendentes: 1, processando: 0, falhas: 1, mais_antigo_pendente: null, falhas_recentes: [{ criado_em: '2026-11-16T00:00:00Z', tentativas: 8, tipo: 'CONVITE', destinatario: 'teste@example.invalid' }] } })
     if (path === '/usuarios') return route.fulfill({ headers, json: [{ id: manager, nome_usuario: 'Gestor Teste', email_login: 'gestor@example.invalid', perfil: 'GESTOR', ativo: true, pessoa_id: 'pessoa' }] })
     if (path === '/solicitacoes-acesso/competencias' && route.request().method() === 'POST') { granted = route.request().postDataJSON(); return route.fulfill({ headers, json: { id: 'competencia' } }) }
     return route.fulfill({ headers, json: [] })
   })
   await page.goto('/usuarios')
+  await page.getByRole('tab', { name: 'Envio de e-mails' }).click()
   await expect(page.getByText('teste@example.invalid — convite; 8 tentativas')).toBeVisible()
+  await page.getByRole('tab', { name: 'Competências' }).click()
   await page.getByLabel('Gestor vinculado a pessoa').click()
   await page.getByRole('option', { name: 'Gestor Teste' }).click()
   await page.getByLabel('Referência da evidência institucional').fill('Ata institucional 001/2026')

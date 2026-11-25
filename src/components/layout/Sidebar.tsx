@@ -2,7 +2,7 @@ import { useNavegacao } from '../../hooks/use-navegacao'
 import {
   Home, Users, UsersRound, BookUser, IdCard,
   Landmark, ArrowRightLeft, TrendingUp, TrendingDown, Scale,
-  Sprout, UserCog, Settings, LogOut,
+  Sprout, UserCog, Settings, LogOut, ShieldCheck,
 } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { oficiaisApi } from "../../api/oficiais"
@@ -42,9 +42,9 @@ const navEntries: NavEntry[] = [
   { kind: "item", path: "/acoes", icon: Sprout, label: "Ações", modules: ["acoes"] },
 
   { kind: "group", label: "Administração" },
-  { kind: "item", path: "/solicitacoes-acesso", icon: UserCog, label: "Solicitações de acesso", modules: ["solicitacoes-acesso"] },
   { kind: "item", path: "/autorizacoes-financeiras", icon: Scale, label: "Autorizações financeiras", modules: ["autorizacoes-financeiras"] },
-  { kind: "item", path: "/usuarios", icon: UserCog, label: "Usuários", modules: ["usuarios"] },
+  { kind: "item", path: "/usuarios", icon: UserCog, label: "Usuários", modules: ["usuarios", "solicitacoes-acesso"] },
+  { kind: "item", path: "/perfis-atuacao", icon: ShieldCheck, label: "Perfis de acesso", modules: ["perfis-atuacao"] },
   { kind: "item", path: "/configuracoes", icon: Settings, label: "Configurações", modules: ["igreja", "logs", "profissoes", "regras-relacao-enum"] },
 ]
 

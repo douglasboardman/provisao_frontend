@@ -10,8 +10,10 @@ const rotas: Record<string, string[]> = {
   '/contas': ['contas'], '/lancamentos': ['lancamentos'], '/receitas': ['receitas'], '/despesas': ['despesas'],
   '/tipo-receita': ['receitas'], '/tipo-despesa': ['despesas'],
   '/cat-receita': ['cat-receita'], '/cat-despesa': ['cat-despesa'], '/balanco-mensal': ['balanco-mensal'],
-  '/acoes': ['acoes'], '/usuarios': ['usuarios'], '/solicitacoes-acesso': ['solicitacoes-acesso'],
+  '/acoes': ['acoes'],
+  '/usuarios': ['usuarios', 'solicitacoes-acesso'], '/solicitacoes-acesso': ['solicitacoes-acesso'],
   '/autorizacoes-financeiras': ['autorizacoes-financeiras'],
+  '/perfis-atuacao': ['perfis-atuacao'],
   '/configuracoes': ['igreja', 'regras-relacao-enum', 'profissoes', 'logs'],
 }
 

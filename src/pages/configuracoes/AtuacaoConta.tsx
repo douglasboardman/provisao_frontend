@@ -1,18 +1,24 @@
 import { useCanAccessModule } from '../../hooks/use-permissions'
 import { useState } from 'react'
+import { ChevronDown } from 'lucide-react'
+import { Link } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { autorizacaoApi, servicos, type Servico, type AtuacaoConta, type ComparacaoConversao } from '../../api/autorizacao'
 import { ApiRequestError } from '../../api/client'
 import { Button } from '../../components/ui/button'
+import { Abas, type Aba } from '../../components/ui/abas'
 import { Input } from '../../components/ui/input'
 import { useAuthStore } from '../../stores/auth'
 import type { Usuario } from '../../types/models'
 import { Perfil } from '../../types/enums'
+import { CriarPerfilAtuacao } from './CriarPerfilAtuacao'
 
 function Cargos({ dados }: { dados: AtuacaoConta }) {
-  return <div><h3 className="font-semibold">Acessos por cargo</h3>
-    {dados.cargos_propostos.length ? <ul>{dados.cargos_propostos.map(c =>
-      <li key={c.contexto_id + c.origem_id}>{c.cargo} · {c.contexto}</li>)}</ul> : <p>Nenhum cargo vigente habilitado nesta conta.</p>}</div>
+  return <div className="space-y-2"><h3 className="font-semibold">Acessos por cargo</h3>
+    {dados.cargos_propostos.length ? <ul className="divide-y rounded-lg border">{dados.cargos_propostos.map(c =>
+      <li key={c.contexto_id + c.origem_id} className="flex flex-wrap items-baseline justify-between gap-x-4 px-3 py-2 text-sm">
+        <span className="font-medium">{c.cargo}</span><span className="text-muted-foreground">{c.contexto}</span>
+      </li>)}</ul> : <p className="text-sm text-muted-foreground">Nenhum cargo vigente habilitado nesta conta.</p>}</div>
 }
 
 export function MinhaContaComum() {
@@ -32,7 +38,8 @@ export function MinhaContaComum() {
 }
 
 export function AcessosDaConta({ usuario }: { usuario: Usuario }) {
-  const [fundamento, justificar] = useState(''), [acao, escolher] = useState<Servico>('PESSOAS_CONSULTAR')
+  const [aba, selecionar] = useState('atuacao')
+  const [fundamento, justificar] = useState(''), [acao, escolher] = useState<Servico>('')
   const [inicio, iniciar] = useState(''), [fim, terminar] = useState('')
   const ator = useAuthStore(s => s.user)
   const cache = useQueryClient()
@@ -41,35 +48,108 @@ export function AcessosDaConta({ usuario }: { usuario: Usuario }) {
   const alterar = useMutation({ mutationFn: (executar: () => Promise<unknown>) => executar(),
     onSuccess: async () => { justificar(''); await cache.invalidateQueries({ queryKey: ['autorizacao'] }) },
     onError: () => { void q.refetch() } })
-  if (!q.data) return <p role="status">{q.isError ? 'Não foi possível consultar a conta.' : 'Consultando atribuições…'}</p>
+  if (!q.data) return <p className="px-4 py-4 text-sm sm:px-6" role="status">{q.isError ? 'Não foi possível consultar a conta.' : 'Consultando atribuições…'}</p>
   const dados = q.data, pronto = fundamento.trim().length > 0 && !alterar.isPending
   const elegivel = !!dados.pessoa_id && usuario.ativo && ![Perfil.ADMINISTRADOR, Perfil.AUDITOR].includes(usuario.perfil)
   const executar = (fn: () => Promise<unknown>) => alterar.mutate(fn)
-  return <div className="space-y-3"><p>{dados.conta_atuacao ? 'Conta selecionada para atuação institucional.' :
-    dados.selecionada_id ? 'A atuação institucional usa outra conta desta pessoa.' : 'Esta conta não está selecionada para atuação institucional.'}</p>
-    <Cargos dados={dados}/>
-    <label className="block">Fundamento da alteração<Input value={fundamento} maxLength={1000} onChange={e => justificar(e.target.value)}/></label>
-    {elegivel && <Button variant="outline" disabled={!pronto} onClick={() => executar(() =>
-      autorizacaoApi.escolher(dados.pessoa_id!, dados.selecionada_id ?? null, dados.conta_atuacao ? null : usuario.id, fundamento))}>
-      {dados.conta_atuacao ? 'Retirar conta de atuação' : dados.selecionada_id ? 'Trocar a atuação para esta conta' : 'Selecionar como conta de atuação'}</Button>}
-    <h3 className="font-semibold">Atribuições de serviço na igreja</h3>
-    {dados.atribuicoes.map(r => <div key={r.id} className="flex flex-wrap items-center gap-2">
-      <span>{nomeServico(r.acao)} · {new Date(r.inicio).toLocaleString()} até {r.fim ? new Date(r.fim).toLocaleString() : 'revogação'}</span>
-      <Button variant="outline" disabled={!pronto} onClick={() => executar(() => autorizacaoApi.revogar(r.id, fundamento))}>Revogar</Button></div>)}
-    {usuario.ativo && dados.pessoa_id && <form className="space-y-2" onSubmit={e => { e.preventDefault(); executar(() =>
-      autorizacaoApi.conceder(usuario.id, usuario.perfil === Perfil.AUDITOR && !dados.catalogo ? 'AUDITORIA_CONSULTAR' : acao, inicio ? new Date(inicio).toISOString() : new Date().toISOString(), fim ? new Date(fim).toISOString() : null, fundamento)) }}>
-      <label className="block">Serviço<select className="block max-w-full rounded border p-2" value={usuario.perfil === Perfil.AUDITOR && !dados.catalogo ? 'AUDITORIA_CONSULTAR' : acao} onChange={e => escolher(e.target.value)}>
-        {(dados.catalogo ?? Object.entries(servicos).filter(([s]) => (usuario.perfil !== Perfil.AUDITOR || s === 'AUDITORIA_CONSULTAR') &&
-          (s !== 'PRESIDENCIA_CONFERIR' || usuario.perfil === Perfil.ADMINISTRADOR)).map(([acao, rotulo]) => ({ acao, rotulo }))).map(s =>
-          <option key={s.acao} value={s.acao}>{s.rotulo}</option>)}</select></label>
-      <label className="block">Início (em branco para começar agora)<Input type="datetime-local" value={inicio} onChange={e => iniciar(e.target.value)}/></label>
-      <label className="block">Fim (opcional)<Input type="datetime-local" value={fim} onChange={e => terminar(e.target.value)}/></label>
-      <Button disabled={!pronto}>Registrar atribuição</Button></form>}
-    {!dados.pessoa_id && <p>Vincule a pessoa para atribuir serviços ou converter o perfil.</p>}
-    {dados.pode_converter && dados.catalogo && <ConverterConta id={usuario.id} catalogo={dados.catalogo} competencias={dados.competencias ?? []} />}
-    {alterar.isError && <p role="alert">{alterar.error instanceof ApiRequestError ? alterar.error.messages[0] : 'Não foi possível registrar a alteração.'}</p>}
-    {alterar.isSuccess && <p role="status">Alteração registrada.</p>}
-  </div>
+  const catalogo = dados.catalogo ?? Object.entries(servicos).filter(([s]) =>
+    (usuario.perfil !== Perfil.AUDITOR || s === 'AUDITORIA_CONSULTAR') &&
+    (s !== 'PRESIDENCIA_CONFERIR' || usuario.perfil === Perfil.ADMINISTRADOR)).map(([acao, rotulo]) => ({ acao, rotulo }))
+  const rotulos = new Map(catalogo.map(s => [s.acao, s.rotulo]))
+  for (const s of dados.servicos_propostos) {
+    if (s.rotulo) rotulos.set(s.acao, s.rotulo)
+  }
+  const selecionado = catalogo.find(s => s.acao === acao)?.acao ?? catalogo[0]?.acao
+  const podeConceder = usuario.ativo && !!dados.pessoa_id && !!selecionado
+  const abas: Aba[] = [
+    { id: 'atuacao', nome: 'Atuação', conteudo: <div className="space-y-5">
+      <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/50 p-4">
+        <div className="space-y-1">
+          <h3 className="font-semibold">Conta de atuação institucional</h3>
+          <p className="text-sm text-muted-foreground">{dados.conta_atuacao ? 'Conta selecionada para atuação institucional.' :
+            dados.selecionada_id ? 'A atuação institucional usa outra conta desta pessoa.' : 'Esta conta não está selecionada para atuação institucional.'}</p>
+        </div>
+        {elegivel && <Button variant="outline" disabled={!pronto} onClick={() => executar(() =>
+          autorizacaoApi.escolher(dados.pessoa_id!, dados.selecionada_id ?? null, dados.conta_atuacao ? null : usuario.id, fundamento))}>
+          {dados.conta_atuacao ? 'Retirar conta de atuação' : dados.selecionada_id ? 'Trocar a atuação para esta conta' : 'Selecionar como conta de atuação'}
+        </Button>}
+      </section>
+      <Cargos dados={dados}/>
+    </div> },
+    { id: 'atribuicoes', nome: 'Atribuições', manter: true, conteudo: <div className="space-y-4">
+      {podeConceder && <details className="group rounded-lg border">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-3 text-sm font-semibold text-purple">
+          Nova atribuição <ChevronDown className="size-4 group-open:rotate-180" aria-hidden="true"/>
+        </summary>
+        <form className="space-y-3 border-t p-3" onSubmit={e => {
+          e.preventDefault()
+          if (!pronto || !selecionado) return
+          executar(() => autorizacaoApi.conceder(usuario.id, selecionado, inicio ? new Date(inicio).toISOString() : new Date().toISOString(),
+            fim ? new Date(fim).toISOString() : null, fundamento))
+        }}>
+          <label className="block space-y-1 text-sm font-medium">
+            <span>Serviço</span>
+            <select className="h-10 w-full rounded-md border border-input bg-card px-3" value={selecionado} onChange={e => escolher(e.target.value)}>
+              {catalogo.map(s => <option key={s.acao} value={s.acao}>{s.rotulo}</option>)}
+            </select>
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block min-w-0 space-y-1 text-sm font-medium">
+              <span>Início (em branco para começar agora)</span>
+              <Input type="datetime-local" value={inicio} onChange={e => iniciar(e.target.value)}/>
+            </label>
+            <label className="block min-w-0 space-y-1 text-sm font-medium">
+              <span>Fim (opcional)</span>
+              <Input type="datetime-local" value={fim} onChange={e => terminar(e.target.value)}/>
+            </label>
+          </div>
+          <Button disabled={!pronto}>Registrar atribuição</Button>
+        </form>
+      </details>}
+      <section className="space-y-2">
+        <h3 className="font-semibold">Atribuições de serviço na igreja</h3>
+        {dados.atribuicoes.length ? <ul className="divide-y rounded-lg border">{dados.atribuicoes.map(r => {
+          const rotulo = rotulos.get(r.acao) ?? nomeServico(r.acao)
+          return <li key={r.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-2.5 text-sm">
+            <div className="min-w-0 break-words">
+              <p className="font-medium">{rotulo}</p>
+              <p className="text-xs text-muted-foreground">{dataHora(r.inicio)} até {r.fim ? dataHora(r.fim) : 'revogação'}</p>
+            </div>
+            {r.concessao_modelo_id ?
+              <Link className="text-xs font-medium text-purple hover:underline" to="/perfis-atuacao">Concedida por perfil</Link> :
+              <Button variant="outline" size="sm" disabled={!pronto} aria-label={'Revogar ' + rotulo}
+                onClick={() => executar(() => autorizacaoApi.revogar(r.id, fundamento))}>Revogar</Button>}
+          </li>
+        })}</ul> : <p className="text-sm text-muted-foreground">Nenhuma atribuição registrada para esta conta.</p>}
+        {!dados.pessoa_id && <p className="text-sm">Vincule a pessoa para atribuir serviços ou converter o perfil.</p>}
+      </section>
+    </div> },
+  ]
+  if (dados.pode_salvar_modelo_atuacao) abas.push({ id: 'perfis', nome: 'Perfis',
+    conteudo: <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="font-semibold">Criar perfil com as permissões desta conta</h3>
+        <Link className="text-sm font-medium text-purple hover:underline" to="/perfis-atuacao">Gerenciar perfis</Link>
+      </div>
+      <CriarPerfilAtuacao iniciais={dados.servicos_propostos.filter(s => s.permite &&
+        dados.atribuicoes.some(r => r.acao === s.acao && !r.concessao_modelo_id)).map(s => s.acao)}/>
+    </div> })
+  if (dados.pode_converter && dados.catalogo) abas.push({ id: 'conversao', nome: 'Conversão', manter: true,
+    conteudo: <ConverterConta id={usuario.id} catalogo={dados.catalogo} competencias={dados.competencias ?? []}/> })
+  const ativa = abas.some(a => a.id === aba) ? aba : 'atuacao'
+  const pedeFundamento = ativa === 'atuacao' ? elegivel : ativa === 'atribuicoes' && (podeConceder || dados.atribuicoes.length > 0)
+
+  return <>
+    <Abas titulo="Atuação da conta" abas={abas} ativa={ativa} selecionar={selecionar} rolagemInterna/>
+    {(pedeFundamento || alterar.isError || alterar.isSuccess) && <div className="shrink-0 space-y-2 border-t bg-card px-4 py-3 text-sm sm:px-6">
+      {pedeFundamento && <label className="block space-y-1 font-medium">
+        <span>Fundamento da alteração</span>
+        <Input value={fundamento} maxLength={1000} onChange={e => justificar(e.target.value)}/>
+      </label>}
+      {alterar.isError && <p className="text-destructive" role="alert">{alterar.error instanceof ApiRequestError ? alterar.error.messages[0] : 'Não foi possível registrar a alteração.'}</p>}
+      {alterar.isSuccess && <p role="status">Alteração registrada.</p>}
+    </div>}
+  </>
 }
 
 export function ConferenciaPresidencia({ id }: { id: string }) {
@@ -84,25 +164,29 @@ export function ConferenciaPresidencia({ id }: { id: string }) {
 }
 
 export function HistoricoAcessos({ usuarios }: { usuarios: Usuario[] }) {
-  const [aberto, abrir] = useState(false), [cursor, paginar] = useState<string>()
+  const [cursor, paginar] = useState<string>()
   const ator = useAuthStore(s => s.user)
   const q = useQuery({ queryKey: ['autorizacao', ator?.igreja_id, ator?.sub, 'historico', cursor],
-    queryFn: () => autorizacaoApi.historico(cursor), enabled: aberto, gcTime: 0 })
+    queryFn: () => autorizacaoApi.historico(cursor), gcTime: 0 })
   const nomes = new Map(usuarios.map(u => [u.id, u.nome_usuario]))
-  return <section className="rounded-lg border p-3"><Button variant="outline" aria-expanded={aberto} onClick={() => abrir(!aberto)}>Histórico de autorização</Button>
-    {aberto && <div className="mt-3 space-y-2">{q.isPending ? <p>Consultando histórico…</p> : q.isError ? <p role="alert">Histórico indisponível.</p> :
+  return <section className="surface space-y-3"><h3 className="font-semibold">Histórico de autorização</h3>
+    <div className="space-y-2">{q.isPending ? <p role="status">Consultando histórico…</p> : q.isError ? <p role="alert">Histórico indisponível.</p> :
       <>{!q.data.itens.length && <p>Nenhuma decisão registrada.</p>}{q.data.itens.map(e => <article key={e.id} className="rounded border p-2">
         <p className="font-semibold">{e.dados.acao ?? e.acao} · {new Date(e.instante).toLocaleString()}</p>
         <p>Operador {nomes.get(e.operador_id) ?? e.operador_id}{e.destinatario_id && ' · Conta avaliada ' + (nomes.get(e.destinatario_id) ?? e.destinatario_id)}</p>
         {e.acao === 'DIVERGENCIA' && <p>Política atual {e.dados.legado ? 'permite' : 'recusa'} · Proposta {e.dados.proposta ? 'permite' : 'recusa'}</p>}
         <p>{e.fundamento}</p>{e.recurso_id && <small>Recurso {e.recurso_id}</small>}</article>)}
         {cursor && <Button variant="outline" onClick={() => paginar(undefined)}>Mais recentes</Button>}
-        {q.data.proximo_cursor && <Button variant="outline" onClick={() => paginar(q.data.proximo_cursor!)}>Mais antigos</Button>}</>}</div>}
+        {q.data.proximo_cursor && <Button variant="outline" onClick={() => paginar(q.data.proximo_cursor!)}>Mais antigos</Button>}</>}</div>
   </section>
 }
 
 function nomeServico(acao: Servico) {
   return servicos[acao as keyof typeof servicos] ?? acao
+}
+
+function dataHora(instante: string) {
+  return new Date(instante).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
 }
 
 function ConverterConta({ id, catalogo, competencias }: {
@@ -122,10 +206,10 @@ function ConverterConta({ id, catalogo, competencias }: {
     },
   })
   const erro = revisar.error ?? converter.error
-  return <details className="space-y-3 rounded border p-3">
-    <summary className="cursor-pointer font-semibold">Converter perfil legado em conta comum</summary>
+  return <section className="space-y-4">
+    <h3 className="font-semibold">Converter perfil legado em conta comum</h3>
     <p>Escolha as operações que a conta deve exercer. A prévia compara as rotas. A conversão encerra as sessões ativas e preserva a seleção de atuação já registrada.</p>
-    <div className="grid max-h-48 gap-2 overflow-auto md:grid-cols-2">
+    <div className="grid gap-2 rounded-lg border p-3 text-sm sm:grid-cols-2">
       {catalogo.filter(s => s.acao !== 'PRESIDENCIA_CONFERIR').map(s => <label key={s.acao} className="flex items-start gap-2">
         <input type="checkbox" checked={acoes.includes(s.acao)} onChange={e => {
           escolher(e.target.checked ? [...acoes, s.acao] : acoes.filter(acao => acao !== s.acao))
@@ -161,5 +245,5 @@ function ConverterConta({ id, catalogo, competencias }: {
       <Button type="button" disabled={!fundamento.trim() || converter.isPending} onClick={() => converter.mutate()}>Confirmar conversão</Button>
     </div>}
     {erro && <p role="alert">{erro instanceof ApiRequestError ? erro.messages.join(' ') : 'Não foi possível registrar a conversão.'}</p>}
-  </details>
+  </section>
 }

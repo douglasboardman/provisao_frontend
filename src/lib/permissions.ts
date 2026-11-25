@@ -6,6 +6,7 @@ export type Module =
   | "cat-receita" | "despesas" | "receitas" | "lancamentos" | "logs"
   | "regras-relacao-enum" | "secretaria" | "profissoes"
   | "tratamentos" | "solicitacoes-acesso" | "autorizacoes-financeiras" | "balanco-mensal" | "oficiais" | "orgaos"
+  | "perfis-atuacao"
 
 export type Action = "view" | "create" | "edit" | "delete"
 
@@ -16,6 +17,7 @@ const PERMISSIONS: PermissionMap = {
   [Perfil.ADMINISTRADOR]: {
     secretaria: ["view"],
     usuarios: ["view", "create", "edit", "delete"],
+    "solicitacoes-acesso": ["view", "edit"],
     igreja: ["view"],
     pessoas: ["view"],
     "grupos-familiares": ["view"],
