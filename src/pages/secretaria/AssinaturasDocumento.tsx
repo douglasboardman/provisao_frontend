@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { assinaturasApi, dataAssinatura, modalidadeLabel, verificacaoUrl, type Expedicao, type Signatario } from '../../api/assinaturas'
 import type { ContextoSecretaria, DocumentoDetalhe } from '../../api/secretaria'
+import { useArtefatosDocumento } from './ArtefatosDocumento'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Area, Campo, Check, Salvar, useComando } from './formulario'
@@ -16,10 +17,11 @@ const estados: Record<Expedicao['estado'], string> = {
 }
 const link = 'underline underline-offset-4'
 
-export function AssinaturasDocumento({ documento: d, contexto, identidade }: {
-  documento: DocumentoDetalhe; contexto: ContextoSecretaria; identidade: string
+export function AssinaturasDocumento({ documento: d, contexto, identidade, versaoId }: {
+  documento: DocumentoDetalhe; contexto: ContextoSecretaria; identidade: string; versaoId: string
 }) {
   const client = useQueryClient()
+  const arquivos = useArtefatosDocumento(d, identidade)
   const consulta = useQuery({
     queryKey: ['secretaria', identidade, 'assinaturas', d.id, d.revisao],
     queryFn: () => assinaturasApi.listar(d.id),
@@ -36,19 +38,19 @@ export function AssinaturasDocumento({ documento: d, contexto, identidade }: {
   }, [client, contexto.id, d.estado, fluxoAtual?.estado, identidade])
 
   if (!d.versoes.some(v => !!v.congelado_em)) return null
-  return <section className="space-y-3 rounded border p-3" aria-label="Assinaturas e expedição">
+  return <section className="space-y-3 rounded border p-3" id="assinaturas-documento" tabIndex={-1} aria-label="Assinaturas e expedição">
     <h4 className="font-semibold">Assinaturas e expedição</h4>
     {consulta.isPending && <p>Consultando assinaturas…</p>}
     {consulta.isError && <p role="alert">Falha ao consultar assinaturas. <Button variant="outline" onClick={() => void consulta.refetch()}>Tentar novamente</Button></p>}
-    {consulta.isSuccess && d.estado === 'APROVADO' && !fluxoAtual && <p>Esta versão foi aprovada antes da habilitação de assinaturas. Prepare uma nova versão para iniciar a coleta.</p>}
-    {d.versoes.map(v => {
+    {consulta.isSuccess && d.estado === 'APROVADO' && versaoId === atual?.id && !fluxoAtual && <p>Esta versão foi aprovada antes da habilitação de assinaturas. Prepare uma nova versão para iniciar a coleta.</p>}
+    {d.versoes.filter(v => v.id === versaoId).map(v => {
       const e = consulta.data?.find(e => e.versao_id === v.id)
-      return e && <ExpedicaoVersao key={e.versao_id} e={e} numero={v.numero} d={d} competente={contexto.pode_aprovar} />
+      return e && <ExpedicaoVersao key={e.versao_id} e={e} numero={v.numero} d={d} matrizPronta={!!e.matriz_sha256 || !!arquivos.data?.some(a => a.versao_id === v.id && a.finalidade === 'MATRIZ_APROVADA' && a.estado === 'CONCLUIDO')} competente={contexto.pode_aprovar} />
     })}
   </section>
 }
 
-function ExpedicaoVersao({ e, d, numero, competente }: { e: Expedicao; d: DocumentoDetalhe; numero: number; competente: boolean }) {
+function ExpedicaoVersao({ e, d, numero, competente, matrizPronta }: { e: Expedicao; d: DocumentoDetalhe; numero: number; competente: boolean; matrizPronta: boolean }) {
   const base = { versao_id: e.versao_id, revisao: d.revisao }
   const arquivo = (tipo: 'via' | 'scan' | 'final' | 'manifesto') => assinaturasApi.arquivoUrl(d.id, e.versao_id, tipo)
   const comandos = useComando<{ acao: 'via' | 'repetir' }>(dados => {
@@ -61,6 +63,7 @@ function ExpedicaoVersao({ e, d, numero, competente }: { e: Expedicao; d: Docume
   return <details className="space-y-3 rounded border p-3" open={atual}>
     <summary className="cursor-pointer font-medium">Versão {numero} · {modalidadeLabel[e.modalidade]}</summary>
     <p role="status">{estados[e.estado]}{e.expedido_em && ` em ${dataAssinatura(e.expedido_em, e.fuso_iana)} (${e.fuso_iana})`}</p>
+    {podeColetar && !matrizPronta && <p>A coleta poderá começar quando a matriz aprovada estiver disponível.</p>}
     <ul className="space-y-2">
       {e.signatarios.map(a => <li key={a.id} className="border-b pb-2">
         <p>{a.nome} · {a.obrigatorio ? 'Obrigatório' : 'Opcional'}</p>
@@ -73,7 +76,7 @@ function ExpedicaoVersao({ e, d, numero, competente }: { e: Expedicao; d: Docume
           Convite {a.convite.estado.toLowerCase()}{a.convite.estado === 'PENDENTE' && a.convite.entrega ? ` · E-mail: ${a.convite.entrega.toLowerCase()}` : ''}
           {a.convite.motivo_recusa && ` · ${a.convite.motivo_recusa}`}
         </p>}
-        {podeColetar && e.modalidade === 'ELETRONICA' && !a.assinatura && a.convite?.estado !== 'RECUSADO' &&
+        {podeColetar && matrizPronta && e.modalidade === 'ELETRONICA' && !a.assinatura && a.convite?.estado !== 'RECUSADO' &&
           <ConviteForm doc={d.id} base={base} signatario={a} />}
       </li>)}
     </ul>
@@ -81,8 +84,8 @@ function ExpedicaoVersao({ e, d, numero, competente }: { e: Expedicao; d: Docume
       {derivacao ? 'Reimprimir derivação para coleta física' : 'Reimprimir via aprovada para coleta'}
     </a>}
     {!e.via_sha256 && ((e.modalidade === 'FISICA' && podeColetar) || (derivacao && competente && d.estado === 'EXPEDIDO')) &&
-      <Button type="button" variant="outline" disabled={comandos.isPending} onClick={() => comandos.mutate({ acao: 'via' })}>
-        {derivacao ? 'Gerar derivação para coleta física' : 'Gerar via aprovada para coleta'}
+      <Button type="button" variant="outline" disabled={!matrizPronta || comandos.isPending} onClick={() => comandos.mutate({ acao: 'via' })}>
+        {derivacao ? 'Gerar derivação para coleta física' : 'Gerar impressão para assinatura'}
       </Button>}
     {podeColetar && e.modalidade === 'FISICA' && e.via_sha256 && <ConferenciaForm e={e} doc={d.id} base={base} viaSha256={e.via_sha256} />}
     {e.conferencia && <div className="space-y-1">

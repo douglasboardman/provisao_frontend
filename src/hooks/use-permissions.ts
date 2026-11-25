@@ -1,30 +1,18 @@
 import { useAuthStore } from "../stores/auth"
-import { hasPermission, canAccessModule, type Module, type Action } from "../lib/permissions"
+import { hasPermission, type Module, type Action } from "../lib/permissions"
+import { useNavegacao } from './use-navegacao'
 
 export function usePermissions(module: Module) {
-  const user = useAuthStore((s) => s.user)
-
-  if (!user) {
-    return {
-      canView: false,
-      canCreate: false,
-      canEdit: false,
-      canDelete: false,
-      can: (_action: Action) => false,
-    }
+  const user = useAuthStore(s => s.user)
+  const navegacao = useNavegacao()
+  function can(action: Action) {
+    if (!user) return false
+    const opcoes = navegacao.data?.permissoes[module]
+    return opcoes ? opcoes.includes(action) : hasPermission(user.perfil, module, action)
   }
-
-  return {
-    canView: hasPermission(user.perfil, module, "view"),
-    canCreate: hasPermission(user.perfil, module, "create"),
-    canEdit: hasPermission(user.perfil, module, "edit"),
-    canDelete: hasPermission(user.perfil, module, "delete"),
-    can: (action: Action) => hasPermission(user.perfil, module, action),
-  }
+  return { canView: can('view'), canCreate: can('create'), canEdit: can('edit'), canDelete: can('delete'), can }
 }
 
-export function useCanAccessModule(module: Module): boolean {
-  const user = useAuthStore((s) => s.user)
-  if (!user) return false
-  return canAccessModule(user.perfil, module)
+export function useCanAccessModule(module: Module) {
+  return usePermissions(module).canView
 }

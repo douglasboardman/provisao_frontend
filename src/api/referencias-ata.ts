@@ -31,13 +31,14 @@ export interface AtaOpcao {
   data: string; contexto: string; numero_formatado?: string; estado: string
 }
 export interface BuscaAtaOpcao extends AtaOpcao {
+  reconvocacao?: boolean
   versao_id: string; contexto_id: string; assunto: string; pauta: string; arrolados: string[]
   resolucoes: { assunto: string; resultado: ResultadoResolucao; texto: string | null }[]
 }
 export type PaginaSelecao = Pagina<BuscaAtaOpcao> & { contextos: { id: string; nome: string; sigla: string }[] }
 interface Revisao {
   id: string; justificativa: string; criado_em: string; operador: string
-  situacao: SituacaoAta; referencia_externa: ReferenciaExterna | null; ata: AtaOpcao | null
+  situacao: SituacaoAta; referencia_externa: ReferenciaExterna | null; ata: (AtaOpcao & { contexto_id: string; versao_id: string }) | null
 }
 export interface ItemDocumental extends AlvoAta {
   tipo: string; titulo: string; data: string | null; orgao_id: string | null; versao: number | null; situacao: SituacaoAta

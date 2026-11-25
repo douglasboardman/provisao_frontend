@@ -1,4 +1,8 @@
-import { lazy } from 'react'
+import { AccessRequestsPanel } from './pages/configuracoes/AccessRequestsPanel'
+import { AutorizacoesFinanceiras } from './pages/secretaria/AutorizacoesFinanceiras'
+import { FormularioSenha } from './pages/perfil/FormularioSenha'
+import { MinhaContaComum } from './pages/configuracoes/AtuacaoConta'
+import { lazy, Suspense } from 'react'
 import { useRecurso } from './lib/recursos'
 import { ConviteAssinaturaPage, VerificacaoAssinaturaPage } from './pages/assinaturas/PortalAssinaturas'
 import { Routes, Route, Navigate } from "react-router"
@@ -25,6 +29,9 @@ import { AcoesPage } from "./pages/acoes/AcoesPage"
 import { UsuariosPage } from "./pages/configuracoes/UsuariosPage"
 import { MfaPage } from "./pages/configuracoes/MfaPage"
 
+const MinhaAssembleia = lazy(() => import('./pages/secretaria/MinhaAssembleia'))
+const PresidenciaAssembleia = lazy(() => import('./pages/secretaria/PresidenciaAssembleia'))
+const EditorSecretariaPage = lazy(() => import('./pages/secretaria/editor/EditorSecretariaPage'))
 const SecretariaPage = lazy(() => import('./pages/secretaria/SecretariaPage').then(m => ({ default: m.SecretariaPage })))
 const PerfilPage = lazy(() => import('./pages/perfil/PerfilPage').then(m => ({ default: m.PerfilPage })))
 const OficiaisPage = lazy(() => import('./pages/oficiais/OficiaisPage').then(m => ({ default: m.OficiaisPage })))
@@ -38,7 +45,7 @@ const GruposFamiliaresPage = lazy(() => import('./pages/grupos-familiares/Grupos
 function OficiaisRoute() {
   const governancaHabilitada = useRecurso('governanca')
   const perfil = useAuthStore((s) => s.user?.perfil)
-  if (!governancaHabilitada || !perfil || ![Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO, Perfil.AUDITOR].includes(perfil)) return <Navigate to="/dashboard" replace />
+  if (!governancaHabilitada || !perfil || ![Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO, Perfil.AUDITOR, Perfil.COMUM].includes(perfil)) return <Navigate to="/dashboard" replace />
   return <OficiaisPage />
 }
 
@@ -46,20 +53,22 @@ function OrgaosRoute() {
   const orgaosHabilitados = useRecurso('orgaos')
   const governancaHabilitada = useRecurso('governanca')
   const perfil = useAuthStore((s) => s.user?.perfil)
-  if (!governancaHabilitada || !orgaosHabilitados || !perfil || ![Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO, Perfil.AUDITOR].includes(perfil)) return <Navigate to="/dashboard" replace />
+  if (!governancaHabilitada || !orgaosHabilitados || !perfil || ![Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO, Perfil.AUDITOR, Perfil.COMUM].includes(perfil)) return <Navigate to="/dashboard" replace />
   return <OrgaosPage />
 }
 
-function SecretariaRoute() {
+function SecretariaRoute({ editor = false }: { editor?: boolean }) {
   const secretariaHabilitada = useRecurso('secretaria')
   const perfil = useAuthStore(s => s.user?.perfil)
-  if (!secretariaHabilitada || !perfil || ![Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO, Perfil.AUDITOR].includes(perfil)) return <Navigate to="/dashboard" replace />
-  return <SecretariaPage />
+  if (!secretariaHabilitada || !perfil || ![Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO, Perfil.AUDITOR, Perfil.COMUM].includes(perfil)) return <Navigate to="/dashboard" replace />
+  return editor ? <Suspense fallback={<p role="status">Carregando editor…</p>}><EditorSecretariaPage /></Suspense> : <SecretariaPage />
 }
 
 function App() {
+  const comum = useAuthStore(s => s.user?.perfil === Perfil.COMUM)
   return (
     <Routes>
+      <Route path="/minha-assembleia" element={<Suspense fallback={<p>Carregando assembleia…</p>}><MinhaAssembleia/></Suspense>}/>
       <Route path="/assinaturas/convite" element={<ConviteAssinaturaPage />} />
       <Route path="/assinaturas/verificar" element={<VerificacaoAssinaturaPage />} />
       <Route path="/login" element={<AuthLayout />}>
@@ -82,11 +91,13 @@ function App() {
       </Route>
 
       <Route element={<ProtectedRoute />}>
+        <Route path="/assembleia/:reuniao/presidencia" element={<Suspense fallback={<p>Carregando presidência…</p>}><PresidenciaAssembleia/></Suspense>}/>
+        <Route path="/secretaria/:contextoId/editor/:entidade/:id" element={<SecretariaRoute editor />} />
         <Route path="/" element={<AppLayout />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="mfa-obrigatorio" element={<MfaPage />} />
-          <Route path="perfil" element={<PerfilPage />} />
-          <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="perfil" element={comum ? <section className="surface space-y-3"><h1 className="text-xl font-semibold">Segurança da conta</h1><FormularioSenha/><MfaPage/></section> : <PerfilPage />} />
+          <Route path="dashboard" element={comum ? <MinhaContaComum /> : <DashboardPage />} />
 
           {/* Membresia */}
           <Route path="oficiais" element={<OficiaisRoute />} />
@@ -113,6 +124,8 @@ function App() {
 
           {/* Administração */}
           <Route path="acoes" element={<AcoesPage />} />
+          <Route path="solicitacoes-acesso" element={<AccessRequestsPanel />} />
+          <Route path="autorizacoes-financeiras" element={<AutorizacoesFinanceiras />} />
           <Route path="usuarios" element={<UsuariosPage />} />
           <Route path="configuracoes" element={<ConfiguracoesPage />} />
         </Route>

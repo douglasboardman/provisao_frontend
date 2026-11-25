@@ -6,6 +6,8 @@ import { orgaosApi } from '../../api/orgaos'
 import { Button } from '../../components/ui/button'
 
 export const tiposAtosOrgao: Record<string, string> = {
+  ATIVACAO_SOCIEDADE: 'Ativação da sociedade', INSTITUICAO_MINISTERIO: 'Instituição do ministério',
+  MANUTENCAO_MINISTERIO: 'Manutenção do ministério', PROVIMENTO: 'Provimento de cargo',
   CADASTRO_OFICIAL: 'Cadastro do órgão oficial',
   INSTITUICAO: 'Instituição', MANUTENCAO: 'Manutenção cadastral', CONDUCAO_REUNIAO: 'Condução excepcional de reunião', CONFIGURACAO_CARGO: 'Cadastro de cargo', CONFIGURACAO_ACUMULACAO: 'Regra de acumulação',
   POLITICA_UNIDADE: 'Política da unidade', PARTICIPACAO_INCLUSAO: 'Inclusão de participante', PARTICIPACAO_SAIDA: 'Saída de participante',
@@ -41,9 +43,12 @@ function DetalheAto({ orgao, ato, identidade }: { orgao: string; ato: string; id
   return <div>
     <Button type="button" variant="ghost" onClick={() => setAberto(v => !v)}>{aberto ? 'Fechar detalhes do registro' : 'Consultar detalhes do registro'}</Button>
     {aberto && (consulta.isPending ? <p>Consultando...</p> : consulta.isError ? <p role="alert">Não foi possível consultar o registro.</p> : consulta.data && <div className="rounded border p-3">
-      {consulta.data.autoridade && <p>Autoridade declarada: {consulta.data.autoridade}</p>}
+      {consulta.data.autoridade && <p>Autoridade declarada: {consulta.data.retrato?.pessoas?.find(p => p.id === consulta.data!.autoridade)?.nome ?? consulta.data.autoridade}</p>}
       {consulta.data.evidencia && <p>Evidência: {consulta.data.evidencia}</p>}
       {consulta.data.retrato ? <><p>Órgão no registro: {consulta.data.retrato.orgao?.nome}</p>{consulta.data.retrato.pessoas?.map(p => <p key={p.id}>Pessoa no registro: {p.nome}</p>)}</> : <p>Identificação histórica indisponível para este ato anterior.</p>}
+      {typeof consulta.data.detalhes.modo === 'string' && <p>Provimento: {consulta.data.detalhes.modo === 'ELEICAO' ? 'Eleição' : consulta.data.detalhes.modo === 'DESIGNACAO' ? 'Designação' : 'Nomeação pelo Conselho'}</p>}
+      {typeof consulta.data.detalhes.aprovacao_conselho === 'string' && <p>Aprovação do Conselho: {consulta.data.detalhes.aprovacao_conselho}</p>}
+      {typeof consulta.data.detalhes.posse === 'string' && <p>Posse: {consulta.data.detalhes.posse}</p>}
       {typeof consulta.data.detalhes.motivo === 'string' && <p>Motivo: {consulta.data.detalhes.motivo}</p>}
       {typeof consulta.data.detalhes.fundamento === 'string' && <p>Fundamento: {consulta.data.detalhes.fundamento}</p>}
       {typeof consulta.data.detalhes.limites_pauta === 'string' && <p>Limites da pauta: {consulta.data.detalhes.limites_pauta}</p>}

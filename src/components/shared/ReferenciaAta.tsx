@@ -46,7 +46,7 @@ function PainelReferencia({ alvo, identidade }: { alvo: AlvoAta; identidade: str
     {consulta.data && <p className="text-muted-foreground">Confira no acervo se o ato consta no texto da ata. O vínculo identifica a referência informada.</p>}
     {consulta.data?.itens.map(r => <article key={r.id} className="space-y-1 border-l pl-3">
       <p>{situacoesAta[r.situacao]} · {r.operador} · {new Date(r.criado_em).toLocaleString('pt-BR')}</p>
-      {r.ata && <p>{identificacao(r.ata)}</p>}
+      {r.ata && <p>{identificacao(r.ata)} {r.ata.contexto_id && <a className="underline" href={`/secretaria/${r.ata.contexto_id}/documentos/${r.ata.documento_id}?versao=${r.ata.versao_id}`}>Abrir versão da ata</a>}</p>}
       {r.referencia_externa && <p>{[r.referencia_externa.origem, r.referencia_externa.concilio, r.referencia_externa.identificacao, formatarDataCivil(r.referencia_externa.data), r.referencia_externa.livro && `Livro ${r.referencia_externa.livro}`, r.referencia_externa.paginas && `Páginas ${r.referencia_externa.paginas}`, r.referencia_externa.localizacao].filter(Boolean).join(' · ')}</p>}
       <p className="whitespace-pre-wrap">{r.justificativa}</p>
     </article>)}

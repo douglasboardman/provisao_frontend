@@ -7,6 +7,7 @@ export enum EstadoBrasil {
 }
 
 export enum Perfil {
+  COMUM = "COMUM",
   ADMINISTRADOR = "ADMINISTRADOR",
   GESTOR = "GESTOR",
   TESOUREIRO = "TESOUREIRO",

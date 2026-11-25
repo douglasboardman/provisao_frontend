@@ -1,3 +1,4 @@
+import { useNavegacao } from '../../hooks/use-navegacao'
 import {
   Home, Users, UsersRound, BookUser, IdCard,
   Landmark, ArrowRightLeft, TrendingUp, TrendingDown, Scale,
@@ -23,7 +24,7 @@ const navEntries: NavEntry[] = [
 
   { kind: "group", label: "Membresia" },
   { kind: "item", path: "/oficiais", icon: IdCard, label: "Oficiais" },
-  { kind: "item", path: "/orgaos", icon: Landmark, label: "Órgãos e unidades" },
+  { kind: "item", path: "/orgaos", icon: Landmark, label: "Estrutura da igreja" },
   { kind: "item", path: "/secretaria", icon: BookUser, label: "Secretaria", modules: ["secretaria"] },
   { kind: "item", path: "/pessoas", icon: Users, label: "Pessoas", modules: ["pessoas"] },
   { kind: "item", path: "/grupos-familiares", icon: UsersRound, label: "Grupos Familiares", modules: ["grupos-familiares"] },
@@ -33,7 +34,7 @@ const navEntries: NavEntry[] = [
   { kind: "group", label: "Financeiro" },
   { kind: "item", path: "/contas", icon: Landmark, label: "Contas", modules: ["contas"] },
   { kind: "item", path: "/lancamentos", icon: ArrowRightLeft, label: "Lançamentos", modules: ["lancamentos"] },
-  { kind: "item", path: "/balanco-mensal", icon: Scale, label: "Balanço Mensal", modules: ["lancamentos"] },
+  { kind: "item", path: "/balanco-mensal", icon: Scale, label: "Balanço Mensal", modules: ["balanco-mensal"] },
 
   { kind: "group", label: "Cadastros" },
   { kind: "item", path: "/cat-receita", icon: TrendingUp, label: "Receitas", modules: ["cat-receita"] },
@@ -41,11 +42,14 @@ const navEntries: NavEntry[] = [
   { kind: "item", path: "/acoes", icon: Sprout, label: "Ações", modules: ["acoes"] },
 
   { kind: "group", label: "Administração" },
+  { kind: "item", path: "/solicitacoes-acesso", icon: UserCog, label: "Solicitações de acesso", modules: ["solicitacoes-acesso"] },
+  { kind: "item", path: "/autorizacoes-financeiras", icon: Scale, label: "Autorizações financeiras", modules: ["autorizacoes-financeiras"] },
   { kind: "item", path: "/usuarios", icon: UserCog, label: "Usuários", modules: ["usuarios"] },
-  { kind: "item", path: "/configuracoes", icon: Settings, label: "Configurações", modules: ["igreja", "logs"] },
+  { kind: "item", path: "/configuracoes", icon: Settings, label: "Configurações", modules: ["igreja", "logs", "profissoes", "regras-relacao-enum"] },
 ]
 
 const PERFIL_LABELS: Record<Perfil, string> = {
+  [Perfil.COMUM]: "Conta comum",
   [Perfil.ADMINISTRADOR]: "Administrador",
   [Perfil.AUDITOR]: "Auditor",
   [Perfil.OPERADOR]: "Operador",
@@ -54,7 +58,7 @@ const PERFIL_LABELS: Record<Perfil, string> = {
   [Perfil.GESTOR]: "Gestor",
 }
 
-function filterNav(entries: NavEntry[], perfil: Perfil): NavEntry[] {
+function filterNav(entries: NavEntry[], podeVer: (modulo: Module) => boolean): NavEntry[] {
   const filtered: NavEntry[] = []
 
   for (let i = 0; i < entries.length; i++) {
@@ -65,11 +69,11 @@ function filterNav(entries: NavEntry[], perfil: Perfil): NavEntry[] {
         nextItems.push(entries[j] as NavItem)
       }
       const hasVisible = nextItems.some(
-        (item) => !item.modules || item.modules.some((m) => canAccessModule(perfil, m)),
+        (item) => !item.modules || item.modules.some((m) => podeVer(m)),
       )
       if (hasVisible) filtered.push(entry)
     } else {
-      if (!entry.modules || entry.modules.some((m) => canAccessModule(perfil, m))) {
+      if (!entry.modules || entry.modules.some((m) => podeVer(m))) {
         filtered.push(entry)
       }
     }
@@ -91,12 +95,17 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     enabled: governanca && !!user && !user.mfa_enrollment_required && [Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO].includes(perfil), refetchInterval: 60_000 })
   const pendentes = notificacoes.data?.filter(item => !item.lido_em).length ?? 0
   const acessoInstitucional = [Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO, Perfil.AUDITOR].includes(perfil)
-  const liberados: Record<string, boolean> = {
-    '/oficiais': governanca && acessoInstitucional,
-    '/orgaos': governanca && orgaos && acessoInstitucional,
-    '/secretaria': secretaria,
+  const navegacao = useNavegacao()
+  const podeVer = (modulo: Module) => {
+    const acoes = navegacao.data?.permissoes[modulo]
+    return acoes ? acoes.includes('view') || modulo === 'pessoas' && acoes.includes('create') : canAccessModule(perfil, modulo)
   }
-  const visibleEntries = filterNav(navEntries.filter(entry => entry.kind === 'group' || liberados[entry.path] !== false), perfil)
+  const liberados: Record<string, boolean> = {
+    '/oficiais': governanca && (navegacao.data ? podeVer('oficiais') : acessoInstitucional),
+    '/orgaos': governanca && orgaos && (navegacao.data ? podeVer('orgaos') : acessoInstitucional),
+    '/secretaria': secretaria && podeVer('secretaria'),
+  }
+  const visibleEntries = filterNav(navEntries.filter(entry => entry.kind === 'group' || liberados[entry.path] !== false), podeVer)
 
   const initials = user?.username
     ? user.username.slice(0, 2).toUpperCase()

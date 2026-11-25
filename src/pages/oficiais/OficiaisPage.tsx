@@ -1,3 +1,5 @@
+import { Link } from 'react-router'
+import { useCanAccessModule } from '../../hooks/use-permissions'
 import { SeletorPessoa } from '../../components/shared/SeletorPessoa'
 import { UsersRound, CalendarClock, BellRing, Vote, ShieldCheck, LayoutList } from 'lucide-react'
 import { WorkspaceHeader } from '../../components/shared/Workspace'
@@ -28,6 +30,8 @@ export function OficiaisPage() {
   const queryClient = useQueryClient()
   const perfil = useAuthStore(s => s.user?.perfil)
   const auditor = perfil === Perfil.AUDITOR
+  const comum = perfil === Perfil.COMUM
+  const ficha = useCanAccessModule('orgaos')
   const secretaria = useRecurso('secretaria')
   const [area, setArea] = useState('quadro')
   const [restrito, setRestrito] = useState<OficialResumo | null>(null)
@@ -41,7 +45,8 @@ export function OficiaisPage() {
   const [anteriores, setAnteriores] = useState<(string | undefined)[]>([])
   const [gerenciar, setGerenciar] = useState<OficialResumo | null>(null)
   const [selecionado, setSelecionado] = useState<OficialResumo | null>(null)
-  const acesso = useQuery({ queryKey: ['oficiais', identidade, 'meu-acesso'], queryFn: oficiaisApi.meuAcesso, staleTime: 0, gcTime: 0 })
+  const acesso = useQuery({ queryKey: ['oficiais', identidade, 'meu-acesso'], queryFn: oficiaisApi.meuAcesso, staleTime: 0, gcTime: 0, refetchInterval: 30_000 })
+  const historicoPermitido = !!acesso.data?.operacoes?.HISTORICO_OFICIAIS_CONSULTAR || !!acesso.data?.operacoes?.HISTORICO_OFICIAIS_REGISTRAR
   const pessoas = useQuery({ queryKey: ['oficiais', identidade, 'pessoas'], queryFn: pessoasApi.list, enabled: formAberto })
   const cadastrar = useMutation({ mutationFn: oficiaisApi.cadastrar, onSuccess: async () => { setPessoaId(''); setHistorico(false); setFormAberto(false); setCursor(undefined); setAnteriores([]); await queryClient.invalidateQueries({ queryKey: ['oficiais', identidade] }) } })
   const alterarSituacao = useMutation({
@@ -51,7 +56,7 @@ export function OficiaisPage() {
   const lista = useQuery({ queryKey: ['oficiais', identidade, cursor], queryFn: () => oficiaisApi.listar(cursor) })
   const exercicio = useQuery({ queryKey: ['oficiais', identidade, 'exercicio', selecionado?.id, data], queryFn: () => oficiaisApi.exercicio(selecionado!.id, data), enabled: !auditor && !!selecionado && !!data })
   const vigentes = useQuery({ queryKey: ['oficiais', identidade, 'vigentes', data], queryFn: () => oficiaisApi.vigentes(data), enabled: !auditor && !!data })
-  const alertas = useQuery({ queryKey: ['oficiais', identidade, 'alertas', data], queryFn: () => oficiaisApi.alertas(data, 90), enabled: !auditor && !!data })
+  const alertas = useQuery({ queryKey: ['oficiais', identidade, 'alertas', data], queryFn: () => oficiaisApi.alertas(data, 90), enabled: !auditor && !comum && !!data })
   function abrirRegistro(item: OficialResumo, painel: 'exercicio' | 'gestao' | 'restrito') {
     setSelecionado(painel === 'exercicio' ? item : null)
     setGerenciar(painel === 'gestao' ? item : null)
@@ -63,8 +68,8 @@ export function OficiaisPage() {
   return <div className="workspace"><WorkspaceHeader icon={UsersRound} title="Oficiais" description="Quadro de mandatos, exercício e registros eleitorais." />
     <nav aria-label="Áreas de oficiais" className="flex flex-wrap gap-2">{[
       {id:'quadro', nome:'Quadro de oficiais', icon:LayoutList, mostrar:true},
-      {id:'eleicao', nome:'Processo eleitoral', icon:Vote, mostrar:!auditor && secretaria},
-      {id:'avisos', nome:'Avisos e prazos', icon:BellRing, mostrar:!auditor},
+      {id:'eleicao', nome:'Processo eleitoral', icon:Vote, mostrar:!auditor && !comum && secretaria},
+      {id:'avisos', nome:'Avisos e prazos', icon:BellRing, mostrar:!auditor && !comum},
       {id:'acessos', nome:'Permissões', icon:ShieldCheck, mostrar:perfil === Perfil.ADMINISTRADOR},
     ].filter(a => a.mostrar).map(a => <Button key={a.id} aria-pressed={area === a.id} variant={area === a.id ? 'default' : 'outline'} onClick={() => setArea(a.id)}><a.icon />{a.nome}</Button>)}</nav>
     {(area === 'quadro' || area === 'avisos') && !auditor && <div className="max-w-xs space-y-2"><Label htmlFor="referencia-oficiais">Data de referência</Label><Input id="referencia-oficiais" type="date" value={data} onChange={e => setData(e.target.value)} /></div>}
@@ -77,7 +82,8 @@ export function OficiaisPage() {
       return <tr key={m.id}><td data-label="Oficial"><strong>{m.oficial.pessoa.nome_completo}</strong><p className="text-xs text-muted-foreground">{tipos[m.oficial.tipo]}</p></td><td data-label="Posse">{dataCivil(m.data_posse)}</td><td data-label="Término">{dataCivil(m.termino_efetivo ?? m.termino_previsto)}</td><td data-label="Período cumprido"><div className="flex items-center gap-2"><progress aria-label={'Mandato de ' + m.oficial.pessoa.nome_completo} value={percentual} max={100} className="w-24 accent-purple" /><span>{percentual}%</span></div></td></tr>
     })}</tbody></table></div>}</section>}
     <section className="surface space-y-3"><h2 className="text-lg font-semibold">Ofícios registrados</h2>
-      {!auditor && <Button type="button" variant="outline" onClick={() => { cadastrar.reset(); setHistorico(false); setFormAberto(!formAberto) }}>{formAberto ? 'Cancelar' : 'Registrar ofício'}</Button>}
+      {ficha && <Button asChild variant="outline"><Link to="/orgaos">Registrar mandato na ficha do órgão</Link></Button>}
+      {!auditor && !comum && <Button type="button" variant="ghost" onClick={() => { cadastrar.reset(); setHistorico(false); setFormAberto(!formAberto) }}>{formAberto ? 'Cancelar' : 'Registrar ofício'}</Button>}
       {formAberto && <form className="max-w-xl space-y-3 rounded border p-4" onSubmit={e => { e.preventDefault(); if (pessoaId) cadastrar.mutate({ pessoa_id: pessoaId, tipo, ...(historico ? { ativo: false } : {}) }) }}>
         <p className="text-sm text-muted-foreground">O registro do ofício não cria ordenação, mandato ou competência.</p>
         <div className="space-y-1"><Label htmlFor="pessoa-oficial">Pessoa</Label><SeletorPessoa id="pessoa-oficial" value={pessoaId} onChange={id => setPessoaId(id)} required opcoes={pessoas.data?.map(p => ({ id: p.id, nome: p.nome_completo }))} />{pessoas.isError && <p role="alert">Não foi possível carregar as pessoas.</p>}</div>
@@ -101,9 +107,9 @@ export function OficiaisPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             {!auditor && <>
-              <Button type="button" variant="outline" disabled={alterarSituacao.isPending} onClick={() => alterarSituacao.mutate({ id: item.id, ativo: !ativo })}>{ativo ? 'Inativar cadastro' : 'Ativar cadastro'}</Button>
+              {!comum && <Button type="button" variant="outline" disabled={alterarSituacao.isPending} onClick={() => alterarSituacao.mutate({ id: item.id, ativo: !ativo })}>{ativo ? 'Inativar cadastro' : 'Ativar cadastro'}</Button>}
               <Button type="button" variant="outline" onClick={() => abrirRegistro(item, 'exercicio')}>Consultar exercício</Button>
-              <Button type="button" variant="outline" onClick={() => abrirRegistro(item, 'gestao')}>Gerir registros</Button>
+              {(!comum || historicoPermitido) && <Button type="button" variant="outline" onClick={() => abrirRegistro(item, 'gestao')}>Gerir registros</Button>}
             </>}
             {(acesso.data?.pode_consultar || acesso.data?.pode_registrar) && <Button type="button" variant="outline" onClick={() => abrirRegistro(item, 'restrito')}>Eventos restritos</Button>}
           </div>
@@ -116,7 +122,7 @@ export function OficiaisPage() {
     {(selecionado || gerenciar || restrito) && <div id="painel-oficial" tabIndex={-1} className="space-y-3"><Button variant="outline" onClick={() => { setSelecionado(null); setGerenciar(null); setRestrito(null) }}>Fechar consulta</Button>
     {selecionado && <section className="space-y-2 rounded border p-4" aria-live="polite"><h2 className="font-semibold">Exercício de {selecionado.pessoa.nome_completo}</h2>{!data ? <p>Informe a data de referência.</p> : exercicio.isPending ? <p>Consultando...</p> : exercicio.isError ? <p role="alert">Não foi possível consultar o exercício.</p> : <p>{situacoes[exercicio.data!.situacao]} em {dataCivil(exercicio.data!.data_referencia)}.</p>}{exercicio.data?.revisao_pendente && <p role="status">Mandato pendente de revisão institucional.</p>}<p className="text-sm text-muted-foreground">O exercício cadastrado não substitui a verificação de competência para um ato.</p></section>}
     {restrito && acesso.data && <EventosSensiveis key={restrito.id} oficial={restrito} identidade={identidade} acesso={acesso.data} />}
-    {gerenciar && <GestaoOficial key={gerenciar.id} oficial={gerenciar} identidade={identidade} podeConsultarDetalhe={!!acesso.data?.pode_consultar} />}
+    {gerenciar && <GestaoOficial key={gerenciar.id} oficial={gerenciar} identidade={identidade} podeConsultarDetalhe={!!acesso.data?.pode_consultar} acesso={acesso.data} />}
     </div>}
     </>}
     {area === 'eleicao' && !auditor && secretaria && <EleicaoOficiais identidade={identidade} key={identidade} />}

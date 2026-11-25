@@ -1,3 +1,6 @@
+import { Link } from 'react-router'
+import { useNavegacao } from '../../hooks/use-navegacao'
+import { HistoricoIndicacoes } from './HistoricoIndicacoes'
 import { SeletorAta, descreverAta } from '../../components/shared/SeletorAta'
 import type { BuscaAtaOpcao } from '../../api/referencias-ata'
 import { SeletorPessoa } from '../../components/shared/SeletorPessoa'
@@ -117,13 +120,16 @@ function FormularioMandato({ identidade }: { identidade: string }) {
 
 export function EleicaoOficiais({ identidade }: { identidade: string }) {
   const [modo, setModo] = useState<'indicacao' | 'mandato' | null>(null)
+  const legado = useNavegacao().data?.mandatos_legados !== false
   return <section className="space-y-3 rounded border p-4">
     <h2 className="text-lg font-semibold">Indicações e mandatos</h2>
     <div className="flex flex-wrap gap-2">
       <Button type="button" variant={modo === 'indicacao' ? 'default' : 'outline'} aria-pressed={modo === 'indicacao'} onClick={() => setModo(modo === 'indicacao' ? null : 'indicacao')}>Registrar indicação</Button>
-      <Button type="button" variant={modo === 'mandato' ? 'default' : 'outline'} aria-pressed={modo === 'mandato'} onClick={() => setModo(modo === 'mandato' ? null : 'mandato')}>Registrar mandato</Button>
+      {legado && <Button type="button" variant={modo === 'mandato' ? 'default' : 'outline'} aria-pressed={modo === 'mandato'} onClick={() => setModo(modo === 'mandato' ? null : 'mandato')}>Aproveitar indicação histórica</Button>}
+      <Button asChild variant="outline"><Link to="/orgaos">Registrar mandato na ficha do órgão</Link></Button>
     </div>
+    <HistoricoIndicacoes identidade={identidade} />
     {modo === 'indicacao' && <FormularioIndicacao identidade={identidade} />}
-    {modo === 'mandato' && <FormularioMandato identidade={identidade} />}
+    {legado && modo === 'mandato' && <FormularioMandato identidade={identidade} />}
   </section>
 }

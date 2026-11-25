@@ -8,7 +8,7 @@ const aprovada = (r: ResolucaoInput['resultado']) => r === 'APROVADA' || r === '
 
 export function prepararResolucoes(resolucoes: ResolucaoDocumento[] = []): ResolucaoInput[] {
   return resolucoes.map(r => ({
-    ordem: r.ordem, assunto: r.assunto, resultado: r.resultado,
+    item_pauta_id: r.item_pauta_id, ordem: r.ordem, assunto: r.assunto, resultado: r.resultado,
     texto_proposta: r.texto_proposta, texto_deliberado: r.texto_deliberado,
     eficaz: r.eficaz, data_efeito: r.data_efeito?.slice(0, 10) ?? null,
     votacao_secreta: r.votacao_secreta, apuracao: r.apuracao,
@@ -19,13 +19,19 @@ export function prepararResolucoes(resolucoes: ResolucaoDocumento[] = []): Resol
 
 type Pessoa = { id: string; nome: string; podePropor: boolean }
 
-export function EditarResolucoes({ valor, pessoas, obrigatorio, permitido, alterar }: {
-  valor: ResolucaoInput[]; pessoas: Pessoa[]; obrigatorio: boolean; permitido: boolean; alterar: (v: ResolucaoInput[]) => void
+export function EditarResolucoes({ valor, pauta, pessoas, obrigatorio, permitido, alterar }: {
+  pauta?: { id?: string; descricao: string; ordem: number }[]; valor: ResolucaoInput[]; pessoas: Pessoa[]; obrigatorio: boolean; permitido: boolean; alterar: (v: ResolucaoInput[]) => void
 }) {
+  function mover(indice: number, deslocamento: number) {
+    const ordenadas = [...valor].sort((a,b) => a.ordem - b.ordem)
+    const posicao = ordenadas.indexOf(valor[indice])
+    const vizinha = posicao + deslocamento
+    if (!ordenadas[vizinha]) return
+    ;[ordenadas[posicao], ordenadas[vizinha]] = [ordenadas[vizinha], ordenadas[posicao]]
+    alterar(ordenadas.map((item,n) => ({ ...item, ordem: n + 1 })))
+  }
   function acrescentar() {
-    let ordem = 1
-    const ocupadas = new Set(valor.map(r => r.ordem))
-    while (ocupadas.has(ordem)) ordem++
+    const ordem = Math.max(0, ...valor.map(r => r.ordem)) + 1
     alterar([...valor, {
       ordem, assunto: '', texto_proposta: null, texto_deliberado: null,
       resultado: 'APROVADA', eficaz: false, data_efeito: null,
@@ -51,13 +57,16 @@ export function EditarResolucoes({ valor, pessoas, obrigatorio, permitido, alter
       return <fieldset className="space-y-3 rounded border p-3" key={i}>
         <legend className="px-1 font-medium">Resolução {r.ordem || i + 1}</legend>
         <div className="grid gap-3 md:grid-cols-3">
-          <Campo label="Ordem na pauta" type="number" value={r.ordem || ''} onChange={s => atualizar({ ordem: Number(s) })} />
+          <Campo label="Ordem da resolução" type="number" value={r.ordem || ''} onChange={s => atualizar({ ordem: Number(s) })} />
           <Campo label="Assunto da resolução" value={r.assunto} onChange={s => atualizar({ assunto: s })} />
           <Escolha label="Resultado da resolução" value={r.resultado} onChange={s => {
             const resultado = s as ResolucaoInput['resultado']
             atualizar(aprovada(resultado) ? { resultado } : { resultado, eficaz: false, data_efeito: null })
           }}>{Object.entries(resultadosResolucao).map(([k, label]) => <option key={k} value={k}>{label}</option>)}</Escolha>
         </div>
+        {pauta && <Escolha required={false} label="Item de pauta" value={r.item_pauta_id ?? ''} onChange={id => atualizar({ item_pauta_id: id || null })}>
+          <option value="">Sem vínculo com item</option>{pauta.filter(item => item.id).map(item => <option key={item.id} value={item.id}>{item.ordem}. {item.descricao}</option>)}
+        </Escolha>}
         <Area label="Texto proposto" value={r.texto_proposta ?? ''} onChange={s => atualizar({ texto_proposta: s || null })}
           required={!aprovada(r.resultado) && !r.texto_deliberado || r.resultado === 'APROVADA_COM_ALTERACOES'} />
         <Area label="Texto deliberado" value={r.texto_deliberado ?? ''} onChange={s => atualizar({ texto_deliberado: s || null })} required={aprovada(r.resultado)} />
@@ -86,6 +95,8 @@ export function EditarResolucoes({ valor, pessoas, obrigatorio, permitido, alter
             <input className="rounded border bg-background p-2" type="number" min={0} max={1000000} value={r.apuracao?.[k] ?? ''} onChange={e => contar(k, e.target.value)} />
           </label>)}
         </fieldset>
+        <Button type="button" variant="outline" disabled={!valor.some(item => item.ordem < r.ordem)} onClick={() => mover(i,-1)}>Mover para cima</Button>
+        <Button type="button" variant="outline" disabled={!valor.some(item => item.ordem > r.ordem)} onClick={() => mover(i,1)}>Mover para baixo</Button>
         <Button type="button" variant="outline" onClick={() => alterar(valor.filter((_, n) => n !== i))}>Retirar resolução</Button>
       </fieldset>
     })}

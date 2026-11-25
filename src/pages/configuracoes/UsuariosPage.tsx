@@ -1,3 +1,4 @@
+import { AcessosDaConta, HistoricoAcessos } from './AtuacaoConta'
 import { SeletorPessoa } from '../../components/shared/SeletorPessoa'
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
@@ -31,6 +32,7 @@ import { Perfil } from "../../types/enums"
 import type { Usuario } from "../../types/models"
 
 const PERFIL_LABELS: Record<Perfil, string> = {
+  [Perfil.COMUM]: "Conta comum",
   [Perfil.ADMINISTRADOR]: "Administrador",
   [Perfil.AUDITOR]: "Auditor",
   [Perfil.OPERADOR]: "Operador",
@@ -49,6 +51,7 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>
 
 export function UsuariosPage() {
+  const [acessos, abrirAcessos] = useState<Usuario | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [linkTarget, setLinkTarget] = useState<Usuario | null>(null)
   const [selectedPerson, setSelectedPerson] = useState("none")
@@ -69,7 +72,7 @@ export function UsuariosPage() {
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { nome_usuario: "", email_login: "", perfil: Perfil.OPERADOR, ativo: true },
+    defaultValues: { nome_usuario: "", email_login: "", perfil: Perfil.COMUM, ativo: true },
   })
 
   const saveMut = useMutation({
@@ -98,7 +101,7 @@ export function UsuariosPage() {
 
   function openCreate() {
     setEditing(null)
-    form.reset({ nome_usuario: "", email_login: "", perfil: Perfil.OPERADOR, ativo: true })
+    form.reset({ nome_usuario: "", email_login: "", perfil: Perfil.COMUM, ativo: true })
     setDialogOpen(true)
   }
 
@@ -128,6 +131,7 @@ export function UsuariosPage() {
   const actions = (canEdit || canDelete)
     ? (item: Usuario) => (
         <div className="flex gap-1">
+          {canEdit && <Button variant="outline" onClick={() => abrirAcessos(item)}>Atuação</Button>}
           {canEdit && !item.ativo && (
             <Button variant="ghost" size="icon" onClick={() => activateMut.mutate(item.id)} title="Ativar">
               <UserCheck size={16} className="text-receita" />
@@ -153,6 +157,7 @@ export function UsuariosPage() {
       </div>
 
       {(canCreate || perfilAtual === Perfil.GESTOR) && <AccessRequestsPanel />}
+      {canCreate && <HistoricoAcessos usuarios={data ?? []} />}
       {canCreate && <AccessAuthoritiesPanel usuarios={data ?? []} />}
       {perfilAtual === Perfil.ADMINISTRADOR && <EmailQueuePanel />}
 
@@ -164,6 +169,10 @@ export function UsuariosPage() {
         <DataTable data={data} columns={columns} keyExtractor={(u) => u.id} actions={actions} />
       )}
 
+      <Dialog open={!!acessos} onOpenChange={aberto => { if (!aberto) abrirAcessos(null) }}><DialogContent className="max-h-[85vh] overflow-auto">
+        <DialogHeader><DialogTitle>Atuação de {acessos?.nome_usuario}</DialogTitle></DialogHeader>
+        {acessos && <AcessosDaConta key={acessos.id} usuario={acessos}/>}
+      </DialogContent></Dialog>
       <Dialog open={dialogOpen} onOpenChange={(o) => !o && closeDialog()}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -185,7 +194,9 @@ export function UsuariosPage() {
               <Select value={form.watch("perfil")} onValueChange={(v) => form.setValue("perfil", v as Perfil)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {Object.entries(PERFIL_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                  {Object.entries(PERFIL_LABELS).filter(([k]) => k === editing?.perfil ||
+                    [Perfil.COMUM, Perfil.ADMINISTRADOR, Perfil.AUDITOR].some(p => p === k) &&
+                    !(k === Perfil.COMUM && editing && [Perfil.GESTOR, Perfil.OPERADOR, Perfil.SECRETARIO, Perfil.TESOUREIRO].includes(editing.perfil))).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -202,7 +213,7 @@ export function UsuariosPage() {
       <Dialog open={!!linkTarget} onOpenChange={(open) => { if (!open) setLinkTarget(null) }}>
         <DialogContent>
           <DialogHeader><DialogTitle>Vincular pessoa a {linkTarget?.nome_usuario}</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground">Confirme a identidade antes de associar os cadastros. Alterar o vínculo encerra eventuais competências de aprovação deste usuário.</p>
+          <p className="text-sm text-muted-foreground">Uma pessoa pode ter várias contas nesta igreja. Confirme a identidade antes de salvar. Alterar o vínculo encerra eventuais competências de aprovação deste usuário.</p>
           <SeletorPessoa value={selectedPerson} onChange={id => setSelectedPerson(id || "none")} rotulo="Pessoa" opcoes={[{ id: "none", nome: "Sem vínculo" }, ...(pessoas?.map(p => ({ id: p.id, nome: p.nome_completo })) ?? [])]} />
           <DialogFooter><Button type="button" onClick={() => linkMut.mutate()} disabled={linkMut.isPending || !pessoas}>Salvar vínculo</Button></DialogFooter>
         </DialogContent>

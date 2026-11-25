@@ -1,3 +1,4 @@
+import { PaineisSecretaria, type AbaSecretaria } from './PaineisSecretaria'
 import { SeletorAta, descreverAta } from '../../components/shared/SeletorAta'
 import type { BuscaAtaOpcao } from '../../api/referencias-ata'
 import { Badge } from '../../components/ui/badge'
@@ -9,11 +10,11 @@ import { useQuery } from '@tanstack/react-query'
 import { Button } from '../../components/ui/button'
 import {
   estadosLivro, nomeLivro, secretariaApi, type AcaoLivro, type ContextoSecretaria,
-  type FinalidadeTermo, type LivroDetalhe, type LivroResumo,
+  type FinalidadeTermo, type LivroDetalhe, type LivroResumo, type ModeloDocumento, type PreviaAbertura, type VersaoInput,
 } from '../../api/secretaria'
 import { Area, Campo, Check, Escolha, Salvar, codigos, hoje, useComando } from './formulario'
 
-export type NovoTermo = { livro: LivroResumo; finalidade: FinalidadeTermo }
+export type NovoTermo = { livro: LivroResumo; finalidade: FinalidadeTermo; modelo?: string; data?: string; previa?: PreviaAbertura; versaoEncerramento?: VersaoInput }
 
 const modalidadeLivro = { ELETRONICO: 'Eletrônico', PARA_ENCADERNACAO: 'Para encadernação', FISICO_DIGITALIZADO: 'Acervo físico digitalizado' }
 const perfis = { LOCAL_V1: 'Local, versão 1', CONCILIO_IPB_2025: 'Concílios da IPB, Manual 2025', ACERVO_HISTORICO: 'Acervo histórico' }
@@ -35,24 +36,31 @@ export function LivrosContexto({ contexto, identidade, abrirDocumento, novoTermo
 }) {
   const [busca, setBusca] = useSearchParams()
   const selecionado = busca.get('livro') ?? ''
-  const selecionar = (id: string) => setBusca(anterior => {
+  const selecionar = (id: string, primeiro = false) => setBusca(anterior => {
     const params = new URLSearchParams(anterior)
+    if (primeiro) params.delete('paginaLivro')
     if (id) params.set('livro', id)
     else params.delete('livro')
     return params
   })
   const [form, setForm] = useState<'novo' | 'importar' | null>(null)
-  const [pagina, setPagina] = useState(0)
+  const numeroPagina = Number(busca.get('paginaLivro'))
+  const pagina = Number.isSafeInteger(numeroPagina) && numeroPagina >= 0 && numeroPagina <= 100000 ? numeroPagina : 0
+  const setPagina = (n: number) => setBusca(anterior => {
+    const params = new URLSearchParams(anterior)
+    params.set('paginaLivro', String(n))
+    return params
+  })
   const lista = useQuery({ queryKey: ['secretaria', identidade, 'livros', contexto.id, pagina], queryFn: () => secretariaApi.livros(contexto.id, pagina), gcTime: 0 })
   const livro = useQuery({ queryKey: ['secretaria', identidade, 'livro', selecionado], queryFn: () => secretariaApi.livro(selecionado), enabled: !!selecionado, gcTime: 0 })
-  const pronto = (id: string) => { selecionar(id); setForm(null); setPagina(0) }
-  return <div className="space-y-4">{selecionado ? <Button variant="outline" onClick={() => selecionar('')}><ArrowLeft />Voltar ao acervo</Button> : <section className="surface space-y-5"><div className="flex items-center gap-3"><span className="grid size-12 place-items-center rounded-xl bg-purple-muted/60 text-purple"><LibraryBig /></span><div><h3 className="text-xl font-semibold">Livros de atas</h3><p className="text-sm text-muted-foreground">{contexto.nome}</p></div></div>
+  const pronto = (id: string) => { selecionar(id, true); setForm(null) }
+  const [aba, definirAba] = useState('lista')
+  const abrirForm = (tipo: 'novo' | 'importar') => { setForm(tipo); definirAba('cadastro') }
+  const abas: AbaSecretaria[] = [{ id: 'lista', nome: 'Acervo', conteudo: <section className="surface space-y-5"><div className="flex items-center gap-3"><span className="grid size-12 place-items-center rounded-xl bg-purple-muted/60 text-purple"><LibraryBig /></span><div><h3 className="text-xl font-semibold">Livros de atas</h3><p className="text-sm text-muted-foreground">{contexto.nome}</p></div></div>
     <div className="flex flex-wrap gap-2">
-      {contexto.pode_preparar && <Button onClick={() => setForm('novo')}>Novo livro</Button>}
-      {contexto.pode_aprovar && <Button variant="outline" onClick={() => setForm('importar')}>Cadastrar acervo físico</Button>}
-      {form && <Button variant="outline" onClick={() => setForm(null)}>Fechar formulário</Button>}
+      {(contexto.registro_livro ?? contexto.pode_preparar) && <Button onClick={() => abrirForm('novo')}>Novo livro</Button>}
+      {contexto.pode_aprovar && <Button variant="outline" onClick={() => abrirForm('importar')}>Cadastrar acervo físico</Button>}
     </div>
-    {form && <CadastroLivro key={form} contexto={contexto} importar={form === 'importar'} pronto={pronto} />}
     {lista.isPending && <p>Carregando livros…</p>}
     {lista.isError && <p role="alert">{lista.error.message}</p>}
     {lista.data?.length === 0 && <p>Nenhum livro cadastrado nesta página.</p>}
@@ -66,7 +74,13 @@ export function LivrosContexto({ contexto, identidade, abrirDocumento, novoTermo
       <span>Página {pagina + 1}</span>
       <Button variant="outline" disabled={lista.data?.length !== 30} onClick={() => setPagina(pagina + 1)}>Próxima</Button>
     </div>
-    </section>}
+    </section> }]
+  if (form) abas.push({ id: 'cadastro', nome: form === 'novo' ? 'Novo livro' : 'Cadastro de acervo físico', manter: true, conteudo:
+    <div className="space-y-3"><CadastroLivro key={form} contexto={contexto} importar={form === 'importar'} pronto={pronto}/>
+      <Button variant="outline" onClick={() => { setForm(null); definirAba('lista') }}>Fechar formulário</Button></div> })
+  return <div className="space-y-4">{selecionado ? <Button variant="outline" onClick={() => selecionar('')}><ArrowLeft />Voltar ao acervo</Button>
+    : <PaineisSecretaria titulo="Livros de atas" abas={abas} ativa={form ? aba : 'lista'} selecionar={definirAba}/>}
+
     {selecionado && livro.isPending && <p>Carregando livro…</p>}
     {selecionado && livro.isError && <p role="alert">{livro.error.message}</p>}
     {selecionado && livro.data && livro.data.contexto_id !== contexto.id && <p role="alert">Este livro pertence a outro contexto.</p>}
@@ -130,19 +144,43 @@ function CadastroLivro({ contexto, importar, pronto }: { contexto: ContextoSecre
   </form>
 }
 
+export function modelosPublicadosDeTermo(modelos: ModeloDocumento[], finalidade: string, contexto: ContextoSecretaria) {
+  return modelos.filter(m => {
+    const v = m.versoes[0]
+    return m.estado !== 'EM_EDICAO' && v?.tipo === 'OUTRO' && v.finalidade === finalidade &&
+      (contexto.editor_pagina !== false || !v.configuracao.composicao_padrao)
+  })
+}
+
+export function habilitadoParaTermo(m: ModeloDocumento) {
+  return !m.permissoes || m.permissoes.criar || m.permissoes.preparar
+}
+
+export function finalidadeDisponivel(livro: LivroDetalhe) {
+  const finalidade = livro.estado === 'EM_PREPARACAO' ? 'TERMO_ABERTURA' : livro.estado === 'EM_ENCERRAMENTO' ? 'TERMO_ENCERRAMENTO' : null
+  const termoAtivo = livro.termos.some(t => t.modelo.finalidade === finalidade && !['CANCELADO', 'ANULADO'].includes(t.documento.estado))
+  return termoAtivo ? null : finalidade
+}
+
 function DetalheLivro({ livro, contexto, abrirDocumento, novoTermo, identidade }: {
   livro: LivroDetalhe; contexto: ContextoSecretaria; identidade: string; abrirDocumento: (id: string) => void; novoTermo: (termo: NovoTermo) => void
 }) {
   const t = livro.totais
-  const finalidade = livro.estado === 'EM_PREPARACAO' ? 'TERMO_ABERTURA' : livro.estado === 'EM_ENCERRAMENTO' ? 'TERMO_ENCERRAMENTO' : null
-  const termoAtivo = livro.termos.some(t => t.modelo.finalidade === finalidade && !['CANCELADO', 'ANULADO'].includes(t.documento.estado))
+  const finalidade = finalidadeDisponivel(livro)
+  const modelos = useQuery({ queryKey: ['secretaria', identidade, contexto.id, 'modelos'], queryFn: () => secretariaApi.modelos(contexto.id), enabled: contexto.pode_preparar && !!finalidade })
+  const publicados = finalidade ? modelosPublicadosDeTermo(modelos.data ?? [], finalidade, contexto) : []
+  const opcoes = publicados.filter(habilitadoParaTermo)
+  const nomeTermo = finalidade === 'TERMO_ABERTURA' ? 'abertura' : 'encerramento'
+  const [escolhido, selecionar] = useState('')
+  const [dataTermo, datar] = useState('')
+  const modelo = opcoes.length === 1 ? opcoes[0] : opcoes.find(m => m.id === escolhido)
   return <section className="surface space-y-5" aria-label="Detalhes do livro">
     <div className="flex flex-wrap items-center gap-3 border-b pb-4"><span className="grid size-12 place-items-center rounded-xl bg-purple-muted/60 text-purple"><BookOpen /></span><div className="flex-1"><h3 className="text-xl font-semibold">{nomeLivro(livro)}</h3><p className="text-sm">{livro.titular} · {modalidadeLivro[livro.modalidade]}</p></div><SituacaoLivro estado={livro.estado} /></div>
     <p>{perfis[livro.perfil]} · {livro.fonte_normativa}</p>
     <p>Capacidade declarada de {livro.capacidade_folhas} folhas e {livro.capacidade_faces} faces ({livro.faces_por_folha} por folha).</p>
     {t && <><div className="metric-grid"><Metric icon={FileText} value={t.total_atas} label="Atas efetivadas" /><Metric icon={Layers} value={t.folhas_utilizadas} label="Folhas utilizadas" /><Metric icon={BookOpen} value={t.saldo_folhas} label="Folhas disponíveis" /><Metric icon={Hourglass} value={t.pendencias} label="Reservas pendentes" /></div>
       {livro.capacidade_folhas > 0 && <label className="block rounded-xl bg-muted/50 p-4 text-sm font-semibold">Ocupação das folhas · {Math.round(100*t.folhas_utilizadas/livro.capacidade_folhas)}%<progress className="mt-2 block h-2 w-full accent-purple" value={t.folhas_utilizadas} max={livro.capacidade_folhas} /></label>}
-      <p>{t.total_atas} atas efetivadas · {t.paginas_utilizadas} páginas em {t.folhas_utilizadas} folhas · saldo físico de {t.saldo_faces} faces e {t.saldo_folhas} folhas inteiramente sem conteúdo efetivado.</p>
+      <p>{t.total_atas} {t.total_atas === 1 ? 'ata efetivada' : 'atas efetivadas'} · {t.paginas_utilizadas} páginas em {t.folhas_utilizadas} folhas · saldo físico de {t.saldo_faces} faces e {t.saldo_folhas} folhas inteiramente sem conteúdo efetivado.</p>
       <p>{t.pendencias} reservas pendentes · {livro.reserva_exame} faces previstas para exames · última posição ocupada ou reservada {t.ultima_posicao || '—'}.</p>
     </>}
     {livro.aberto_em && <p>Abertura efetivada em {new Date(livro.aberto_em).toLocaleString('pt-BR')}.</p>}
@@ -155,19 +193,42 @@ function DetalheLivro({ livro, contexto, abrirDocumento, novoTermo, identidade }
       <a className="underline" href={secretariaApi.arquivoLivroUrl(livro.id, 'compilacao')}>Baixar compilação para leitura</a>
       <span className="break-all text-xs">SHA-256 do manifesto · {livro.manifesto_sha256}</span>
     </div>}
-    {(finalidade || livro.termos.length > 0) && <div className="space-y-2">
+    {(livro.modalidade !== 'FISICO_DIGITALIZADO' || livro.termos.length > 0) && <div className="space-y-2">
       <h4 className="flex items-center gap-2 border-t pt-4 font-semibold"><PenLine size={18} className="text-purple" />Termos</h4>
       {finalidade && <p>O termo precisa ser assinado e expedido para efetivar {finalidade === 'TERMO_ABERTURA' ? 'a abertura' : 'o encerramento'}.</p>}
-      {contexto.pode_preparar && finalidade && !termoAtivo && <Button onClick={() => novoTermo({ livro, finalidade })}>{finalidade === 'TERMO_ABERTURA' ? 'Preparar termo de abertura' : 'Preparar termo de encerramento'}</Button>}
+      {contexto.pode_preparar && livro.modalidade !== 'FISICO_DIGITALIZADO' && <>
+        {finalidade && modelos.isError && <p role="alert">Falha ao consultar os modelos. <button onClick={() => void modelos.refetch()}>Tentar novamente</button></p>}
+        {finalidade && modelos.isSuccess && !opcoes.length && <p role="status">{!publicados.length
+          ? `Publique um modelo de termo de ${nomeTermo} neste contexto para criar o documento.`
+          : publicados.some(m => m.permissoes?.sem_pessoa_vinculada)
+            ? 'Há modelo publicado. Para verificar seu cargo, é preciso vincular sua conta ao cadastro de pessoa em Usuários.'
+            : 'Há modelo publicado. A criação ou preparação do termo exige um dos cargos habilitados no modelo.'} {contexto.orgao_id && <a className="underline" href={contexto.registro_livro === false ? "/dashboard" : `/orgaos?orgao=${contexto.orgao_id}`}>{contexto.registro_livro === false ? "Consultar minha atuação" : "Conferir cargos do órgão"}</a>}</p>}
+        {opcoes.length > 1 && <Escolha label={'Modelo do termo de ' + nomeTermo} value={escolhido} onChange={selecionar}>
+          <option value="">Selecione um modelo</option>{opcoes.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}</Escolha>}
+        {!!opcoes.length && <details><summary>Data do termo</summary><Campo required={false} label="Data do termo (padrão: hoje na igreja)" type="date" value={dataTermo} onChange={datar}/></details>}
+        <div className="flex flex-wrap gap-2">{(['TERMO_ABERTURA', 'TERMO_ENCERRAMENTO'] as const).map(tipo => <Button key={tipo}
+          variant={tipo === finalidade ? 'default' : 'outline'} disabled={tipo !== finalidade || !modelo || modelos.isError}
+          onClick={() => { if (tipo === finalidade && modelo) novoTermo({ livro, finalidade: tipo, modelo: modelo.versoes[0].id, data: dataTermo || undefined }) }}>
+          {tipo === 'TERMO_ABERTURA' ? 'Criar termo de abertura' : 'Criar termo de encerramento'}</Button>)}</div>
+        {['EM_PREPARACAO','ABERTO','SUSPENSO'].includes(livro.estado) && <p className="text-sm text-muted-foreground">O termo de encerramento fica disponível quando o livro entra em encerramento.</p>}
+      </>}
       {livro.termos.map(t => <div key={t.id} className="flex flex-wrap items-center gap-2"><span>{t.assunto} · v{t.numero} · {t.documento.estado.toLowerCase().replace(/_/g, ' ')}</span><Button variant="outline" onClick={() => abrirDocumento(t.documento.id)}>Abrir termo</Button></div>)}
     </div>}
+    {!!livro.numeros_cancelados?.length && <details><summary>Números cancelados ({livro.numeros_cancelados.length})</summary>
+      <ul>{livro.numeros_cancelados.map(r => <li key={r.numero}>Ata nº {r.numero} · {r.motivo === 'TRANSFERENCIA' ? 'Transferida' : 'Cancelada'} em {new Date(r.cancelada_em).toLocaleDateString('pt-BR')}</li>)}</ul>
+    </details>}
+    {!!livro.atas_pendentes?.length && <section className="space-y-2"><h4 className="font-semibold">Atas numeradas em aberto</h4>
+      <p>Conclua, transfira ou cancele estas atas antes de encerrar o livro.</p>
+      {livro.atas_pendentes.map(ata => <div key={ata.documento_id} className="flex items-center justify-between">
+        <span>Ata nº {ata.numero} · {ata.assunto}</span><Button variant="outline" onClick={() => abrirDocumento(ata.documento_id)}>Abrir ata</Button>
+      </div>)}</section>}
     {livro.registros.length > 0 && <div className="space-y-2">
       <h4 className="flex items-center gap-2 border-t pt-4 font-semibold"><BookmarkCheck size={18} className="text-purple" />Registros e reservas</h4>
       {livro.registros.map(r => <article key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded border p-3">
         <div><p className="font-medium">{r.ordem}. {naturezas[r.natureza]} · {r.versao.assunto} · v{r.versao.numero}</p>
           <p>{estadoRegistro[r.estado]} · folha {r.inicio.folha}, {r.inicio.face.toLowerCase()}{r.posicao_inicio !== r.posicao_fim && ` até folha ${r.fim.folha}, ${r.fim.face.toLowerCase()}`} · {r.numero_visivel_inicio == null ? 'Termo sem número de página' : `Numeração visível ${r.numero_visivel_inicio}${r.posicao_inicio === r.posicao_fim ? '' : ` a ${r.numero_visivel_inicio + r.posicao_fim - r.posicao_inicio}`}`}</p></div>
         <div className="flex flex-wrap items-center gap-2">
-          {r.arquivo && <a className="underline" href={secretariaApi.arquivoRegistroUrl(livro.id, r.id)}>Baixar original</a>}
+          {r.arquivo && <a className="underline" href={secretariaApi.arquivoRegistroUrl(livro.id, r.id)}>Baixar páginas do registro</a>}
           <Button variant="outline" onClick={() => abrirDocumento(r.versao.documento_id)}>Abrir documento</Button>
         </div>
       </article>)}

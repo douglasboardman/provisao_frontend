@@ -10,15 +10,19 @@ const estados = {
   OBSOLETO: 'Revisão substituída',
 }
 
-export function ArtefatosDocumento({ documento, contexto, identidade, editando }: {
-  documento: DocumentoDetalhe; contexto: ContextoSecretaria; identidade: string; editando: boolean;
-}) {
-  const consulta = useQuery({
+export function useArtefatosDocumento(documento: DocumentoDetalhe, identidade: string) {
+  return useQuery({
     queryKey: ['secretaria', identidade, 'artefatos', documento.id, documento.revisao],
     queryFn: () => secretariaApi.artefatos(documento.id),
     gcTime: 0,
     refetchInterval: q => q.state.data?.some(a => a.estado === 'PENDENTE' || a.estado === 'PROCESSANDO') ? 2000 : false,
   })
+}
+
+export function ArtefatosDocumento({ documento, contexto, identidade, versaoId }: {
+  documento: DocumentoDetalhe; contexto: ContextoSecretaria; identidade: string; versaoId: string
+}) {
+  const consulta = useArtefatosDocumento(documento, identidade)
   const gerar = useMutation({
     mutationFn: async (versao: string | null) => {
       if (versao) await secretariaApi.solicitarMatriz(documento.id, versao)
@@ -30,15 +34,15 @@ export function ArtefatosDocumento({ documento, contexto, identidade, editando }
     mutationFn: () => secretariaApi.medirLivro(documento.id, documento.revisao),
     onSuccess: async () => { await consulta.refetch() },
   })
-  const medicao = consulta.data?.find(a => a.finalidade === 'MEDICAO_LIVRO')
+  const medicao = consulta.data?.find(a => a.finalidade === 'MEDICAO_LIVRO' && a.versao_id === versaoId && a.revisao_documento === documento.revisao)
   const versao = documento.versoes.find(v => v.numero === documento.versao_atual)
-  const exibirMedicao = livrosHabilitados() && documento.estado === 'EM_EDICAO' && !!versao?.livro_id && !editando
+  const exibirMedicao = livrosHabilitados() && documento.tramitacao?.livros !== false && documento.estado === 'EM_EDICAO' && !!versao?.livro_id && versaoId === versao?.id
   const deliberacao = versao?.deliberacoes.slice(-1)[0]
-  const podeMedir = contexto.pode_preparar && documento.encaminhado_em && (documento.tipo !== 'ATA' ||
+  const podeMedir = contexto.registro_livro !== false && contexto.pode_preparar && documento.encaminhado_em && (documento.tipo !== 'ATA' ||
     (deliberacao?.resultado === 'APROVADA' && deliberacao.revisao_conteudo === versao?.revisao_conteudo))
-  const rascunho = consulta.data?.find(a => a.finalidade === 'RASCUNHO' && a.revisao_documento === documento.revisao)
-  const congeladas = documento.versoes.filter(v => v.congelado_em)
-  const podeGerarRascunho = documento.estado === 'EM_EDICAO' && contexto.pode_preparar && !editando
+  const rascunho = consulta.data?.find(a => a.finalidade === 'RASCUNHO' && a.versao_id === versaoId && a.revisao_documento === documento.revisao)
+  const congeladas = documento.versoes.filter(v => v.congelado_em && v.id === versaoId)
+  const podeGerarRascunho = (contexto.registro_livro !== false || documento.atuacao?.criar || documento.atuacao?.preparar) && documento.estado === 'EM_EDICAO' && contexto.pode_preparar && versaoId === versao?.id
   if (!podeGerarRascunho && !congeladas.length && !rascunho && !exibirMedicao) return null
 
   function linha(artefato: ArtefatoDocumento) {
@@ -52,7 +56,7 @@ export function ArtefatosDocumento({ documento, contexto, identidade, editando }
     </>
   }
 
-  return <section className="space-y-3 rounded border p-3" aria-label="Arquivos do documento">
+  return <section className="space-y-3 rounded border p-3" id="arquivos-documento" tabIndex={-1} aria-label="Arquivos do documento">
     {consulta.isError && <p role="alert">Falha ao consultar os arquivos. <Button variant="outline" onClick={() => void consulta.refetch()}>Recarregar arquivos</Button></p>}
     {gerar.error && <p role="alert">{gerar.error.message}</p>}
     {(podeGerarRascunho || rascunho) && <div className="space-y-2">
@@ -66,7 +70,7 @@ export function ArtefatosDocumento({ documento, contexto, identidade, editando }
       <h4 className="font-medium">Paginação do livro</h4>
       {medicao && <p role="status">{medicao.estado === 'CONCLUIDO' ? `${medicao.paginas_medidas} páginas medidas para esta revisão` : estados[medicao.estado]}</p>}
       {medir.error && <p role="alert">{medir.error.message}</p>}
-      {!podeMedir && contexto.pode_preparar && <p>Encaminhe a versão e, se for ata, registre a aprovação deliberativa antes de medir.</p>}
+      {!podeMedir && contexto.registro_livro !== false && contexto.pode_preparar && <p>Encaminhe a versão e, se for ata, registre a aprovação deliberativa antes de medir.</p>}
       {podeMedir && <Button variant="outline" disabled={medir.isPending || medicao?.estado === 'PENDENTE' || medicao?.estado === 'PROCESSANDO'} onClick={() => medir.mutate()}>
         {medicao?.estado === 'CONCLUIDO' ? 'Conferir medição novamente' : 'Medir páginas da matriz'}
       </Button>}

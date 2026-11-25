@@ -18,7 +18,8 @@ const loginSchema = z.object({
 
 type LoginForm = z.infer<typeof loginSchema>
 const mfaSchema = z.object({
-  codigo: z.string().trim().min(1, 'Informe o código de autenticação.').max(24, 'Código inválido.'),
+  codigo: z.string().trim().min(1, 'Informe o código de autenticação.')
+    .regex(/^(?:\d{6}|[0-9a-f]{24})$/i, 'Use 6 dígitos do autenticador ou 24 caracteres de recuperação (0–9 e A–F), sem espaços ou hífens.'),
 })
 type MfaForm = z.infer<typeof mfaSchema>
 
@@ -83,7 +84,7 @@ export function LoginPage() {
   if (credentials) return (
     <AuthCard title="Autenticação">
       <form onSubmit={mfa.handleSubmit(onMfaSubmit)} className="flex flex-col gap-4">
-        <p className="text-sm text-white/80">Informe o código do aplicativo autenticador ou um código de recuperação.</p>
+        <p className="text-sm text-white/80">Informe os 6 dígitos do aplicativo autenticador ou um código de recuperação do ProVisão com 24 caracteres.</p>
         {error && <div role="alert" className="rounded-lg bg-white/10 p-3 text-sm text-white">{error}</div>}
         <div>
           <label htmlFor="mfa-code" className="mb-1 block text-sm text-white/80">Código de autenticação</label>

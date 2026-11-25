@@ -26,11 +26,11 @@ const SEXO_LABELS: Record<Sexo, string> = { [Sexo.MASCULINO]: "Masculino", [Sexo
 
 export function PessoasPage() {
   const [deleteTarget, setDeleteTarget] = useState<Pessoa | null>(null)
-  const { canCreate, canEdit, canDelete } = usePermissions("pessoas")
+  const { canView, canCreate, canEdit, canDelete } = usePermissions("pessoas")
   const queryClient = useQueryClient()
   const { current, hasBack, push, pop, closeAll } = useModalStack()
 
-  const { data, isLoading, isError, error, refetch } = useQuery({ queryKey: ["pessoas"], queryFn: pessoasApi.list })
+  const { data, isLoading, isError, error, refetch } = useQuery({ queryKey: ["pessoas"], queryFn: pessoasApi.list, enabled: canView })
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => pessoasApi.remove(id),
@@ -72,7 +72,7 @@ export function PessoasPage() {
         )}
       </WorkspaceHeader>
 
-      {isLoading ? (
+      {canView && (isLoading ? (
         <div className="py-16 text-center text-muted-foreground">Carregando...</div>
       ) : isError ? (
         <ErrorState error={error} onRetry={() => refetch()} />
@@ -80,15 +80,15 @@ export function PessoasPage() {
         <EmptyState icon={Users} title="Nenhuma pessoa" description="Nenhuma pessoa cadastrada" />
       ) : (
         <DataTable data={data} columns={columns} keyExtractor={(p) => p.id} actions={actions} />
-      )}
+      ))}
 
-      <FamiliaViewDialog
+      {current?.type === "familia" && <FamiliaViewDialog
         grupo={current?.type === "familia" ? current.grupo : null}
         onClose={closeAll}
         onBack={hasBack ? pop : undefined}
         onEditPessoa={(id) => push({ type: "pessoa-edit", pessoaId: id })}
         onViewHistorico={(id) => push({ type: "historico", pessoaId: id })}
-      />
+      />}
 
       <PessoaEditDialog
         pessoaId={current?.type === "pessoa-edit" ? current.pessoaId : null}
@@ -97,12 +97,12 @@ export function PessoasPage() {
         onBack={hasBack ? pop : undefined}
       />
 
-      <HistoricoMembresiaDialog
+      {current?.type === "historico" && <HistoricoMembresiaDialog
         pessoaId={current?.type === "historico" ? current.pessoaId : null}
-        open={current?.type === "historico"}
+        open
         onClose={closeAll}
         onBack={hasBack ? pop : undefined}
-      />
+      />}
 
       <DeleteDialog
         open={!!deleteTarget}

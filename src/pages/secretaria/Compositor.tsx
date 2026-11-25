@@ -120,7 +120,7 @@ export function Compositor({ valor, alterar, anexos }: {
   </fieldset>
 }
 
-export function LeituraEstrutura({ valor, campos, tipos, secaoUnica, documentoId, versao }: { documentoId?: string; versao?: DocumentoVersao; secaoUnica?: keyof EstruturaDocumento; valor: EstruturaDocumento; campos: Record<string, string>; tipos?: Record<string, TipoCampo> }) {
+export function LeituraEstrutura({ valor, campos, tipos, secaoUnica, documentoId, versao, versaoModelo, imagemUrl }: { imagemUrl?: (id:string)=>string; versaoModelo?: string; documentoId?: string; versao?: DocumentoVersao; secaoUnica?: keyof EstruturaDocumento; valor: EstruturaDocumento; campos: Record<string, string>; tipos?: Record<string, TipoCampo> }) {
   const resolver = (texto: string) => texto.replace(/\{\{([A-Z][A-Z0-9_]{0,79})\}\}/g, (original, k: string) => {
     const campo = campos[k]
     if (!campo?.trim()) return original
@@ -152,8 +152,8 @@ export function LeituraEstrutura({ valor, campos, tipos, secaoUnica, documentoId
           <tbody>{(b.primeira_linha_cabecalho ? resto : b.linhas).map((linha, n) => <tr key={n}>{linha.map((c, j) => <td className="border p-1" key={j}>{resolver(c)}</td>)}</tr>)}</tbody>
         </table></div>
       }
-      if (b.tipo === 'IMAGEM' && documentoId && versao?.anexos.some(a => a.arquivo_id === b.arquivo_id)) {
-        return <figure key={i} className="my-3"><img loading="lazy" className="mx-auto max-h-80 max-w-full object-contain" alt={b.descricao} src={secretariaApi.anexoUrl(documentoId, versao.id, b.arquivo_id) + '?visualizacao=imagem'} /></figure>
+      if (b.tipo === 'IMAGEM' && (imagemUrl || versaoModelo || documentoId && versao?.anexos.some(a => a.arquivo_id === b.arquivo_id))) {
+        return <figure key={i} className="my-3"><img loading="lazy" className="mx-auto max-h-80 max-w-full object-contain" alt={b.descricao} src={imagemUrl ? imagemUrl(b.arquivo_id) : versaoModelo ? secretariaApi.imagemModeloUrl(versaoModelo, b.arquivo_id) : secretariaApi.anexoUrl(documentoId!, versao!.id, b.arquivo_id) + '?visualizacao=imagem'} /></figure>
       }
       if (secaoUnica && b.tipo === 'QUEBRA') return <hr key={i} className="my-6 break-after-page border-dashed" />
       if (secaoUnica && b.tipo === 'ASSINATURAS' && versao) return <div key={i} className="my-6 grid gap-4 text-center sm:grid-cols-2">{versao.arrolados.filter(p => p.assina).map(p => <div key={p.pessoa_id} className="mt-5 border-t pt-2"><strong>{p.retrato.nome}</strong><p className="text-sm">{p.papeis.join(', ')}</p></div>)}</div>

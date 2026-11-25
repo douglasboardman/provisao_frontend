@@ -1,3 +1,4 @@
+import { useCanAccessModule, usePermissions } from "../../hooks/use-permissions"
 import { SeletorPessoa } from './SeletorPessoa'
 import { useState, useCallback, useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
@@ -80,6 +81,10 @@ interface PessoaEditDialogProps {
 
 export function PessoaEditDialog({ pessoaId, open, onClose, onBack }: PessoaEditDialogProps) {
   const queryClient = useQueryClient()
+  const consultaPessoas = useCanAccessModule('pessoas')
+  const consultaTratamentos = useCanAccessModule('tratamentos')
+  const consultaProfissoes = useCanAccessModule('profissoes')
+  const familias = usePermissions('grupos-familiares')
   const igrejaId = useAuthStore(s => s.user?.igreja_id)
   const [formReady, setFormReady] = useState(false)
   const [fetchingCep, setFetchingCep] = useState(false)
@@ -90,10 +95,10 @@ export function PessoaEditDialog({ pessoaId, open, onClose, onBack }: PessoaEdit
 
   const handleDone = onBack ?? onClose
 
-  const { data: allPessoas } = useQuery({ queryKey: ["pessoas"], queryFn: pessoasApi.list })
-  const { data: grupos } = useQuery({ queryKey: ["grupos-familiares"], queryFn: gruposFamiliaresApi.list })
-  const { data: tratamentos } = useQuery({ queryKey: ["tratamentos"], queryFn: tratamentosApi.list })
-  const profissoes = useQuery({ queryKey: ["profissoes", igrejaId], queryFn: profissoesApi.list, enabled: open && !!igrejaId })
+  const { data: allPessoas } = useQuery({ queryKey: ["pessoas"], queryFn: pessoasApi.list, enabled: open && consultaPessoas })
+  const { data: grupos } = useQuery({ queryKey: ["grupos-familiares"], queryFn: gruposFamiliaresApi.list, enabled: open && familias.canView })
+  const { data: tratamentos } = useQuery({ queryKey: ["tratamentos"], queryFn: tratamentosApi.list, enabled: open && consultaTratamentos })
+  const profissoes = useQuery({ queryKey: ["profissoes", igrejaId], queryFn: profissoesApi.list, enabled: open && !!igrejaId && consultaProfissoes })
 
   const pessoa = pessoaId ? allPessoas?.find((p) => p.id === pessoaId) ?? null : null
   const isEdit = !!pessoaId
@@ -255,6 +260,7 @@ export function PessoaEditDialog({ pessoaId, open, onClose, onBack }: PessoaEdit
             <div className="space-y-2">
               <Label>Tratamento</Label>
               <Select
+                disabled={!consultaTratamentos}
                 value={form.watch("tratamento_id") ? String(form.watch("tratamento_id")) : ""}
                 onValueChange={(v) => form.setValue("tratamento_id", v ? Number(v) : 0)}
               >
@@ -351,25 +357,25 @@ export function PessoaEditDialog({ pessoaId, open, onClose, onBack }: PessoaEdit
             <div className="space-y-2">
               <Label>Grupo Familiar</Label>
               <div className="flex gap-2">
-                <Select value={form.watch("grupo_familiar_id") ?? ""} onValueChange={(v) => form.setValue("grupo_familiar_id", v)}>
+                <Select disabled={!familias.canView} value={form.watch("grupo_familiar_id") ?? ""} onValueChange={(v) => form.setValue("grupo_familiar_id", v)}>
                   <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
                     {grupos?.map((g) => <SelectItem key={g.id} value={g.id}>{g.nome_familia}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <Button type="button" variant="outline" size="default" onClick={() => setGrupoDialogOpen(true)}>
+                {familias.canCreate && <Button type="button" variant="outline" size="default" onClick={() => setGrupoDialogOpen(true)}>
                   <Plus size={16} className="mr-1" />Novo Grupo
-                </Button>
+                </Button>}
               </div>
             </div>
-            <div className="space-y-2">
+            {consultaPessoas && <div className="space-y-2">
               <Label>Cônjuge</Label>
               <SeletorPessoa
                 value={form.watch("conjuge_id") ?? ""}
                 onChange={(v) => form.setValue("conjuge_id", v)}
                 rotulo="Cônjuge"
                 opcoes={allPessoas?.filter((p) => p.id !== pessoaId).map(p => ({ id: p.id, nome: p.nome_completo }))} />
-            </div>
+            </div>}
           </div>
 
           <Dialog open={grupoDialogOpen} onOpenChange={setGrupoDialogOpen}>

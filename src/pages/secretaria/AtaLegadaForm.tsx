@@ -3,7 +3,7 @@ import { TeorDocumento } from './FichaDocumento'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '../../components/ui/button'
-import { modalidadesParaContexto, nomeLivro, numeroDocumento, rotulosModalidadeReuniao, secretariaApi, type AtaLegadaInput, type ContextoSecretaria, type DocumentoDetalhe, type ReuniaoLegada, type ReuniaoSecretaria } from '../../api/secretaria'
+import { modalidadesParaContexto, nomeLivro, numeroDocumento, nomeModalidade, rotulosModalidadeReuniao, secretariaApi, type AtaLegadaInput, type ContextoSecretaria, type DocumentoDetalhe, type ReuniaoLegada, type ReuniaoSecretaria } from '../../api/secretaria'
 import { formatarDataCivil } from '../../lib/membresia-temporal'
 import { Area, Campo, CampoPapeis, Check, Escolha, Salvar, useComando } from './formulario'
 import { EditarResolucoes, LerResolucoes, prepararResolucoes } from './ResolucoesDocumento'
@@ -98,7 +98,7 @@ export function AtaLegadaForm({ contexto, reunioes, pessoas, pronto, documento, 
         <Campo label="Local" required={false} value={v.reuniao.local ?? ''} onChange={s => editarReuniao('local', s || null)} />
         <Escolha label="Modalidade" required={false} value={v.reuniao.modalidade ?? ''} onChange={s => editarReuniao('modalidade', s as ReuniaoLegada['modalidade'] || null)}>
           <option value="">Não informada no acervo</option>
-          {modalidadesParaContexto(contexto).map(m => <option key={m} value={m}>{rotulosModalidadeReuniao[m]}</option>)}
+          {modalidadesParaContexto(contexto).map(m => <option key={m} value={m}>{nomeModalidade(contexto, m)}</option>)}
         </Escolha>
         <Campo label="Início da reunião" type="datetime-local" required={false} value={horasLocais(v.reuniao.inicio)} onChange={s => editarReuniao('inicio', horaIso(s))} />
         <Campo label="Fim da reunião" type="datetime-local" required={false} value={horasLocais(v.reuniao.fim)} onChange={s => editarReuniao('fim', horaIso(s))} />
@@ -107,7 +107,7 @@ export function AtaLegadaForm({ contexto, reunioes, pessoas, pronto, documento, 
       {(reunioes.length > 0 || v.reuniao_id) && <Escolha label="Vincular reunião já cadastrada" required={false} value={v.reuniao_id ?? ''} onChange={s => editar('reuniao_id', s || null)}>
         <option value="">Selecione se a reunião já existe no sistema</option>
         {v.reuniao_id && !reunioes.some(r => r.id === v.reuniao_id) && <option value={v.reuniao_id}>Reunião vinculada</option>}
-        {reunioes.map(r => <option key={r.id} value={r.id}>{r.data.slice(0, 10)} · {rotulosModalidadeReuniao[r.modalidade]} · {r.dados.local}</option>)}
+        {reunioes.map(r => <option key={r.id} value={r.id}>{r.data.slice(0, 10)} · {nomeModalidade(contexto, r.modalidade)} · {r.dados.local}</option>)}
       </Escolha>}
       {documento && v.reuniao_id && v.reuniao_id === atual?.reuniao_id && <p className="text-sm text-muted-foreground">As correções destes campos também atualizam a reunião vinculada.</p>}
     </fieldset>

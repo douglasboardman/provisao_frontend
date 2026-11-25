@@ -15,7 +15,8 @@ export const authApi = {
 
   cancelAccess: (token: string) => apiClient.post<{ message: string }>("auth/cancel-access", { token }),
 
-  mfaStatus: () => apiClient.get<{ enabled: boolean; required: boolean }>("auth/mfa"),
+  mfaStatus: () => apiClient.get<{ enabled: boolean; required: boolean; pode_desativar_no_espelho?: boolean }>("auth/mfa"),
+  desativarMfaNoEspelho: (senha: string) => apiClient.post<void>("auth/mfa/desativar-no-espelho", { senha }),
   mfaSetup: (senha: string) => apiClient.post<{ secret: string; uri: string }>("auth/mfa/setup", { senha }),
   mfaActivate: (codigo: string) => apiClient.post<{ recovery_codes: string[] }>("auth/mfa/activate", { codigo }),
   mfaRecovery: (senha: string, codigo?: string) => apiClient.post<{ recovery_codes: string[] }>("auth/mfa/recovery", { senha, codigo }),

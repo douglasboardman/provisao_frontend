@@ -35,7 +35,7 @@ import { Badge } from "../ui/badge";
 import { DeleteDialog } from "./DeleteDialog";
 import { usePermissions } from "../../hooks/use-permissions";
 import { toast } from "../ui/use-toast";
-import { oficiaisApi } from "../../api/oficiais";
+import { podeHistorico, oficiaisApi } from "../../api/oficiais";
 import { useAuthStore } from "../../stores/auth";
 import { Perfil } from "../../types/enums";
 import { eventosMembresiaApi } from "../../api/eventos-membresia";
@@ -109,7 +109,10 @@ export function HistoricoMembresiaDialog({
   const authUser = useAuthStore(s => s.user);
   const identidade = `${authUser?.igreja_id ?? ''}:${authUser?.sub ?? ''}`;
   const acesso = useQuery({ queryKey: ['oficiais', identidade, 'meu-acesso'], queryFn: oficiaisApi.meuAcesso,
-    enabled: governancaHabilitada && open && !!authUser && [Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO, Perfil.AUDITOR].includes(authUser.perfil), staleTime: 0, gcTime: 0 });
+    enabled: governancaHabilitada && open && !!authUser && [Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO, Perfil.AUDITOR, Perfil.COMUM].includes(authUser.perfil), staleTime: 0, gcTime: 0 });
+  const consultaHistorico = !!acesso.data?.pode_consultar && podeHistorico(acesso.data, 'HISTORICO_MEMBRESIA_CONSULTAR');
+  const retificaHistorico = !!acesso.data?.pode_registrar && podeHistorico(acesso.data, 'HISTORICO_MEMBRESIA_RETIFICAR');
+  const decideRevisao = !!acesso.data?.pode_registrar && podeHistorico(acesso.data, 'REVISOES_ELEITORAIS_DECIDIR');
   const ordenarAto = useMutation({ mutationFn: ({ id, dados }: { id: string; dados: Parameters<typeof eventosMembresiaApi.ordenarUnico>[1] }) => eventosMembresiaApi.ordenarUnico(id, dados), onSuccess: async () => {
     setOrdemEventoId(null); await queryClient.invalidateQueries({ queryKey: ['eventos-membresia'] }); toast({ title: 'Ordem conferida' });
   }, onError: (e) => toast({ title: 'Erro', description: e instanceof ApiRequestError ? e.messages[0] : 'Não foi possível conferir a ordem', variant: 'destructive' }) });
@@ -454,7 +457,7 @@ export function HistoricoMembresiaDialog({
                           )}
                         </div>
                       </div>
-                      {acesso.data?.pode_registrar && ev.ordem_dia == null && pessoaEventos.filter(e => e.data_evento.slice(0, 10) === ev.data_evento.slice(0, 10)).length === 1 && <div className="mt-2">
+                      {retificaHistorico && ev.ordem_dia == null && pessoaEventos.filter(e => e.data_evento.slice(0, 10) === ev.data_evento.slice(0, 10)).length === 1 && <div className="mt-2">
                         <Button type="button" variant="outline" disabled={ordenarAto.isPending} onClick={() => { chaveOrdem.current = crypto.randomUUID(); setOrdemEventoId(ev.id); }}>Conferir ordem deste ato</Button>
                         {ordemEventoId === ev.id && <form className="mt-2 space-y-2" onSubmit={e => enviarOrdem(e, ev.id)}>
                           <p className="text-sm text-muted-foreground">Como há um único ato neste dia, registrar a ordem não altera o rol. Informe a referência conferida.</p>
@@ -466,7 +469,7 @@ export function HistoricoMembresiaDialog({
                           <div className="flex gap-2"><Button type="submit" disabled={ordenarAto.isPending}>Salvar ordem</Button><Button type="button" variant="outline" disabled={ordenarAto.isPending} onClick={() => setOrdemEventoId(null)}>Cancelar</Button></div>
                         </form>}
                       </div>}
-                      {secretariaHabilitada && authUser && [Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO, Perfil.AUDITOR].includes(authUser.perfil) && <ReferenciaAta alvo={{ grupo: "MEMBRESIA", alvo_id: ev.id, etapa: "ATO" }} identidade={identidade} />}
+                      {secretariaHabilitada && authUser && [Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO, Perfil.AUDITOR, Perfil.COMUM].includes(authUser.perfil) && <ReferenciaAta alvo={{ grupo: "MEMBRESIA", alvo_id: ev.id, etapa: "ATO" }} identidade={identidade} />}
                       <div className="mt-2 text-sm space-y-1">
                         <p>
                           <span className="text-muted-foreground">
@@ -509,7 +512,7 @@ export function HistoricoMembresiaDialog({
                 })}
             </div>
           )}
-          {pessoaId && acesso.data?.pode_consultar && <><HistoricoRevisoesEleitorais key={`revisao-${pessoaId}`} pessoaId={pessoaId} identidade={identidade} podeRegistrar={acesso.data.pode_registrar} /><CorrecaoConteudo key={`conteudo-${pessoaId}`} pessoaId={pessoaId} identidade={identidade} podeRegistrar={acesso.data.pode_registrar} /><InsercaoRetroativa key={`insercao-${pessoaId}`} pessoaId={pessoaId} identidade={identidade} podeRegistrar={acesso.data.pode_registrar} /><CorrecaoMembresia key={`correcao-${pessoaId}`} oficialId={pessoaId} identidade={identidade} podeRegistrar={acesso.data.pode_registrar} porPessoa /><OrdenacaoMembresia key={`ordem-${pessoaId}`} oficialId={pessoaId} identidade={identidade} podeRegistrar={acesso.data.pode_registrar} porPessoa /></>}
+          {pessoaId && consultaHistorico && <><HistoricoRevisoesEleitorais key={`revisao-${pessoaId}`} pessoaId={pessoaId} identidade={identidade} podeRegistrar={decideRevisao} /><CorrecaoConteudo key={`conteudo-${pessoaId}`} pessoaId={pessoaId} identidade={identidade} podeRegistrar={retificaHistorico} /><InsercaoRetroativa key={`insercao-${pessoaId}`} pessoaId={pessoaId} identidade={identidade} podeRegistrar={retificaHistorico} /><CorrecaoMembresia key={`correcao-${pessoaId}`} oficialId={pessoaId} identidade={identidade} podeRegistrar={retificaHistorico} porPessoa /><OrdenacaoMembresia key={`ordem-${pessoaId}`} oficialId={pessoaId} identidade={identidade} podeRegistrar={retificaHistorico} porPessoa /></>}
         </DialogContent>
       </Dialog>
 

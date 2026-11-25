@@ -1,0 +1,13 @@
+.impressao-assembleia { display: none }
+.folha-assembleia { overflow-x: auto; color: var(--color-foreground) }
+.folha-assembleia h3 { font-weight: 650 }
+.folha-assembleia table { width: 100%; margin-top: 1rem; border-collapse: collapse; font-size: .875rem }
+.folha-assembleia th, .folha-assembleia td { padding: .5rem; border: 1px solid #bdb7c4; text-align: left }
+.folha-assembleia td:last-child { width: 32%; height: 2.25rem }
+@media print {
+  body:has(> .impressao-assembleia)>:not(.impressao-assembleia) { display: none !important }
+  .impressao-assembleia { display: block; background: white; color: black }
+  .impressao-assembleia .folha-assembleia { overflow: visible; color: black }
+  .impressao-assembleia tr { break-inside: avoid }
+  .impressao-assembleia thead { display: table-header-group }
+}

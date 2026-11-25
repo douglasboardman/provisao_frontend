@@ -1,3 +1,7 @@
+import { apresentar } from '../../api/campos'
+import { distinguirHomonimos, origensDoDocumento } from './procedenciaCampos'
+import { Button } from '../../components/ui/button'
+import { PautaReuniao } from './PautaReuniao'
 import { useQuery } from '@tanstack/react-query'
 import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog'
 import { dataCivil } from '../../components/shared/Workspace'
@@ -13,8 +17,10 @@ export function FichaDocumento({
   id,
   identidade,
   fechar,
-  origem,
+  origem, contextoId, abrirPrevia,
 }: {
+  contextoId: string
+  abrirPrevia: (versao: string) => void
   id: string
   identidade: string
   fechar: () => void
@@ -25,6 +31,7 @@ export function FichaDocumento({
     queryFn: () => secretariaApi.documento(id),
     gcTime: 0,
   })
+  const versao = q.data?.versoes.find(v => v.numero === q.data?.versao_atual)
   return (
     <Dialog
       open
@@ -43,10 +50,11 @@ export function FichaDocumento({
         <DialogTitle>Ficha do documento</DialogTitle>
         {q.isPending ? (
           <p role="status">Carregando ficha…</p>
-        ) : q.isError ? (
+        ) : q.isError || q.data?.contexto_id !== contextoId ? (
           <p role="alert">Não foi possível abrir a ficha.</p>
         ) : (
-          <Metadados documento={q.data} identidade={identidade} />
+          <><Metadados documento={q.data} identidade={identidade} />
+          {versao && <Button variant="outline" onClick={() => abrirPrevia(versao.id)}>Abrir prévia</Button>}</>
         )}
       </DialogContent>
     </Dialog>
@@ -76,6 +84,9 @@ export function Metadados({
     gcTime: 0,
   })
   if (!v) return <p>Nenhuma versão disponível.</p>
+  const valores = v.conteudo.valores ?? {}
+  const definicoes = v.modelo?.configuracao.definicoes ?? {}
+  const origens = distinguirHomonimos(origensDoDocumento({}, valores, v.conteudo.antecedente, !!v.motivador_id, false), definicoes)
   const encontro = historica ?? congelada?.dados ?? reuniao.data?.dados
   return (
     <div className="space-y-4 text-sm">
@@ -83,11 +94,12 @@ export function Metadados({
         <span className="pill">{estadosDocumento[documento.estado]}</span>
         <h3 className="mt-2 text-lg font-semibold">{v.assunto}</h3>
         <p>
-          {numeroDocumento({ ...documento, versao_atual: v.numero })} · v{v.numero}
+          {v.fonte_congelada?.numero || numeroDocumento({ ...documento, versao_atual: v.numero })} · v{v.numero}
         </p>
       </div>
       <dl className="grid gap-3 rounded-xl bg-muted/50 p-4 sm:grid-cols-2">
         {Object.entries({
+          ...(v.conteudo?.redator_ata?.nome && { 'Redator da ata': v.conteudo.redator_ata.nome }),
           'Data do documento': dataCivil(v.data_documento),
           'Data da reunião': dataCivil(encontro?.data),
           Local: encontro?.local,
@@ -114,15 +126,21 @@ export function Metadados({
           {v.fonte_congelada.registro_livro.posicao_fim}
         </p>
       )}
+      {camposAdicionais && Object.keys(origens).length > 0 && <section><h4 className="font-semibold">Origem dos campos</h4>
+        <dl>{Object.entries(origens).map(([id, indicacao]) => <div key={id} className="mt-2">
+          <dt>{definicoes[id]?.nome ?? 'Campo da versão'} · {indicacao.detalhe}</dt>
+          <dd>{apresentar({ tipo: 'campo', campo_id: id, apresentacao: 'em_linha' }, valores[id]) || 'A preencher'}</dd>
+        </div>)}</dl>
+      </section>}
       {camposAdicionais &&
-        Object.entries(v.conteudo.campos).map(([campo, valor]) => (
+        Object.entries(v.conteudo.campos ?? {}).map(([campo, valor]) => (
           <p key={campo}>
             {campo}: {valor}
           </p>
         ))}
       <section>
         <h4 className="font-semibold">Pauta</h4>
-        <p className="whitespace-pre-line">{encontro?.pauta || 'Sem pauta informada.'}</p>
+        <PautaReuniao itens={historica ? undefined : (congelada ?? reuniao.data)?.itens_pauta} texto={encontro?.pauta} />
       </section>
       <section>
         <h4 className="font-semibold">Decisões e deliberações</h4>
@@ -136,6 +154,7 @@ export function Metadados({
           {v.deliberacoes.map((r, i) => (
             <li key={i}>
               {dataCivil(r.data)} · {r.resultado} · {r.autoridade} · {r.evidencia}
+              {r.mesa && <span> · Mesa {r.mesa.ordem}: {r.mesa.presidente_nome} (presidente) e {r.mesa.secretario_nome} (secretário)</span>}
               {r.revisao_conteudo !== v.revisao_conteudo && ' · Refere-se a conteúdo anterior'}
             </li>
           ))}
@@ -159,7 +178,8 @@ export function Metadados({
   )
 }
 
-export function TeorDocumento({ texto }: { texto: string }) {
+export function TeorDocumento({ texto }: { texto?: string | null }) {
+  if (!texto?.trim()) return null
   return (
     <div className="space-y-3 text-justify leading-[1.85]">
       {texto

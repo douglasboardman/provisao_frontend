@@ -1,12 +1,22 @@
+import type { PaginaSelecao } from './referencias-ata'
 import { apiClient } from './client'
-import type { BloqueioOrgao } from './oficiais'
+import type { BloqueioOrgao, OficialResumo } from './oficiais'
 
-export type TipoOrgao = 'CONSELHO' | 'JUNTA' | 'UNIDADE_MINISTERIAL'
-export interface OrgaoResumo { id: string; tipo: TipoOrgao; constituicao: 'OFICIAL' | 'ELEICAO' | 'DESIGNACAO'; nome: string; sigla: string | null; ativo: boolean }
+export type TipoOrgao = 'ASSEMBLEIA_GERAL' | 'SOCIEDADE_INTERNA' | 'CONSELHO' | 'JUNTA' | 'UNIDADE_MINISTERIAL'
+export interface OrgaoResumo { categoria?: string; tipo_padrao?: string | null; gestao_presidencial?: boolean; integrantes?: number; vagas?: number; id: string; tipo: TipoOrgao; constituicao: 'OFICIAL' | 'ELEICAO' | 'DESIGNACAO'; nome: string; sigla: string | null; ativo: boolean }
 type Pessoa = { id: string; nome_completo: string }
 type SituacaoMembresia = 'ELEGIVEL' | 'NAO_ELEGIVEL' | 'INDETERMINADA' | null
 export interface DetalheOrgao {
-  orgao: OrgaoResumo & { finalidade: string; data_criacao: string }
+  pode_configurar?: boolean
+  prazo_sugerido_cargos?: number | null
+  consulta_nominal?: boolean
+  fora_da_composicao?: Pessoa[]
+  proximo_cursor_inativo?: string | null
+  pode_registrar_cargos?: boolean
+  cargos_na_data?: VagaCargo[]
+  contexto_id?: string | null
+  versao?: { numero: number; fonte: string } | null
+  orgao: OrgaoResumo & { finalidade: string; data_criacao: string | null }
   data_referencia: string
   vigente_na_data: boolean
   composicao: { membros: { pessoa_id: string; nome: string; oficios: string[]; revisao_pendente: boolean }[]; indeterminados: { pessoa_id: string; nome: string }[] } | null
@@ -19,17 +29,57 @@ export interface DetalheOrgao {
   ocupacoes: { id: string; inicio: string; inicio_ordem: number; fim: string | null; fim_ordem: number | null; termino_previsto: string | null; pessoa: Pessoa; cargo: { nome: string }; situacao_membresia: SituacaoMembresia }[]
   ocupacoes_limitadas: boolean
   proximo_cursor_ocupacao: string | null
-  participacoes: { id: string; inicio: string; inicio_ordem?: number; fim: string | null; fim_ordem?: number | null; pessoa: Pessoa; situacao_membresia: SituacaoMembresia }[]
+  participacoes: { categoria_participacao?: string | null; direito_voto?: boolean; revisao_faixa?: { data_limite: string; situacao: 'PROXIMA' | 'REVISAR'; destino: string | null } | null; id: string; inicio: string; inicio_ordem?: number; fim: string | null; fim_ordem?: number | null; pessoa: Pessoa; situacao_membresia: SituacaoMembresia }[]
   participacoes_limitadas: boolean
   proximo_cursor_participacao: string | null
 }
 
+export interface EntradaMandato {
+  pessoa_id: string; ata_eleicao: string; trecho_eleicao: string; ata_posse: string; trecho_posse: string; data_posse: string
+  indicacao_id?: string
+  ordenacao?: { data: string; autoridade: string; evidencia: string }
+  idempotencia: string
+}
+export interface PreviaMandato {
+  nome: string; data_eleicao: string; data_posse: string; termino_previsto: string; reeleicao: boolean
+  versao: number; previa: string; transcricao_historica: boolean; assunto_indicacao?: string
+}
+export interface MandatoFicha {
+  id: string; data_eleicao: string; data_posse: string; termino_previsto: string; termino_efetivo: string | null
+  motivo_encerramento?: string | null; registro?: { operador: string; instante: string } | null
+  oficial: OficialResumo; pode_encerrar: boolean; versao_orgao: { numero: number } | null
+}
+export type PropostaConfiguracao = {
+  inicio: string; fonte: string; autoridade: string; evidencia: string
+  prazo_maximo_meses?: number; prazo_sugerido_meses?: number
+  posse_integrante?: 'CONSELHO' | 'ASSEMBLEIA_GERAL'
+}
+export type ConfiguracaoInstitucional = {
+  pode_adotar: boolean; hoje: string; oficial: boolean; prazo_limite_meses: number | null
+  versoes: { id: string; numero: number; fonte: string; inicio: string; fim: string | null }[]
+  proposta: { id: string; base_id: string; previa: string; entrada: PropostaConfiguracao
+    alteracoes: { campo: string; antes: string | number; depois: string | number }[] } | null
+}
 export const orgaosApi = {
+  configuracao: (id: string) => apiClient.get<ConfiguracaoInstitucional>(`orgaos/${id}/configuracao`),
+  proporConfiguracao: (id: string, dados: PropostaConfiguracao) =>
+    apiClient.put(`orgaos/${id}/configuracao/proposta`, dados),
+  adotarConfiguracao: (id: string, dados: { id: string; previa: string }) =>
+    apiClient.post(`orgaos/${id}/configuracao/adotar`, dados),
+  mandatos: (id: string, cursor?: string) => apiClient.get<Pagina<MandatoFicha> & { pode_registrar: boolean }>(`orgaos/${id}/mandatos${cursor ? '?cursor=' + cursor : ''}`),
+  docentesConselho: (id: string, cursor?: string) => apiClient.get<Pagina<OficialResumo & { vinculos_pastorais: { id: string; modalidade: string; data_inicio: string; data_fim: string | null }[] }>>(`orgaos/${id}/docentes${cursor ? '?cursor=' + cursor : ''}`),
+  previaMandato: (id: string, dados: EntradaMandato) => apiClient.post<PreviaMandato>(`orgaos/${id}/mandatos/previa`, dados),
+  indicacoesMandato: (id: string, pessoa: string, ata: string) =>
+    apiClient.get<{ id: string; ata_conselho: { id: string; assunto: string; data_documento: string } }[]>(
+      `orgaos/${id}/mandatos/indicacoes?${new URLSearchParams({ pessoa, ata })}`),
+  registrarMandato: (id: string, dados: EntradaMandato & { previa: string }) => apiClient.post<{ id: string; oficial_id: string }>(`orgaos/${id}/mandatos`, dados),
   ato: (orgao: string, ato: string) => apiClient.get<{ id: string; autoridade: string | null; evidencia: string | null; detalhes: Record<string, unknown>; retrato: { orgao?: { nome: string }; operador?: { nome: string }; pessoas?: { id: string; nome: string }[] } | null }>(`orgaos/${encodeURIComponent(orgao)}/atos/${encodeURIComponent(ato)}`),
   relogio: () => apiClient.get<{ data_utc: string; data_operacional: string | null; fuso_iana: string | null; data_no_fuso: string | null }>('orgaos/relogio'),
-  listar: (cursor?: string) => apiClient.get<{ itens: OrgaoResumo[]; proximo_cursor: string | null }>(`orgaos${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`),
-  detalhe: (id: string, data: string, cursores?: { ocupacao?: string; participacao?: string }) => {
+  listar: (cursor?: string, data?: string) => apiClient.get<Pagina<OrgaoResumo> & { pode_gerir_sociedades?: boolean }>(`orgaos?${new URLSearchParams({ ...(cursor && { cursor }), ...(data && { data }) })}`),
+  detalhe: (id: string, data: string, cursores?: { ocupacao?: string; participacao?: string; inativos?: boolean; cursorInativo?: string }) => {
     const params = new URLSearchParams({ data })
+    if (cursores?.inativos) params.set('inativos', '1')
+    if (cursores?.cursorInativo) params.set('cursor_inativo', cursores.cursorInativo)
     if (cursores?.ocupacao) params.set('cursor_ocupacao', cursores.ocupacao)
     if (cursores?.participacao) params.set('cursor_participacao', cursores.participacao)
     return apiClient.get<DetalheOrgao>(`orgaos/${encodeURIComponent(id)}?${params}`)
@@ -44,11 +94,14 @@ export type Pagina<T> = { itens: T[]; proximo_cursor: string | null }
 export type CompetenciaResumo = { id: string; inicio: string; fim: string | null; pessoa_id: string; pessoa: { nome_completo: string }; usuario: { nome_usuario: string; ativo: boolean; perfil: string; pessoa_id: string | null } }
 export type PresidenciaResumo = { id: string; inicio: string; fim: string | null; oficial: { id: string; pessoa: { nome_completo: string } } }
 export type DocenteResumo = { id: string; pessoa: { nome_completo: string } }
-export type AtoEleicao = { pessoa_id: string; data_eleicao: string; data_posse: string; termino_previsto: string; autoridade: string; evidencia: string; idempotencia: string }
-export type AtoEncerramento = { data_efeito: string; motivo: string; autoridade: string; evidencia: string; idempotencia: string }
+export type OcupacaoAtual = { id: string; ato_id?: string | null; inicio: string; fim: string | null; termino_previsto: string | null; pessoa: Pessoa }
+export type VagaCargo = { id: string; nome: string; titulares: Pessoa[]; ocupacoes?: OcupacaoAtual[] }
+export type ProvaCargo = { versao_id: string; trecho: string }
+export type AtoEleicao = { pessoa_id: string; data_eleicao: string; data_posse: string; termino_previsto: string; autoridade: string; evidencia: string; idempotencia: string; comprovacao?: { eleicao: ProvaCargo; posse: ProvaCargo; sucede_id?: string; confirmar_historico?: true } }
+export type AtoEncerramento = { data_efeito: string; motivo: string; autoridade: string; evidencia: string; idempotencia: string; comprovacao?: ProvaCargo }
 export type RegraCargo = { permite_acumulacao: boolean; fonte: string; versao: string; autoridade: string; evidencia: string; idempotencia: string }
 export type PoliticaUnidade = { versao: string; fonte: string; autoridade: string; evidencia: string; inicio: string; fim: string; prazo_maximo_meses: number; idempotencia: string }
-export type PreviaImpactos = { data_inicial: string; participacoes: { id: string; inicio: string; inicio_ordem?: number; fim: string | null; fim_ordem?: number | null; orgao: { nome: string } }[]; participacoes_limitadas: boolean; proximo_cursor_participacao: string | null; ocupacoes: { id: string; inicio: string; fim: string | null; cargo: { nome: string; orgao: { nome: string } } }[]; ocupacoes_limitadas: boolean; proximo_cursor_ocupacao: string | null }
+export type PreviaImpactos = { data_inicial: string; participacoes: { categoria_participacao?: string | null; direito_voto?: boolean; revisao_faixa?: { data_limite: string; situacao: 'PROXIMA' | 'REVISAR'; destino: string | null } | null; id: string; inicio: string; inicio_ordem?: number; fim: string | null; fim_ordem?: number | null; orgao: { nome: string } }[]; participacoes_limitadas: boolean; proximo_cursor_participacao: string | null; ocupacoes: { id: string; inicio: string; fim: string | null; cargo: { nome: string; orgao: { nome: string } } }[]; ocupacoes_limitadas: boolean; proximo_cursor_ocupacao: string | null }
 
 export const gestaoOrgaosApi = {
   manter: (orgao: string, dados: { nome: string; sigla: string | null; finalidade: string; autoridade: string; evidencia: string; idempotencia: string }) => apiClient.patch<{ ato_id: string; orgao_id: string }>(`orgaos/gestao/${encodeURIComponent(orgao)}/cadastro`, dados),
@@ -91,6 +144,10 @@ export const gestaoOrgaosApi = {
   criarCargo: (orgaoId: string, dados: RegraCargo & { codigo: string; nome: string; funcao?: 'SECRETARIO' | 'TESOUREIRO' | 'OUTRO' }) => apiClient.post<{ id: string }>(`orgaos/gestao/${encodeURIComponent(orgaoId)}/cargos`, dados),
   configurarAcumulacao: (orgaoId: string, cargoId: string, dados: RegraCargo) => apiClient.patch<{ id: string; permite_acumulacao: boolean }>(`orgaos/gestao/${encodeURIComponent(orgaoId)}/cargos/${encodeURIComponent(cargoId)}/acumulacao`, dados),
   registrarPolitica: (orgaoId: string, dados: PoliticaUnidade) => apiClient.post<{ id: string }>(`orgaos/gestao/${encodeURIComponent(orgaoId)}/politicas`, dados),
+  candidatosCargo: (orgao: string, cargo: string, filtros: Record<string, string>) => apiClient.get<(Pessoa & { limite_exercicio: string | null })[]>(
+    `orgaos/gestao/${encodeURIComponent(orgao)}/cargos/${encodeURIComponent(cargo)}/candidatos?${new URLSearchParams(filtros)}`),
+  atasCargos: (orgao: string, filtros: Record<string, string>) => apiClient.get<PaginaSelecao>(
+    `orgaos/gestao/${encodeURIComponent(orgao)}/atas-cargos?${new URLSearchParams(filtros)}`),
   registrarEleicao: (orgaoId: string, cargoId: string, tipo: 'oficial' | 'unidade', dados: AtoEleicao & { politica_id?: string }) => apiClient.post<{ ato_id: string; ocupacao_id: string }>(`orgaos/gestao/${encodeURIComponent(orgaoId)}/cargos/${encodeURIComponent(cargoId)}/eleicao-${tipo}`, dados),
   encerrarOcupacao: (orgaoId: string, ocupacaoId: string, tipo: 'oficial' | 'unidade', dados: AtoEncerramento) => apiClient.patch<{ ato_id: string; ocupacao_id: string }>(`orgaos/gestao/${encodeURIComponent(orgaoId)}/ocupacoes/${encodeURIComponent(ocupacaoId)}/encerrar-${tipo}`, dados),
   desativar: (orgaoId: string, dados: AtoEncerramento) => apiClient.patch<{ ato_id: string; orgao_id: string }>(`orgaos/gestao/${encodeURIComponent(orgaoId)}/desativar`, dados),

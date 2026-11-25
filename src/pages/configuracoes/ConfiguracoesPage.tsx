@@ -1,3 +1,6 @@
+import { useNavegacao } from '../../hooks/use-navegacao'
+import { BibliotecaCampos } from '../secretaria/BibliotecaCampos'
+import { useRecurso } from '../../lib/recursos'
 import { Settings as PageIcon } from "lucide-react"
 import { WorkspaceHeader } from "../../components/shared/Workspace"
 import { useState } from "react"
@@ -9,6 +12,7 @@ import { IgrejaPage } from "./IgrejaPage"
 import { LogsPage } from "./LogsPage"
 import { ParametrosRolMembrosPage } from "./ParametrosRolMembrosPage"
 import { ProfissoesPage } from "./ProfissoesPage"
+import { LiberacaoAcessos } from "./LiberacaoAcessos"
 import type { LucideIcon } from "lucide-react"
 import type { Module } from "../../lib/permissions"
 
@@ -23,14 +27,23 @@ interface Tab {
 const TABS: Tab[] = [
   { key: "igreja", label: "Igreja", icon: Building2, module: "igreja", component: IgrejaPage },
   { key: "mfa", label: "Autenticação", icon: ShieldCheck, module: "igreja", component: MfaPage },
+  { key: "liberacoes", label: "Liberação de acessos", icon: ShieldCheck, module: "igreja", component: LiberacaoAcessos },
   { key: "parametros-membresia", label: "Parâmetros Membresia", icon: SlidersHorizontal, module: "regras-relacao-enum", component: ParametrosRolMembrosPage },
   { key: "profissoes", label: "Profissões", icon: Briefcase, module: "profissoes", component: ProfissoesPage },
+  { key: "campos", label: "Campos da Secretaria", icon: FileText, module: "secretaria", component: BibliotecaCampos },
   { key: "logs", label: "Logs", icon: FileText, module: "logs", component: LogsPage },
 ]
 
 export function ConfiguracoesPage() {
   const user = useAuthStore((s) => s.user)
-  const visibleTabs = TABS.filter((t) => user && canAccessModule(user.perfil, t.module))
+  const secretaria = useRecurso('secretaria')
+  const navegacao = useNavegacao()
+  const visibleTabs = TABS.filter((t) => {
+    if (!user) return false
+    if (t.key === 'liberacoes') return user.perfil === 'ADMINISTRADOR'
+    if (t.key === 'campos' && (!secretaria || !['ADMINISTRADOR', 'SECRETARIO'].includes(user.perfil))) return false
+    return navegacao.data?.permissoes[t.module]?.includes('view') ?? canAccessModule(user.perfil, t.module)
+  })
   const [activeKey, setActiveKey] = useState(visibleTabs[0]?.key ?? "igreja")
 
   const activeTab = visibleTabs.find((t) => t.key === activeKey) ?? visibleTabs[0]

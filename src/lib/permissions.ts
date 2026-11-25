@@ -5,12 +5,14 @@ export type Module =
   | "eventos-membresia" | "acoes" | "contas" | "cat-despesa"
   | "cat-receita" | "despesas" | "receitas" | "lancamentos" | "logs"
   | "regras-relacao-enum" | "secretaria" | "profissoes"
+  | "tratamentos" | "solicitacoes-acesso" | "autorizacoes-financeiras" | "balanco-mensal" | "oficiais" | "orgaos"
 
 export type Action = "view" | "create" | "edit" | "delete"
 
 type PermissionMap = Record<Perfil, Partial<Record<Module, Action[]>>>
 
 const PERMISSIONS: PermissionMap = {
+  [Perfil.COMUM]: { secretaria: ["view"] },
   [Perfil.ADMINISTRADOR]: {
     secretaria: ["view"],
     usuarios: ["view", "create", "edit", "delete"],
@@ -110,6 +112,7 @@ export function hasPermission(
   module: Module,
   action: Action,
 ): boolean {
+  if (module === "tratamentos") return perfil !== Perfil.COMUM && action === "view"
   return PERMISSIONS[perfil]?.[module]?.includes(action) ?? false
 }
 

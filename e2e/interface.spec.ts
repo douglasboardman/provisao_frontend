@@ -169,6 +169,7 @@ async function preparar(page: Page) {
       },
       '/secretaria/contextos/conselho/resumo': { documentos: 0, atas: 0, em_edicao: 0, reunioes: 0 },
       '/secretaria/documentos': url.searchParams.get('contexto') === 'assembleia' ? [documento] : [],
+      '/secretaria/documentos/consulta': { itens: url.searchParams.get('contexto') === 'assembleia' && url.searchParams.get('visao') === 'andamento' ? [documento] : [], tem_proxima: false },
       '/secretaria/documentos/ata': documento,
       '/secretaria/reunioes/r': {
         dados: { pauta: 'Revisão do calendário', data: '2026-02-09', local: 'Salão' },
@@ -242,8 +243,9 @@ for (const largura of [320, 390, 768, 1440]) {
     await capturar(page, 'orgaos')
     await page.goto('/secretaria')
     await page.getByLabel('Contexto documental').selectOption('conselho')
-    await expect(page.getByText('Nenhum documento nesta página.')).toBeVisible()
+    await expect(page.getByText('Nenhum documento encontrado.')).toBeVisible()
     await page.getByLabel('Contexto documental').selectOption('assembleia')
+    await page.getByRole('button', { name: 'Em andamento', exact: true }).click()
     const ficha = page.getByRole('button', { name: 'Visualizar ficha' })
     await capturar(page, 'secretaria')
     await ficha.click()

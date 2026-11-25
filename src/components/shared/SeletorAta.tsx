@@ -21,7 +21,7 @@ export const descreverAta = (a: BuscaAtaOpcao) =>
   [
     a.numero_formatado || 'Sem número',
     a.data.slice(0, 10).split('-').reverse().join('/'),
-    a.assunto,
+    a.reconvocacao ? 'Reconvocação · ' + a.assunto : a.assunto,
     'v' + a.versao,
   ].join(' · ')
 
@@ -229,7 +229,7 @@ function Consulta({ chave, buscar, selecionar, documento, contextoInicial }: Pro
                     {a.data.slice(0, 10).split('-').reverse().join('/')}
                   </td>
                   <td className="col-span-2 break-words px-2 sm:py-2">
-                    <strong>{a.assunto}</strong>
+                    <strong>{a.reconvocacao && 'Reconvocação · '}{a.assunto}</strong>
                     <div className="text-xs text-muted-foreground">
                       {a.contexto} · v{a.versao}
                     </div>

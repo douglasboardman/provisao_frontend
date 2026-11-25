@@ -40,7 +40,7 @@ async function request<T>(
   }
 
   if (!response.ok) {
-    if (response.status === 401 && !path.startsWith("assinaturas/convite/") && !["auth/login", "auth/profile", "auth/confirm-access", "auth/cancel-access", "auth/set-password", "auth/mfa/setup", "auth/mfa/activate", "auth/mfa/recovery", "auth/mfa/recovery/resume", "auth/mfa/recovery/confirm", "auth/mfa/policy"].includes(path)) {
+    if (response.status === 401 && !path.startsWith("minha-assembleia") && !path.startsWith("assinaturas/convite/") && !["auth/login", "auth/profile", "auth/confirm-access", "auth/cancel-access", "auth/set-password", "auth/mfa/setup", "auth/mfa/activate", "auth/mfa/recovery", "auth/mfa/recovery/resume", "auth/mfa/recovery/confirm", "auth/mfa/policy", "auth/mfa/desativar-no-espelho"].includes(path)) {
       window.location.href = "/login"
       throw new ApiRequestError(401, ["Sessão expirada."])
     }
