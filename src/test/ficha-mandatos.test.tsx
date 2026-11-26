@@ -25,7 +25,7 @@ it('exibe posse futura e omite registro e reeleição quando o servidor recusa o
   expect(screen.queryByRole('button', { name: 'Atribuir cargo' })).toBeNull()
   expect(screen.getByRole('progressbar').getAttribute('value')).toBe('0')
 })
-it('oferece reeleição para a pessoa do mandato no último dia inclusivo', async () => {
+it.each([false, true])('consegue conferir um mandato com ou sem declaração de ordenação histórica (%s)', async historica => {
   vi.stubEnv('VITE_FEATURE_ORGAOS_GESTAO','true')
   vi.spyOn(orgaosApi,'mandatos').mockResolvedValue({ itens: [mandato], proximo_cursor: null, pode_registrar: true })
   vi.spyOn(orgaosApi, 'indicacoesMandato').mockResolvedValue([])
@@ -56,10 +56,19 @@ it('oferece reeleição para a pessoa do mandato no último dia inclusivo', asyn
   }
   expect(screen.getByText('15/01/2032')).toBeTruthy()
   expect(screen.getByText('01/02/2032')).toBeTruthy()
+  if (historica) {
+    fireEvent.click(screen.getByRole('radio', { name: 'Registro de ordenação histórico não documentado' }))
+    for (const rotulo of ['Data da ordenação', 'Autoridade da ordenação', 'Referência da ordenação']) {
+      const campo = screen.getByLabelText(rotulo + ' (opcional)') as HTMLInputElement
+      expect(campo.required).toBe(false)
+      expect(campo.value).toBe('')
+    }
+  }
   fireEvent.click(screen.getByRole('button', { name: 'Conferir mandato' }))
   await screen.findByRole('button', { name: 'Confirmar registro' })
   expect(conferir).toHaveBeenCalledWith('conselho', {
     pessoa_id: 'eleito', ata_eleicao: 'versao-ASSEMBLEIA', ata_posse: 'versao-CONSELHO', idempotencia: expect.any(String),
+    ...(historica && { ordenacao: { historica: true } }),
   })
 })
 

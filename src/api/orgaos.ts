@@ -38,12 +38,14 @@ export interface DetalheOrgao {
 export interface EntradaMandato {
   pessoa_id: string; ata_eleicao: string; ata_posse: string
   indicacao_id?: string
-  ordenacao?: { data: string; autoridade: string; evidencia: string }
+  ordenacao?: { data: string; autoridade: string; evidencia?: string }
+    | { historica: true; data?: string; autoridade?: string; evidencia?: string }
   idempotencia: string
 }
 export interface PreviaMandato {
   nome: string; data_eleicao: string; data_posse: string; termino_previsto: string; reeleicao: boolean
   versao: number; previa: string; transcricao_historica: boolean; assunto_indicacao?: string
+  ordenacao_historica?: boolean
 }
 export interface MandatoFicha {
   id: string; data_eleicao: string; data_posse: string; termino_previsto: string; termino_efetivo: string | null

@@ -17,7 +17,7 @@ export function RegistroMandato({ orgao, identidade, titular, concluir }: { orga
   const [tipoPosse, setTipoPosse] = useState<'CONSELHO' | 'ASSEMBLEIA'>('CONSELHO')
   const [pessoa, setPessoa] = useState(titular?.id ?? '')
   const [busca, setBusca] = useState('')
-  const [ordenacao, setOrdenacao] = useState(false)
+  const [ordenacao, setOrdenacao] = useState<'existente' | 'documentada' | 'historica'>('existente')
   const chave = useIdempotencia()
   const candidatos = useQuery({ queryKey: ['oficiais', identidade, 'eleitos', eleicao?.versao_id, busca], enabled: !!eleicao && !titular,
     queryFn: () => oficiaisApi.candidatos(eleicao!.versao_id, busca, 'ASSEMBLEIA') })
@@ -33,9 +33,14 @@ export function RegistroMandato({ orgao, identidade, titular, concluir }: { orga
     if (!pessoa || !eleicao || !posse || posseAnterior) return
     const campos = new FormData(e.currentTarget)
     const ler = (campo: string) => String(campos.get(campo) ?? '').trim()
+    const dataOrdenacao = ler('ordenacao'), autoridade = ler('autoridade'), evidencia = ler('evidencia')
+    const referencia = evidencia ? { evidencia } : {}
+    const registroOrdenacao: EntradaMandato['ordenacao'] = ordenacao === 'historica'
+      ? { historica: true, ...(dataOrdenacao && { data: dataOrdenacao }), ...(autoridade && { autoridade }), ...referencia }
+      : ordenacao === 'documentada' ? { data: dataOrdenacao, autoridade, ...referencia } : undefined
     const dados = { pessoa_id: pessoa, ata_eleicao: eleicao.versao_id, ata_posse: posse.versao_id,
       ...(ler('indicacao') && { indicacao_id: ler('indicacao') }),
-      ...(ordenacao && { ordenacao: { data: ler('ordenacao'), autoridade: ler('autoridade'), evidencia: ler('evidencia') } }) }
+      ...(registroOrdenacao && { ordenacao: registroOrdenacao }) }
     previa.mutate({ ...dados, idempotencia: chave.obter(dados) })
   }
   const erro = previa.error ?? salvar.error
@@ -60,14 +65,22 @@ export function RegistroMandato({ orgao, identidade, titular, concluir }: { orga
         buscar={f => oficiaisApi.selecaoAtas(tipoPosse, f)} selecionar={setPosse} />
       {!previa.data && dataEleicao && dataPosse && <p>Eleição em <strong>{data(dataEleicao)}</strong> · Posse em <strong>{data(dataPosse)}</strong></p>}
       {posseAnterior && <p role="alert">A ata da posse tem data anterior à eleição. Selecione a ata que documenta a posse.</p>}
-      <label className="flex items-center gap-2"><input type="checkbox" checked={ordenacao} onChange={e => setOrdenacao(e.target.checked)} />Registrar ordenação documentada pela primeira vez</label>
-      {ordenacao && <><label className="block">Data da ordenação<Input name="ordenacao" type="date" required /></label>
-        <label className="block">Autoridade da ordenação<Input name="autoridade" required maxLength={1000} /></label>
-        <label className="block">Referência da ordenação<Input name="evidencia" required maxLength={1000} /></label></>}
+      <fieldset className="space-y-2">
+        <legend className="font-medium">Ordenação</legend>
+        <label className="flex items-center gap-2"><input type="radio" name="modo-ordenacao" checked={ordenacao === 'existente'} onChange={() => setOrdenacao('existente')} />Usar a ordenação já registrada</label>
+        <label className="flex items-center gap-2"><input type="radio" name="modo-ordenacao" checked={ordenacao === 'documentada'} onChange={() => setOrdenacao('documentada')} />Registrar ordenação documentada pela primeira vez</label>
+        <label className="flex items-center gap-2"><input type="radio" name="modo-ordenacao" checked={ordenacao === 'historica'} onChange={() => setOrdenacao('historica')} />Registro de ordenação histórico não documentado</label>
+        {ordenacao !== 'existente' && <>
+          <label className="block">Data da ordenação{ordenacao === 'historica' && ' (opcional)'}<Input name="ordenacao" type="date" max={dataPosse} required={ordenacao === 'documentada'} /></label>
+          <label className="block">Autoridade da ordenação{ordenacao === 'historica' && ' (opcional)'}<Input name="autoridade" required={ordenacao === 'documentada'} maxLength={ordenacao === 'historica' ? 255 : 1000} /></label>
+          <label className="block">Referência da ordenação (opcional)<Input name="evidencia" maxLength={1000} placeholder="Ex.: ata, livro e folha ou certidão" /></label>
+        </>}
+      </fieldset>
       {!previa.data && <Button type="submit" disabled={!eleicao || !posse || !pessoa || posseAnterior}>Conferir mandato</Button>}
     </fieldset>
     {previa.data && <section className="space-y-2" aria-live="polite"><h4 className="font-semibold">{previa.data.reeleicao ? 'Reeleição' : 'Investidura'} de {previa.data.nome}</h4>
       <p>Eleição em {data(previa.data.data_eleicao)}. Mandato de {data(previa.data.data_posse)} a {data(previa.data.termino_previsto)}.</p>
+      {previa.data.ordenacao_historica && <p>Ordenação histórica declarada, com documentação pendente.</p>}
       {previa.data.assunto_indicacao && <p>Indicação histórica vinculada · {previa.data.assunto_indicacao}</p>}
       {previa.data.transcricao_historica && <p>A eleição antecede o catálogo. Confira a compatibilidade do ato histórico com a configuração inicial, versão {previa.data.versao}.</p>}
       <div className="flex flex-wrap gap-2"><Button type="button" variant="outline" disabled={salvar.isPending} onClick={() => { salvar.reset(); previa.reset() }}>Rever dados</Button>
