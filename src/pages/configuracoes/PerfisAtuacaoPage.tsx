@@ -6,7 +6,6 @@ import { ApiRequestError } from '../../api/client'
 import { Badge } from '../../components/ui/badge'
 import { Button } from '../../components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog'
-import { Input } from '../../components/ui/input'
 import { useAuthStore } from '../../stores/auth'
 import { CriarPerfilAtuacao } from './CriarPerfilAtuacao'
 
@@ -51,7 +50,6 @@ export function PerfisAtuacaoPage() {
 
 function DetalhePerfil({ perfil }: { perfil: PerfilAtuacao }) {
   const [usuario, selecionar] = useState('')
-  const [fundamento, justificar] = useState('')
   const [revogar, definirRevogacao] = useState<ConcessaoPerfil | null>(null)
   const ator = useAuthStore(s => s.user)
   const cache = useQueryClient()
@@ -59,11 +57,10 @@ function DetalhePerfil({ perfil }: { perfil: PerfilAtuacao }) {
     queryFn: () => autorizacaoApi.concessoesPerfil(perfil.id), retry: false })
   const revisar = useMutation({ mutationFn: (id: string) => autorizacaoApi.previaConcessaoPerfil(perfil.id, id) })
   const conceder = useMutation({
-    mutationFn: (previa: string) => autorizacaoApi.concederPerfil(perfil.id, usuario, previa, fundamento),
+    mutationFn: (previa: string) => autorizacaoApi.concederPerfil(perfil.id, usuario, previa),
     onSuccess: async () => {
       revisar.reset()
       selecionar('')
-      justificar('')
       await cache.invalidateQueries({ queryKey: ['autorizacao'] })
     },
   })
@@ -96,14 +93,13 @@ function DetalhePerfil({ perfil }: { perfil: PerfilAtuacao }) {
         {erro && <p className="text-sm text-destructive" role="alert">{mensagem(erro, 'Não foi possível registrar a concessão.')}</p>}
         {q.data.contas.length ? <form className="space-y-4" onSubmit={e => {
           e.preventDefault()
-          if (previa && previa.itens.some(a => !a.sobreposta) && fundamento.trim() && !pendente) conceder.mutate(previa.previa)
+          if (previa && previa.itens.some(a => !a.sobreposta) && !pendente) conceder.mutate(previa.previa)
         }}>
           <div className="flex flex-wrap items-end gap-3">
             <label className="block min-w-0 flex-1 basis-64 space-y-1 text-sm font-medium">
               <span>Conta de atuação elegível</span>
               <select className="h-10 w-full rounded-md border border-input bg-card px-3" value={conta ? usuario : ''} disabled={pendente} onChange={e => {
                 selecionar(e.target.value)
-                justificar('')
                 revisar.reset()
                 conceder.reset()
               }}>
@@ -127,13 +123,8 @@ function DetalhePerfil({ perfil }: { perfil: PerfilAtuacao }) {
                 <Badge variant={a.sobreposta ? 'outline' : 'success'}>{a.sobreposta ? 'Há atribuição no período' : 'A conceder'}</Badge>
               </li>)}
             </ul>
-            {previa.itens.some(a => !a.sobreposta) && <>
-              <label className="block space-y-1 text-sm font-medium">
-                <span>Fundamento da concessão</span>
-                <Input value={fundamento} maxLength={1000} disabled={pendente} onChange={e => justificar(e.target.value)}/>
-              </label>
-              <Button disabled={!fundamento.trim() || pendente}>{conceder.isPending ? 'Atribuindo…' : 'Confirmar concessão'}</Button>
-            </>}
+            {previa.itens.some(a => !a.sobreposta) &&
+              <Button disabled={pendente}>{conceder.isPending ? 'Atribuindo…' : 'Confirmar concessão'}</Button>}
           </div>}
         </form> : <p className="text-sm text-muted-foreground">Nenhuma conta de atuação atende aos requisitos deste perfil.</p>}
       </section>
@@ -158,10 +149,9 @@ function DetalhePerfil({ perfil }: { perfil: PerfilAtuacao }) {
 }
 
 function RevogarPerfil({ concessao, fechar }: { concessao: ConcessaoPerfil; fechar: () => void }) {
-  const [fundamento, justificar] = useState('')
   const cache = useQueryClient()
   const mut = useMutation({
-    mutationFn: () => autorizacaoApi.revogarPerfil(concessao.id, fundamento),
+    mutationFn: () => autorizacaoApi.revogarPerfil(concessao.id),
     onSuccess: async () => {
       await cache.invalidateQueries({ queryKey: ['autorizacao'] })
       fechar()
@@ -175,16 +165,12 @@ function RevogarPerfil({ concessao, fechar }: { concessao: ConcessaoPerfil; fech
       </DialogHeader>
       <form className="space-y-4" onSubmit={e => {
         e.preventDefault()
-        if (fundamento.trim() && !mut.isPending) mut.mutate()
+        if (!mut.isPending) mut.mutate()
       }}>
-        <label className="block space-y-1 text-sm font-medium">
-          <span>Fundamento da revogação</span>
-          <Input value={fundamento} maxLength={1000} disabled={mut.isPending} onChange={e => justificar(e.target.value)}/>
-        </label>
         {mut.isError && <p className="text-sm text-destructive" role="alert">{mensagem(mut.error, 'Não foi possível revogar.')}</p>}
         <DialogFooter>
           <Button type="button" variant="outline" disabled={mut.isPending} onClick={fechar}>Cancelar</Button>
-          <Button variant="destructive" disabled={!fundamento.trim() || mut.isPending}>{mut.isPending ? 'Revogando…' : 'Revogar concessão'}</Button>
+          <Button variant="destructive" disabled={mut.isPending}>{mut.isPending ? 'Revogando…' : 'Revogar concessão'}</Button>
         </DialogFooter>
       </form>
     </DialogContent>

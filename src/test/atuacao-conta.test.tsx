@@ -11,15 +11,19 @@ function montar(elemento: React.ReactNode) {
   render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{elemento}</QueryClientProvider>)
 }
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
-it('exige fundamento e envia a conta anterior conferida ao trocar o login de atuação', async () => {
-  vi.spyOn(autorizacaoApi, 'conta').mockResolvedValue(dados)
+it.each([
+  { selecionada: null, ativa: false, acao: 'Selecionar como conta de atuação' },
+  { selecionada: 'anterior', ativa: false, acao: 'Trocar a atuação para esta conta' },
+  { selecionada: 'nova', ativa: true, acao: 'Retirar conta de atuação' },
+])('executa "$acao" diretamente e envia a seleção anterior', async ({ selecionada, ativa, acao }) => {
+  vi.spyOn(autorizacaoApi, 'conta').mockResolvedValue({ ...dados, selecionada_id: selecionada, conta_atuacao: ativa })
   const trocar = vi.spyOn(autorizacaoApi, 'escolher').mockResolvedValue({})
   montar(<AcessosDaConta usuario={{ id: 'nova', ativo: true, perfil: Perfil.COMUM } as Usuario}/>)
-  const botao = await screen.findByRole('button', { name: 'Trocar a atuação para esta conta' })
-  expect((botao as HTMLButtonElement).disabled).toBe(true)
-  fireEvent.change(screen.getByLabelText('Fundamento da alteração'), { target: { value: 'Identidade conferida' } })
+  const botao = await screen.findByRole('button', { name: acao })
+  expect((botao as HTMLButtonElement).disabled).toBe(false)
+  expect(screen.queryByLabelText('Fundamento da alteração')).toBeNull()
   fireEvent.click(botao)
-  await waitFor(() => expect(trocar).toHaveBeenCalledWith('p', 'anterior', 'nova', 'Identidade conferida'))
+  await waitFor(() => expect(trocar).toHaveBeenCalledWith('p', selecionada, ativa ? null : 'nova'))
 })
 it('apresenta as atribuições em avaliação da própria conta sem habilitar módulos', async () => {
   vi.spyOn(autorizacaoApi, 'me').mockResolvedValue({ ...dados, servicos_propostos: [{ acao: 'AUDITORIA_CONSULTAR', permite: true }] })

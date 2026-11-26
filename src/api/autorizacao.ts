@@ -60,8 +60,8 @@ export const autorizacaoApi = {
     'autorizacao/historico' + (cursor ? '?cursor=' + encodeURIComponent(cursor) : '')),
   me: () => apiClient.get<AtuacaoConta>('autorizacao/me'),
   conta: (id: string) => apiClient.get<AtuacaoConta>(`autorizacao/contas/${id}`),
-  escolher: (pessoa_id: string, anterior_id: string | null, conta_id: string | null, fundamento: string) =>
-    apiClient.post('autorizacao/conta-atuacao', { pessoa_id, anterior_id, conta_id, fundamento }),
+  escolher: (pessoa_id: string, anterior_id: string | null, conta_id: string | null) =>
+    apiClient.post('autorizacao/conta-atuacao', { pessoa_id, anterior_id, conta_id }),
   conceder: (id: string, acao: Servico, inicio: string, fim: string | null, fundamento: string) =>
     apiClient.post(`autorizacao/contas/${id}/atribuicoes`, { acao, inicio, fim, fundamento }),
   perfisAtuacao: () => apiClient.get<{ pode_criar: boolean; modelos: PerfilAtuacao[] }>('autorizacao/modelos-atuacao'),
@@ -73,9 +73,9 @@ export const autorizacaoApi = {
     `autorizacao/modelos-atuacao/${id}/concessoes`),
   previaConcessaoPerfil: (id: string, usuario_id: string) =>
     apiClient.post<PreviaPerfil>(`autorizacao/modelos-atuacao/${id}/concessoes/previa`, { usuario_id }),
-  concederPerfil: (id: string, usuario_id: string, previa: string, fundamento: string) =>
-    apiClient.post<{ id: string; atribuidas: number }>(`autorizacao/modelos-atuacao/${id}/concessoes`, { usuario_id, previa, fundamento }),
-  revogarPerfil: (id: string, fundamento: string) => apiClient.post(`autorizacao/concessoes-modelo/${id}/revogar`, { fundamento }),
+  concederPerfil: (id: string, usuario_id: string, previa: string) =>
+    apiClient.post<{ id: string; atribuidas: number }>(`autorizacao/modelos-atuacao/${id}/concessoes`, { usuario_id, previa }),
+  revogarPerfil: (id: string) => apiClient.post(`autorizacao/concessoes-modelo/${id}/revogar`, {}),
   revogar: (id: string, fundamento: string) => apiClient.post(`autorizacao/atribuicoes/${id}/revogar`, { fundamento }),
   presidencia: (id: string, etapa: 'conferir' | 'encaminhar', fundamento: string) =>
     apiClient.post(`autorizacao/presidencias/${id}/${etapa}`, { fundamento }),

@@ -69,8 +69,8 @@ export function AcessosDaConta({ usuario }: { usuario: Usuario }) {
           <p className="text-sm text-muted-foreground">{dados.conta_atuacao ? 'Conta selecionada para atuação institucional.' :
             dados.selecionada_id ? 'A atuação institucional usa outra conta desta pessoa.' : 'Esta conta não está selecionada para atuação institucional.'}</p>
         </div>
-        {elegivel && <Button variant="outline" disabled={!pronto} onClick={() => executar(() =>
-          autorizacaoApi.escolher(dados.pessoa_id!, dados.selecionada_id ?? null, dados.conta_atuacao ? null : usuario.id, fundamento))}>
+        {elegivel && <Button variant="outline" disabled={alterar.isPending} onClick={() => executar(() =>
+          autorizacaoApi.escolher(dados.pessoa_id!, dados.selecionada_id ?? null, dados.conta_atuacao ? null : usuario.id))}>
           {dados.conta_atuacao ? 'Retirar conta de atuação' : dados.selecionada_id ? 'Trocar a atuação para esta conta' : 'Selecionar como conta de atuação'}
         </Button>}
       </section>
@@ -137,7 +137,7 @@ export function AcessosDaConta({ usuario }: { usuario: Usuario }) {
   if (dados.pode_converter && dados.catalogo) abas.push({ id: 'conversao', nome: 'Conversão', manter: true,
     conteudo: <ConverterConta id={usuario.id} catalogo={dados.catalogo} competencias={dados.competencias ?? []}/> })
   const ativa = abas.some(a => a.id === aba) ? aba : 'atuacao'
-  const pedeFundamento = ativa === 'atuacao' ? elegivel : ativa === 'atribuicoes' && (podeConceder || dados.atribuicoes.length > 0)
+  const pedeFundamento = ativa === 'atribuicoes' && (podeConceder || dados.atribuicoes.length > 0)
 
   return <>
     <Abas titulo="Atuação da conta" abas={abas} ativa={ativa} selecionar={selecionar} rolagemInterna/>
