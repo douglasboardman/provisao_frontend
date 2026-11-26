@@ -80,13 +80,13 @@ export function CriarPerfilAtuacao({ iniciais = [], criado }: {
           }}>Adicionar</Button>
         </div>
       </div>
-      <div className="flex flex-wrap items-start gap-x-3 gap-y-2 text-sm">
-        <span className="font-medium">Atribuições:</span>
-        <div className="min-w-0" aria-live="polite">
-          {atribuicoes.length ? <ul className="flex flex-col items-start gap-2">
+      <div className="flex items-start gap-3 text-sm">
+        <span className="shrink-0 font-medium">Atribuições:</span>
+        <div className="min-w-0 flex-1" aria-live="polite">
+          {atribuicoes.length ? <ul className="flex flex-wrap items-start gap-2">
             {atribuicoes.map(a => <li key={a.chave} className="max-w-full">
               <Badge variant="secondary" className="gap-1.5 py-1 pr-1.5">
-                <span className="break-words">{a.nome}</span>
+                <span className="min-w-0 break-words">{a.nome}</span>
                 <button type="button" className="inline-grid size-6 shrink-0 place-items-center rounded-full hover:bg-background/60 focus-visible:ring-2 focus-visible:ring-ring"
                   aria-label={'Remover ' + a.nome} onClick={() => {
                     definirAtribuicoes(atribuicoes.filter(r => r.chave !== a.chave))
