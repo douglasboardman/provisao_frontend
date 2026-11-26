@@ -2,6 +2,7 @@ import { AutorizacoesFinanceiras } from './pages/secretaria/AutorizacoesFinancei
 import { FormularioSenha } from './pages/perfil/FormularioSenha'
 import { MinhaContaComum } from './pages/configuracoes/AtuacaoConta'
 import { lazy, Suspense } from 'react'
+import { useNavegacao } from './hooks/use-navegacao'
 import { useRecurso } from './lib/recursos'
 import { ConviteAssinaturaPage, VerificacaoAssinaturaPage } from './pages/assinaturas/PortalAssinaturas'
 import { Routes, Route, Navigate } from "react-router"
@@ -60,7 +61,12 @@ function OrgaosRoute() {
 function SecretariaRoute({ editor = false }: { editor?: boolean }) {
   const secretariaHabilitada = useRecurso('secretaria')
   const perfil = useAuthStore(s => s.user?.perfil)
-  if (!secretariaHabilitada || !perfil || ![Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO, Perfil.AUDITOR, Perfil.COMUM].includes(perfil)) return <Navigate to="/dashboard" replace />
+  const navegacao = useNavegacao()
+  if (!secretariaHabilitada || !perfil) return <Navigate to="/dashboard" replace />
+  if (perfil === Perfil.OPERADOR || perfil === Perfil.TESOUREIRO) {
+    if (navegacao.isPending) return <p role="status">Consultando acesso às atas…</p>
+    if (editor || !navegacao.data?.permissoes.secretaria?.includes('view')) return <Navigate to="/dashboard" replace />
+  }
   return editor ? <Suspense fallback={<p role="status">Carregando editor…</p>}><EditorSecretariaPage /></Suspense> : <SecretariaPage />
 }
 

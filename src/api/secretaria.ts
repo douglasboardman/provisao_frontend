@@ -10,6 +10,7 @@ export interface ContextoSecretaria {
   editor_pagina?: boolean
   id: string; nome: string; sigla: string; tipo: 'ORGAO' | 'ASSEMBLEIA_GERAL'; orgao_id: string | null
   orgao: { ativo?: boolean; tipo: 'ASSEMBLEIA_GERAL' | 'SOCIEDADE_INTERNA' | 'CONSELHO' | 'JUNTA' | 'UNIDADE_MINISTERIAL'; constituicao: 'OFICIAL' | 'ELEICAO' | 'DESIGNACAO' } | null
+  pode_classificar_ata?: boolean; somente_atas?: boolean
   pode_agendar?: boolean; pode_preparar: boolean; pode_aprovar: boolean; pode_deliberar: boolean; pode_consultar_restritos: boolean
 }
 export interface RegraAntecedente { modelo_id: string; campos: Record<string,string> }

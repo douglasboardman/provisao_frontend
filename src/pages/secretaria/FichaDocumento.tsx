@@ -2,7 +2,8 @@ import { apresentar } from '../../api/campos'
 import { distinguirHomonimos, origensDoDocumento } from './procedenciaCampos'
 import { Button } from '../../components/ui/button'
 import { PautaReuniao } from './PautaReuniao'
-import { useQuery } from '@tanstack/react-query'
+import { useComando } from './formulario'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog'
 import { dataCivil } from '../../components/shared/Workspace'
 import {
@@ -10,6 +11,7 @@ import {
   estadosDocumento,
   numeroDocumento,
   resultadosResolucao,
+  type ContextoSecretaria,
   type DocumentoDetalhe,
 } from '../../api/secretaria'
 
@@ -17,10 +19,10 @@ export function FichaDocumento({
   id,
   identidade,
   fechar,
-  origem, contextoId, abrirPrevia,
+  origem, contexto, abrirPrevia,
 }: {
-  contextoId: string
-  abrirPrevia: (versao: string) => void
+  contexto: ContextoSecretaria
+  abrirPrevia?: (versao: string) => void
   id: string
   identidade: string
   fechar: () => void
@@ -50,11 +52,11 @@ export function FichaDocumento({
         <DialogTitle>Ficha do documento</DialogTitle>
         {q.isPending ? (
           <p role="status">Carregando ficha…</p>
-        ) : q.isError || q.data?.contexto_id !== contextoId ? (
+        ) : q.isError || q.data?.contexto_id !== contexto.id ? (
           <p role="alert">Não foi possível abrir a ficha.</p>
         ) : (
-          <><Metadados documento={q.data} identidade={identidade} />
-          {versao && <Button variant="outline" onClick={() => abrirPrevia(versao.id)}>Abrir prévia</Button>}</>
+          <><Metadados documento={q.data} identidade={identidade} contexto={contexto} />
+          {versao && abrirPrevia && <Button variant="outline" onClick={() => abrirPrevia(versao.id)}>Abrir prévia</Button>}</>
         )}
       </DialogContent>
     </Dialog>
@@ -65,10 +67,11 @@ export function Metadados({
   documento,
   identidade,
   versaoId,
-  camposAdicionais = false,
+  camposAdicionais = false, contexto,
 }: {
   documento: DocumentoDetalhe
   identidade: string
+  contexto: ContextoSecretaria
   camposAdicionais?: boolean
   versaoId?: string
 }) {
@@ -80,7 +83,7 @@ export function Metadados({
   const reuniao = useQuery({
     queryKey: ['secretaria', identidade, 'reuniao-ficha', v?.reuniao_id],
     queryFn: () => secretariaApi.reuniao(v!.reuniao_id!),
-    enabled: !!v?.reuniao_id && !historica && !congelada,
+    enabled: !contexto.somente_atas && !!v?.reuniao_id && !historica && !congelada,
     gcTime: 0,
   })
   if (!v) return <p>Nenhuma versão disponível.</p>
@@ -111,6 +114,12 @@ export function Metadados({
           </div>
         ))}
       </dl>
+      {documento.restrito && documento.tipo === 'ATA' && <p>{contexto.orgao?.tipo === 'JUNTA'
+        ? 'Leitura reservada aos membros em exercício da Junta e do Conselho.'
+        : contexto.orgao?.tipo === 'SOCIEDADE_INTERNA' || contexto.orgao?.tipo === 'UNIDADE_MINISTERIAL'
+          ? 'Leitura reservada à diretoria em exercício deste órgão e aos membros em exercício do Conselho.'
+          : 'Leitura reservada aos membros em exercício do Conselho.'}</p>}
+      {contexto.pode_classificar_ata && documento.tipo === 'ATA' && <ClassificacaoAta documento={documento} />}
       {reuniao.isFetching && <p role="status">Carregando reunião…</p>}
       {reuniao.isError && <p role="alert">Dados da reunião indisponíveis.</p>}
       {v.modelo && (
@@ -190,4 +199,20 @@ export function TeorDocumento({ texto }: { texto?: string | null }) {
         ))}
     </div>
   )
+}
+
+function ClassificacaoAta({ documento }: { documento: DocumentoDetalhe }) {
+  const cache = useQueryClient()
+  const alterar = useComando<{ restrito: boolean; revisao: number }>((v) => secretariaApi.comando(documento.id, 'sigilo', v), () => {
+    for (const chave of ['selecao-documental', 'referencias-ata', 'orgaos', 'oficiais'])
+      void cache.invalidateQueries({ queryKey: [chave] })
+  }, documento.id)
+  return <div className="space-y-2">
+    <Button type="button" variant="outline" size="sm" disabled={alterar.isPending}
+      onClick={() => alterar.mutate({ restrito: !documento.restrito, revisao: documento.revisao })}>
+      {documento.restrito ? 'Retirar restrição da ata' : 'Restringir ata'}
+    </Button>
+    {alterar.error && <p role="alert">{alterar.error.message}</p>}
+    {alterar.isSuccess && <p role="status">Acesso à ata atualizado.</p>}
+  </div>
 }

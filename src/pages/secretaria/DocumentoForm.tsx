@@ -236,6 +236,7 @@ export function DocumentoForm({ contexto, documento, reuniaoInicial, retificar =
       const trocar = !!modelo?.configuracao.antecedentes?.length || !!escolhido?.configuracao.antecedentes?.length
       if (trocar && Object.values(v.conteudo.valores ?? {}).some(c => c.origem.tipo === 'documento_anterior' && c.ajustado_manualmente) &&
           !window.confirm('Trocar de modelo removerá o vínculo anterior e seus valores ajustados. Confirmar?')) return
+      if (!documento && !novoTermo && !reuniaoInicial && !(escolhido?.tipo === 'ATA' ? contexto.pode_classificar_ata : contexto.pode_consultar_restritos)) setRestrito(false)
       setPaginaLivros(0)
       setPaginaReunioes(0)
       set(atual => {
@@ -326,7 +327,7 @@ export function DocumentoForm({ contexto, documento, reuniaoInicial, retificar =
     {seletorReuniao}
     {documento && !retificar && modelo && (v.reuniao_id || v.livro_id || Object.keys(modelo.configuracao.definicoes ?? {}).length > 0) && <AtualizarFontes documento={documento.id} revisao={revisaoInicial!} versao={v} definicoes={modelo.configuracao.definicoes ?? {}} aplicar={(automaticos, assinatura, planejamento) => set(s => ({ ...s, atualizar_fontes: assinatura, conteudo: { ...s.conteudo, planejamento_origem: planejamento, valores: { ...s.conteudo.valores, ...automaticos } } }))}/>}
     {seletorRedator}
-    {!documento && !novoTermo && contexto.pode_consultar_restritos && <Check label="Documento restrito" checked={restrito} onChange={classificarMinuta} />}
+    {!documento && !novoTermo && modelo && (modelo.tipo === 'ATA' ? contexto.pode_classificar_ata : contexto.pode_consultar_restritos) && <Check label={modelo.tipo === 'ATA' ? 'Ata restrita' : 'Documento restrito'} checked={restrito} onChange={classificarMinuta} />}
     {seletorLivro}
     {termo === 'TERMO_ENCERRAMENTO' && <p>Os totais do encerramento vêm do inventário do livro.</p>}
     {!aguardaAnterior && <>
@@ -385,7 +386,8 @@ export function DocumentoForm({ contexto, documento, reuniaoInicial, retificar =
   const preparacaoAta = prepararAta ? <div className="surface mx-auto my-6 max-w-2xl space-y-4">
     {selecionarModelo}
     {modelo && <>{seletorReuniao}
-      {contexto.pode_consultar_restritos && !reuniaoInicial?.dados.restrito && <Check label="Ata restrita" checked={restrito} onChange={classificarMinuta}/>}
+      {contexto.pode_classificar_ata && !reuniaoInicial?.dados.restrito && <Check label="Ata restrita" checked={restrito} onChange={classificarMinuta}/>}
+      {reuniaoInicial?.dados.restrito && !contexto.pode_classificar_ata && <p role="status">A ata desta reunião restrita deve ser preparada por quem pode classificá-la.</p>}
       {seletorLivro}{selecionarAnterior}
       {v.reuniao_id && <><details><summary>Redator da ata (opcional na preparação)</summary>{seletorRedator}</details><Campo label="Assunto" value={v.assunto} onChange={s => editar('assunto', s)}/>
         <Campo label="Data do ato" type="date" value={v.data_documento} onChange={s => editar('data_documento', s)}/>
@@ -395,7 +397,7 @@ export function DocumentoForm({ contexto, documento, reuniaoInicial, retificar =
   const acoes = <>
     {preparando && !prepararAta && pagina && !editarPreparacao && <Button type="button" variant="outline" onClick={() => abrirPagina(true)}>Editar página antes de criar</Button>}
     {avisos}
-    <Salvar pending={enviar.isPending || upload || imagensPagina.enviando} disabled={!!documento && documento.revisao !== revisaoInicial || !modelo || prepararAta && (!v.reuniao_id || escolherLivro && politica === 'OBRIGATORIO' && !v.livro_id) || !!novoTermo && todasVersoes.length === 0 || modelo?.configuracao.motivador === 'OBRIGATORIO' && !v.motivador_id} error={enviar.error} success={enviar.isSuccess} label={retificar ? 'Criar retificação' : prepararAta ? 'Preparar ata' : !documento && soMinuta ? 'Preparar minuta' : preparando ? 'Criar documento' : 'Salvar documento'} />
+    <Salvar pending={enviar.isPending || upload || imagensPagina.enviando} disabled={!!documento && documento.revisao !== revisaoInicial || !modelo || !documento && modelo?.tipo === 'ATA' && restrito && !contexto.pode_classificar_ata || prepararAta && (!v.reuniao_id || escolherLivro && politica === 'OBRIGATORIO' && !v.livro_id) || !!novoTermo && todasVersoes.length === 0 || modelo?.configuracao.motivador === 'OBRIGATORIO' && !v.motivador_id} error={enviar.error} success={enviar.isSuccess} label={retificar ? 'Criar retificação' : prepararAta ? 'Preparar ata' : !documento && soMinuta ? 'Preparar minuta' : preparando ? 'Criar documento' : 'Salvar documento'} />
     {menu && <button hidden type="submit" name="salvar-conferir" />}
   </>
   return <form ref={form} inert={enviar.isPending} aria-busy={enviar.isPending} className={sessao ? undefined : "space-y-4 rounded border p-4"} onInvalidCapture={e => {

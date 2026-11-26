@@ -176,7 +176,7 @@ function Conteudo({ contexto, identidade, id, entidade, sessao, admin }: {
     return <EspacoEditor key={conferencia ? 'tramitacao' : v.id} sessao={sessao} mostrarPainelInicial={conferencia} nome={v.assunto} funcao={'Consultando documento · ' + (v.fonte_congelada?.numero || numeroDocumento(d))} situacao={estadosDocumento[d.estado]}
       painel={<>
         <details className="espaco-grupo" open={!conferencia}><summary>Dados da versão</summary>
-          <Metadados documento={d} identidade={identidade} versaoId={v.id} camposAdicionais/>
+          <Metadados contexto={contexto} documento={d} identidade={identidade} versaoId={v.id} camposAdicionais/>
         </details>
         {conferencia && d.estado !== 'LEGADA_CONFERIDA' && <details className="espaco-grupo" open><summary>Tramitação e assinaturas</summary>
           {v.numero === d.versao_atual && <TramitacaoDocumento key={d.id + ':' + d.revisao} documento={d} contexto={contexto} identidade={identidade}

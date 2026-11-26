@@ -25,7 +25,7 @@ export function ListaDocumentos({ contexto, identidade, modelos, abrir }: {
     return busca
   }, { replace: true })
   const origem = useRef<HTMLElement | null>(null)
-  const visao = url.get('visao') === 'todos' ? 'todos' : url.get('visao') === 'andamento' ? 'andamento' : 'expedidos'
+  const visao = url.get('visao') === 'andamento' ? 'andamento' : url.get('visao') === 'expedidos' ? 'expedidos' : url.get('visao') === 'todos' || contexto.somente_atas ? 'todos' : 'expedidos'
   const n = Number(url.get('pagina'))
   const pagina = Number.isInteger(n) && n >= 0 && n <= 100000 ? n : 0
   const filtros = new URLSearchParams({ contexto: contexto.id, visao, pagina: String(pagina) })
@@ -52,7 +52,7 @@ export function ListaDocumentos({ contexto, identidade, modelos, abrir }: {
       alterar(Object.fromEntries(chaves.map(k => [k, String(dados.get(k) ?? '').trim()])))
     }}>
       <label className="grid gap-1 text-sm">Número ou assunto<Input key={url.get('busca')} name="busca" maxLength={255} defaultValue={url.get('busca') ?? ''}/></label>
-      <label className="grid gap-1 text-sm">Modelo<select className="h-10 rounded border px-2" key={String(!!modelos.length) + url.get('modelo')} name="modelo" defaultValue={url.get('modelo') ?? ''}><option value="">Todos os modelos</option>{modelos.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}</select></label>
+      {!contexto.somente_atas && <label className="grid gap-1 text-sm">Modelo<select className="h-10 rounded border px-2" key={String(!!modelos.length) + url.get('modelo')} name="modelo" defaultValue={url.get('modelo') ?? ''}><option value="">Todos os modelos</option>{modelos.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}</select></label>}
       <label className="grid gap-1 text-sm">Situação<select className="h-10 rounded border px-2" key={visao + url.get('estado')} name="estado" defaultValue={url.get('estado') ?? ''}><option value="">Todas as situações</option>{estados.map(k => <option key={k} value={k}>{situacoes[k as keyof typeof situacoes]}</option>)}</select></label>
       <label className="grid gap-1 text-sm">Data inicial<Input type="date" key={url.get('de')} name="de" defaultValue={url.get('de') ?? ''}/></label>
       <label className="grid gap-1 text-sm">Data final<Input type="date" key={url.get('ate')} name="ate" defaultValue={url.get('ate') ?? ''}/></label>
@@ -69,7 +69,7 @@ export function ListaDocumentos({ contexto, identidade, modelos, abrir }: {
           <Button size="sm" variant="outline" onClick={() => abrir(d.id)}>Abrir documento</Button>
           {contexto.pode_preparar && d.estado === 'EM_EDICAO' && <Button size="sm" onClick={() => abrir(d.id, true)}>Retomar edição</Button>}</div></td></tr>)}
     </tbody></table></div>}
-    {ficha && <FichaDocumento id={ficha} contextoId={contexto.id} abrirPrevia={versao => abrirEditor('documentos', ficha, { versao })} identidade={identidade} fechar={() => mostrarFicha('')} origem={origem.current}/>}
+    {ficha && <FichaDocumento id={ficha} contexto={contexto} abrirPrevia={contexto.somente_atas ? undefined : versao => abrirEditor('documentos', ficha, { versao })} identidade={identidade} fechar={() => mostrarFicha('')} origem={origem.current}/>}
     <div className="flex items-center gap-2"><Button variant="outline" disabled={!pagina} onClick={() => alterar({ pagina: String(pagina - 1) })}>Anterior</Button>
       <span>Página {pagina + 1}</span><Button variant="outline" disabled={!consulta.data?.tem_proxima} onClick={() => alterar({ pagina: String(pagina + 1) })}>Próxima</Button></div>
   </>

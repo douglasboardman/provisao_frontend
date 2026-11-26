@@ -48,22 +48,23 @@ function SecretariaConteudo({ identidade, admin }: { identidade: string; admin: 
   const abrirVersao = (item: ItemAtuacao) => abrir(item.contexto_id, item.documento_id, item.versao_id)
   const contextos = useQuery({ queryKey: ['secretaria', identidade, 'contextos'], queryFn: secretariaApi.contextos, staleTime: 0, gcTime: 0 })
   const contexto = contextos.data?.find(c => c.id === contextoId) ?? (!contextoId ? contextos.data?.[0] : undefined)
+  const acessoGeral = !comum && !!contextos.data?.some(c => !c.somente_atas)
   if (documentoId && contexto) return <div className="workspace"><WorkspaceHeader icon={FileText} title="Documento" description={contexto.nome} /><Button variant="outline" onClick={() => navegar('/secretaria' + (local.state?.retorno || '?contexto=' + encodeURIComponent(contexto.id)))}><ArrowLeft />Voltar ao contexto</Button><ContextoConteudo key={documentoId} documentoId={documentoId} versaoAberta={busca.get('versao') ?? undefined} identidade={identidade} contexto={contexto} admin={admin} abrir={(id, editar) => abrir(contexto.id, id, undefined, editar)} /></div>
   return <div className="workspace"><WorkspaceHeader icon={Archive} title="Secretaria" description="Atas, reuniões e livros de cada contexto documental." />
     {contextos.data?.length ? <div className="surface flex flex-wrap items-center gap-3"><span className="rounded-xl bg-purple-muted/55 p-3 text-purple"><Archive size={23} /></span><div className="min-w-0 flex-1"><Escolha label="Contexto documental" value={contexto?.id ?? ''} onChange={id => { setContexto(id); setArea('contexto') }} required={false}>{contextos.data.map(c => <option key={c.id} value={c.id}>{c.nome} ({c.sigla}){c.orgao?.ativo === false && ' · Inativo'}</option>)}</Escolha></div></div> : null}
     {contextoId && contextos.isSuccess && !contexto && <p role="alert">Contexto indisponível. Selecione outro contexto.</p>}
     {contextos.isPending && <p>Carregando contextos…</p>}{contextos.isError && <p role="alert">Não foi possível consultar a secretaria. <Button variant="outline" onClick={() => void contextos.refetch()}>Tentar novamente</Button></p>}
-    <div className="flex flex-wrap gap-2">{!comum && contextos.data && <Button variant="outline" onClick={() => { setArea(area === 'atuacao' ? 'contexto' : 'atuacao') }}>
+    <div className="flex flex-wrap gap-2">{acessoGeral && <Button variant="outline" onClick={() => { setArea(area === 'atuacao' ? 'contexto' : 'atuacao') }}>
       {area === 'atuacao' ? 'Voltar aos documentos' : 'Consultar atuação'}
     </Button>}
-    {!comum && <Button variant="outline" aria-expanded={area === 'pendencias'} onClick={() => { setArea(area === 'pendencias' ? 'contexto' : 'pendencias') }}>
+    {acessoGeral && <Button variant="outline" aria-expanded={area === 'pendencias'} onClick={() => { setArea(area === 'pendencias' ? 'contexto' : 'pendencias') }}>
       {area === 'pendencias' ? 'Voltar aos documentos' : 'Pendências documentais'}
     </Button>}
     {admin && contextos.data && <Button variant="outline" aria-expanded={area === 'admin'} onClick={() => setArea(area === 'admin' ? 'contexto' : 'admin')}>
       {area === 'admin' ? 'Voltar ao contexto' : 'Administração da secretaria'}</Button>}
     </div>
-    {area === 'pendencias'  && <PendenciasDocumentais identidade={identidade} />}
-    {area === 'atuacao' && contextos.data && <ConsultaAtuacao contextos={contextos.data} identidade={identidade} abrir={abrirVersao} />}
+    {acessoGeral && area === 'pendencias'  && <PendenciasDocumentais identidade={identidade} />}
+    {acessoGeral && area === 'atuacao' && contextos.data && <ConsultaAtuacao contextos={contextos.data} identidade={identidade} abrir={abrirVersao} />}
     {contextos.data?.length === 0 && (comum
       ? <p>O acesso depende da conta selecionada e de cargo em exercício no órgão. <a className="underline" href="/dashboard">Consultar minha atuação</a></p>
       : <p>Nenhum contexto preparado. Um administrador pode vinculá-lo a um órgão existente ou preparar a Assembleia Geral.</p>)}
@@ -76,7 +77,7 @@ function ContextoConteudo({ identidade, contexto, admin, documentoId, versaoAber
   const comum = useAuthStore(s => s.user?.perfil === Perfil.COMUM)
   const secretario = useAuthStore(s => s.user?.perfil === Perfil.SECRETARIO)
   const [filtros, definirFiltros] = useSearchParams()
-  const abaPedida = filtros.get('aba')
+  const abaPedida = contexto.somente_atas ? 'documentos' : filtros.get('aba')
   const aba = abaPedida === 'reunioes' || abaPedida === 'modelos' || (abaPedida === 'livros' && livrosHabilitados())
     ? abaPedida : 'documentos'
   const setAba = (valor: string) => definirFiltros(anterior => { const p = new URLSearchParams(anterior); p.set('contexto', contexto.id); p.set('aba', valor); p.delete('livro'); return p })
@@ -93,7 +94,7 @@ function ContextoConteudo({ identidade, contexto, admin, documentoId, versaoAber
     definirFiltros(busca, { replace: true, state: local.state })
   }
   const resumo = useQuery({ queryKey: ['secretaria', identidade, contexto.id, 'resumo'], queryFn: () => secretariaApi.resumo(contexto.id), enabled: !docId, gcTime: 0 })
-  const modelos = useQuery({ queryKey: ['secretaria', identidade, contexto.id, 'modelos'], queryFn: () => secretariaApi.modelos(contexto.id), gcTime: 0 })
+  const modelos = useQuery({ queryKey: ['secretaria', identidade, contexto.id, 'modelos'], queryFn: () => secretariaApi.modelos(contexto.id), enabled: !contexto.somente_atas, gcTime: 0 })
   const detalhe = useQuery({ queryKey: ['secretaria', identidade, contexto.id, 'documento', docId], queryFn: () => secretariaApi.documento(docId), enabled: !!docId, gcTime: 0 })
   const acessoRevogado = detalhe.error instanceof ApiRequestError && [401, 403, 404].includes(detalhe.error.statusCode)
   const d = !acessoRevogado && detalhe.data?.contexto_id === contexto.id ? detalhe.data : undefined
@@ -106,7 +107,7 @@ function ContextoConteudo({ identidade, contexto, admin, documentoId, versaoAber
   }
   const editando = modo === 'institucional' && !!d && (d.estado === 'LEGADA_CONFERIDA'
     ? secretario : contexto.pode_aprovar && ['APROVADO', 'EXPEDIDO', 'ANULADO'].includes(d.estado) && !finalidadeTermo(atual?.modelo?.finalidade))
-  const reunioes = useQuery({ queryKey: ['secretaria', identidade, contexto.id, 'reunioes', 0], queryFn: () => secretariaApi.reunioes(contexto.id, 0), enabled: d?.tipo === 'ATA' || form === 'ata-legada', gcTime: 0 })
+  const reunioes = useQuery({ queryKey: ['secretaria', identidade, contexto.id, 'reunioes', 0], queryFn: () => secretariaApi.reunioes(contexto.id, 0), enabled: !contexto.somente_atas && (d?.tipo === 'ATA' || form === 'ata-legada'), gcTime: 0 })
   const corrigindoMesa = !!docId && form === 'reuniao'
   const mesa = useQuery({ queryKey: ['secretaria', identidade, contexto.id, 'reuniao-vinculada', atual?.reuniao_id],
     enabled: corrigindoMesa && !!atual?.reuniao_id && !!d && contexto.pode_preparar, queryFn: () => secretariaApi.reuniao(atual!.reuniao_id!), gcTime: 0 })
@@ -118,16 +119,16 @@ function ContextoConteudo({ identidade, contexto, admin, documentoId, versaoAber
   const criarTermo = (termo: NovoTermo) => abrirEditor('documentos', 'novo', { livro: termo.livro.id, termo: termo.finalidade, ...(termo.modelo && { modelo: termo.modelo }), ...(termo.data && { data: termo.data }) })
   const abas = [{ id: 'documentos', nome: 'Documentos' }, { id: 'reunioes', nome: 'Reuniões' }, { id: 'modelos', nome: 'Modelos' }, { id: 'livros', nome: 'Livros' }] as const
   return <section className="space-y-4">{!docId && <>{aba === 'documentos' && !form && <div className="metric-grid">
-    <Metric icon={Files} label="Documentos" value={resumo.data?.documentos ?? '—'} /><Metric icon={FileText} label="Atas" value={resumo.data?.atas ?? '—'} /><Metric icon={PencilLine} label="Em edição" value={resumo.data?.em_edicao ?? '—'} /><Metric icon={CalendarDays} label="Reuniões" value={resumo.data?.reunioes ?? '—'} /></div>}
+    {!contexto.somente_atas && <Metric icon={Files} label="Documentos" value={resumo.data?.documentos ?? '—'} />}<Metric icon={FileText} label="Atas" value={resumo.data?.atas ?? '—'} /><Metric icon={PencilLine} label="Em edição" value={resumo.data?.em_edicao ?? '—'} />{!contexto.somente_atas && <Metric icon={CalendarDays} label="Reuniões" value={resumo.data?.reunioes ?? '—'} />}</div>}
     {resumo.isError && <p role="alert">Indicadores indisponíveis. <button onClick={() => resumo.refetch()}>Tentar novamente</button></p>}
     <h2 className="text-xl font-semibold">{contexto.nome}</h2>
-    <div className="flex flex-wrap gap-2" role="tablist" aria-label="Secretaria">{abas.filter(a => a.id !== 'livros' || livrosHabilitados()).map(a => <Button role="tab" aria-selected={aba === a.id} key={a.id} variant={aba === a.id ? 'default' : 'outline'} onClick={() => { setAba(a.id); pronto() }}>{a.nome}</Button>)}</div>
+    {!contexto.somente_atas && <div className="flex flex-wrap gap-2" role="tablist" aria-label="Secretaria">{abas.filter(a => a.id !== 'livros' || livrosHabilitados()).map(a => <Button role="tab" aria-selected={aba === a.id} key={a.id} variant={aba === a.id ? 'default' : 'outline'} onClick={() => { setAba(a.id); pronto() }}>{a.nome}</Button>)}</div>}
     {[modelos, reunioes, documentos, cargos].some(q => q.isError) && <p role="alert">Não foi possível carregar todos os dados do contexto. Recarregue a página para continuar.</p>}
     {pessoas.isError && <p role="alert">Não foi possível carregar as pessoas para os formulários.</p>}
     {aba === 'modelos' && <ModelosContexto contexto={contexto} gerencia={!comum && contexto.orgao?.ativo !== false && (contexto.pode_preparar || admin)} modelos={modelos.data}/>}
     {aba === 'reunioes' && <ReunioesContexto contexto={contexto} identidade={identidade} modelos={modelos.data}/>}
     {aba === 'livros' && <LivrosContexto contexto={contexto} identidade={identidade} abrirDocumento={selecionar} novoTermo={criarTermo} />}
-    {aba === 'documentos' && !form && <div className="surface space-y-3"><div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-heading text-lg font-semibold">Documentos do contexto</h3><div className="flex flex-wrap gap-2">
+    {aba === 'documentos' && !form && <div className="surface space-y-3"><div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-heading text-lg font-semibold">{contexto.somente_atas ? 'Atas do contexto' : 'Documentos do contexto'}</h3><div className="flex flex-wrap gap-2">
       {contexto.pode_preparar && modelos.data?.some(m => m.estado !== 'EM_EDICAO' && (!m.permissoes || m.permissoes.criar || m.permissoes.preparar)) && <Button onClick={() => abrirEditor('documentos')}>{modelos.data.some(m => !m.permissoes || m.permissoes.criar) ? 'Novo documento' : 'Preparar minuta'}</Button>}
       {!comum && contexto.pode_preparar && !!modelosConvocatorios(modelos.data ?? []).length && <Button variant="outline" onClick={() => setForm('edital')}>Criar edital</Button>}
       {contexto.pode_aprovar && <Button variant="outline" onClick={() => setForm('ata-legada')}>Cadastrar ata legada</Button>}</div></div>
@@ -145,24 +146,24 @@ function ContextoConteudo({ identidade, contexto, admin, documentoId, versaoAber
           {detalhe.data.versoes.map(v => <option value={v.id} key={v.id}>Versão {v.numero}{v.numero === detalhe.data?.versao_atual ? ' (atual)' : ''}</option>)}
         </Escolha>}
         {correcaoSalva && !editando && <p role="status">Alterações salvas em uma nova versão da ata.</p>}
-        {secretario && !editando && <Button onClick={() => { setCorrecaoSalva(false); mudarVersao(undefined); setModo('institucional') }}>Editar ata legada</Button>}
+        {!contexto.somente_atas && secretario && !editando && <Button onClick={() => { setCorrecaoSalva(false); mudarVersao(undefined); setModo('institucional') }}>Editar ata legada</Button>}
         {secretario && editando && (pessoas.data && reunioes.data
           ? <AtaLegadaForm documento={detalhe.data} contexto={contexto} pessoas={pessoas.data} reunioes={reunioes.data}
               cancelar={() => setModo(null)} pronto={() => { setModo(null); mudarVersao(undefined); setCorrecaoSalva(true) }} />
           : <p role="status">{pessoas.isError || reunioes.isError ? 'Falha ao carregar pessoas ou reuniões.' : 'Carregando formulário…'}</p>)}
       </>}
-      {!editando && selecionada && <Button variant="outline" onClick={() => abrirEditor('documentos', docId, { versao: selecionada.id })}>Abrir prévia</Button>}
+      {!contexto.somente_atas && !editando && selecionada && <Button variant="outline" onClick={() => abrirEditor('documentos', docId, { versao: selecionada.id })}>Abrir prévia</Button>}
       {d && local.state?.revisaoSalva > d.revisao && <p role="status">Carregando a revisão salva para conferência…</p>}
-      {d && !(local.state?.revisaoSalva > d.revisao) && atual && lendoAtual && !editando && d.estado !== 'LEGADA_CONFERIDA' && <TramitacaoDocumento key={d.id+':'+d.revisao} documento={d} contexto={contexto} identidade={identidade} corrigir={editar} retificar={() => setModo('institucional')}/>}
+      {!contexto.somente_atas && d && !(local.state?.revisaoSalva > d.revisao) && atual && lendoAtual && !editando && d.estado !== 'LEGADA_CONFERIDA' && <TramitacaoDocumento key={d.id+':'+d.revisao} documento={d} contexto={contexto} identidade={identidade} corrigir={editar} retificar={() => setModo('institucional')}/>}
       {!editando && <><div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_18rem]"><div className="min-w-0">
       {detalhe.data.estado === 'LEGADA_CONFERIDA'
         ? <article className="doc-sheet"><AtaLegadaLeitura documento={detalhe.data} versaoId={versaoLida} /></article>
-        : <DocumentoLeitura documento={detalhe.data} versaoAberta={versaoLida} mudarVersao={mudarVersao} menuAtivo={lendoAtual && !editando} />}</div><aside className="doc-aside"><h2 className="flex items-center gap-2 font-semibold"><BookOpen size={18} />Dados do documento</h2><Metadados documento={detalhe.data} identidade={identidade} versaoId={versaoLida} camposAdicionais /></aside></div>
+        : <DocumentoLeitura documento={detalhe.data} versaoAberta={versaoLida} mudarVersao={mudarVersao} menuAtivo={!contexto.somente_atas && lendoAtual && !editando} />}</div><aside className="doc-aside"><h2 className="flex items-center gap-2 font-semibold"><BookOpen size={18} />Dados do documento</h2><Metadados documento={detalhe.data} identidade={identidade} versaoId={versaoLida} contexto={contexto} camposAdicionais /></aside></div>
       {detalhe.data.estado === 'LEGADA_CONFERIDA' && livrosHabilitados() && contexto.pode_aprovar
         && <VinculoLivroLegado key={`VinculoLivroLegado:${detalhe.data.id}`} documento={detalhe.data} identidade={identidade} />}
-      {!comum && detalhe.data.tipo === 'ATA' && <RegistrosVinculados key={`RegistrosVinculados:${detalhe.data.id}`} id={detalhe.data.id} identidade={identidade} />}
+      {!contexto.somente_atas && !comum && detalhe.data.tipo === 'ATA' && <RegistrosVinculados key={`RegistrosVinculados:${detalhe.data.id}`} id={detalhe.data.id} identidade={identidade} />}
       {selecionada && !editando && detalhe.data.estado !== 'LEGADA_CONFERIDA' && <ArtefatosDocumento key={`artefatos:${detalhe.data.id}`} documento={detalhe.data} contexto={contexto} identidade={identidade} versaoId={selecionada.id} />}
-      {!comum && selecionada?.congelado_em && detalhe.data.tramitacao?.assinaturas !== false && detalhe.data.estado !== 'LEGADA_CONFERIDA' && assinaturasHabilitadas() && !editando && <AssinaturasDocumento versaoId={selecionada.id} key={`AssinaturasDocumento:${selecionada.id}:${detalhe.data.revisao}`} documento={detalhe.data} contexto={contexto} identidade={identidade} />}
+      {!contexto.somente_atas && !comum && selecionada?.congelado_em && detalhe.data.tramitacao?.assinaturas !== false && detalhe.data.estado !== 'LEGADA_CONFERIDA' && assinaturasHabilitadas() && !editando && <AssinaturasDocumento versaoId={selecionada.id} key={`AssinaturasDocumento:${selecionada.id}:${detalhe.data.revisao}`} documento={detalhe.data} contexto={contexto} identidade={identidade} />}
       <HistoricoDocumento key={`HistoricoDocumento:${detalhe.data.id}`} id={detalhe.data.id} identidade={identidade} revisao={detalhe.data.revisao} />
       </>}
       {lendoAtual && detalhe.data.estado === 'EM_EDICAO' && contexto.pode_preparar && (!detalhe.data.atuacao || detalhe.data.atuacao.criar || detalhe.data.atuacao.preparar) && <Button variant="outline" onClick={() => editando ? setModo(null) : editar()}>{editando ? 'Sair da edição' : 'Editar conteúdo'}</Button>}

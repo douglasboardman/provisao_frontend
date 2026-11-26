@@ -90,7 +90,7 @@ export function AtaLegadaForm({ contexto, reunioes, pessoas, pronto, documento, 
       <Campo label="Assunto" value={v.assunto} onChange={s => editar('assunto', s)} />
       <Campo label="Data do documento original" type="date" value={v.data_documento} onChange={s => editar('data_documento', s)} />
     </div>
-    {!documento && contexto.pode_consultar_restritos && <Check label="Ata restrita" checked={v.restrito} onChange={s => editar('restrito', s)} />}
+    {!documento && contexto.pode_classificar_ata && <Check label="Ata restrita" checked={v.restrito} onChange={s => editar('restrito', s)} />}
     <fieldset className="space-y-3 rounded border p-3">
       <legend className="px-1 font-semibold">Reunião registrada no original</legend>
       <div className="grid gap-3 md:grid-cols-3">

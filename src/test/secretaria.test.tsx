@@ -38,6 +38,27 @@ beforeEach(() => {
 })
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 describe('E04: interface da secretaria', () => {
+  it('mostra a classificação ao mandatário autorizado e preserva a leitura de atas sem consultas aos demais cadastros', async () => {
+    vi.mocked(secretariaApi.contextos).mockResolvedValue([{ ...contexto, somente_atas: true, pode_preparar: false, pode_classificar_ata: true }])
+    const ata = { ...documento(), tipo: 'ATA' as const }
+    vi.mocked(secretariaApi.documento).mockImplementation(async () => ({ ...ata }))
+    const comando = vi.spyOn(secretariaApi, 'comando').mockImplementation(async () => {
+      ata.restrito = true
+      return { id: ata.id, revisao: ++ata.revisao }
+    })
+    montar(Perfil.TESOUREIRO, '/secretaria/ctx/documentos/doc')
+    fireEvent.click(await screen.findByRole('button', { name: 'Restringir ata' }))
+    await screen.findByRole('button', { name: 'Retirar restrição da ata' })
+    expect(comando).toHaveBeenCalledWith('doc', 'sigilo', expect.objectContaining({ revisao: 1, restrito: true, idempotencia: expect.any(String) }))
+    expect(secretariaApi.modelos).not.toHaveBeenCalled()
+    expect(secretariaApi.reunioes).not.toHaveBeenCalled()
+    expect(pessoasApi.list).not.toHaveBeenCalled()
+    cleanup()
+    vi.mocked(secretariaApi.contextos).mockResolvedValue([{ ...contexto, pode_consultar_restritos: true, pode_classificar_ata: false }])
+    montar(Perfil.ADMINISTRADOR, '/secretaria/ctx/documentos/doc')
+    await screen.findByText('Conteúdo original')
+    expect(screen.queryByRole('button', { name: 'Retirar restrição da ata' })).toBeNull()
+  })
   it('alterna catálogo, campos e consulta sem empilhar o editor nem perder a identificação do modelo', async () => {
     vi.spyOn(secretariaApi, 'camposBiblioteca').mockResolvedValue([])
     const v2 = { ...modelo.versoes[0], id: 'v2', numero: 2 }
