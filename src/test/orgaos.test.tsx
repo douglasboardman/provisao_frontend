@@ -4,11 +4,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { OrgaosPage } from '../pages/orgaos/OrgaosPage'
 import { useAuthStore } from '../stores/auth'
 import { Perfil } from '../types/enums'
+import { autorizacaoApi } from '../api/autorizacao'
 import { orgaosApi } from '../api/orgaos'
+
+vi.mock('../api/autorizacao', () => ({ autorizacaoApi: { conceder: vi.fn() } }))
 
 vi.mock('../api/orgaos', () => ({ orgaosApi: {
   relogio: vi.fn(async () => ({ data_utc: '2026-11-17', data_operacional: '2026-11-16', fuso_iana: 'America/Sao_Paulo', data_no_fuso: '2026-11-16' })),
   listar: vi.fn(async () => ({ itens: [{ id: 'orgao', tipo: 'CONSELHO', constituicao: 'OFICIAL', nome: 'Conselho Central', sigla: null, ativo: true }], proximo_cursor: null })),
+  mandatos: vi.fn(),
   atos: vi.fn(async () => ({ itens: [], proximo_cursor: null })),
   detalhe: vi.fn(async (_id: string, data: string) => ({ orgao: { id: 'orgao', tipo: 'CONSELHO', constituicao: 'OFICIAL', nome: 'Conselho Central', sigla: null, ativo: true, finalidade: 'Governança', data_criacao: '2020-01-01T00:00:00Z' }, data_referencia: data, vigente_na_data: true, composicao: { membros: [{ pessoa_id: 'pessoa', nome: 'Ana Teste', oficios: ['PRESBITERO_REGENTE'], revisao_pendente: true }], indeterminados: [{ pessoa_id: 'outra', nome: 'Pessoa Pendente' }] }, ocupacoes: [{ id: 'cargo', inicio: '2025-01-01T00:00:00Z', inicio_ordem: 2, fim: null, fim_ordem: null, termino_previsto: '2029-12-31T00:00:00Z', pessoa: { id: 'pessoa', nome_completo: 'Ana Teste' }, cargo: { nome: 'Secretário' } }], ocupacoes_limitadas: false, participacoes: [], participacoes_limitadas: false })),
 }, gestaoOrgaosApi: { fuso: vi.fn() } }))
@@ -32,6 +36,42 @@ describe('consulta de órgãos', () => {
     expect(screen.getByText(/Secretário: Ana Teste/)).toBeTruthy()
     expect(screen.getByText(/sequência 2/)).toBeTruthy()
     expect(screen.getByText(/Data adotada para atos: 16\/11\/2026 \(America\/Sao_Paulo\)/)).toBeTruthy()
+  })
+  it.each(['VINCULAR_PESSOA', 'HABILITAR_SERVICO'] as const)('orienta o administrador no cartão do mandato em %s', async preparo => {
+    vi.stubEnv('VITE_FEATURE_ORGAOS_GESTAO', 'true')
+    useAuthStore.setState({ user: { sub: 'admin', igreja_id: 'igreja', perfil: Perfil.ADMINISTRADOR, login: 'admin', username: 'Admin' } })
+    const ficha = await orgaosApi.detalhe('orgao', '2026-11-16')
+    vi.mocked(orgaosApi.detalhe).mockResolvedValueOnce({
+      ...ficha, preparo_registro_cargos: preparo, contexto_id: 'contexto', pode_registrar_cargos: false,
+      cargos_na_data: [{ id: 'cargo', nome: 'Secretário', titulares: [] }],
+    })
+    vi.mocked(orgaosApi.mandatos).mockResolvedValueOnce({ proximo_cursor: null, pode_registrar: false, itens: [{
+      id: 'mandato', data_eleicao: '2025-01-01', data_posse: '2025-01-01', termino_previsto: '2029-12-31',
+      termino_efetivo: null, pode_encerrar: true, versao_orgao: null,
+      oficial: { id: 'oficial', ativo: true, tipo: 'PRESBITERO_REGENTE', pessoa: { id: 'pessoa', nome_completo: 'Ana Teste' } },
+    }] })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<QueryClientProvider client={client}><OrgaosPage /></QueryClientProvider>)
+    fireEvent.click(await screen.findByRole('button', { name: 'Consultar' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Composição e mandatos' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Atribuir cargo' }))
+    expect(screen.getByRole('heading', { name: 'Atribuir cargo a Ana Teste' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Selecionar cargo' })).toBeNull()
+    if (preparo === 'HABILITAR_SERVICO') {
+      vi.mocked(orgaosApi.detalhe).mockResolvedValueOnce({ ...ficha, contexto_id: 'contexto', pode_registrar_cargos: true,
+        cargos_na_data: [{ id: 'cargo', nome: 'Secretário', titulares: [] }] })
+      fireEvent.change(screen.getByLabelText('Fundamento da atribuição'), { target: { value: 'Registro das atas da igreja' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Habilitar registro nesta conta' }))
+      fireEvent.click(await screen.findByRole('button', { name: 'Selecionar cargo' }))
+      expect(autorizacaoApi.conceder).toHaveBeenCalledWith('admin', 'CARGOS_REGISTRAR', expect.any(String), null, 'Registro das atas da igreja')
+      expect(screen.getByRole('heading', { name: 'Eleição e posse · Secretário' })).toBeTruthy()
+      expect(screen.getByText('Pessoa eleita')).toBeTruthy()
+      fireEvent.click(screen.getByRole('button', { name: 'Voltar' }))
+    } else {
+      expect(screen.getByRole('link', { name: 'Abrir usuários' }).getAttribute('href')).toBe('/usuarios')
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar' }))
+    expect(screen.getByRole('button', { name: 'Encerrar mandato' })).toBeTruthy()
   })
   it('mantém formulários de gestão fechados pela chave e não os mostra ao auditor', async () => {
     vi.stubEnv('VITE_FEATURE_ORGAOS_GESTAO', 'true')

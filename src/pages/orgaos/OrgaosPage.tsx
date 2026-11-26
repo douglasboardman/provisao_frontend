@@ -2,7 +2,7 @@ import { Painel, SecaoPainel } from '../../components/shared/Painel'
 import { CriarMinisterio, GestaoSociedadeMinisterio } from './SociedadesMinisterios'
 import { ReferenciaAta } from '../../components/shared/ReferenciaAta'
 import { ProvimentoCargo } from './ProvimentoCargo'
-import { MandatosOrgao } from './MandatosOrgao'
+import { MandatosOrgao, OrientacaoRegistroCargos } from './MandatosOrgao'
 import { Badge } from '../../components/ui/badge'
 import { Network, Landmark, UsersRound, Layers, CircleCheck, ArrowRight, BriefcaseBusiness, History, Settings } from 'lucide-react'
 import { WorkspaceHeader, Metric } from '../../components/shared/Workspace'
@@ -81,6 +81,8 @@ export function OrgaosPage() {
     ((oficial && [Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO].includes(perfil)) ||
       (unidade && !sociedade && perfil === Perfil.GESTOR))
   const podeAtribuir = gestaoHabilitada && ficha?.pode_registrar_cargos && data === relogio.data?.data_operacional
+  const preparoRegistro = gestaoHabilitada && ficha?.contexto_id && data === relogio.data?.data_operacional
+    ? ficha.preparo_registro_cargos : null
   const secoes = [
     { titulo: 'Composição e mandatos', icon: UsersRound, visivel: oficial || ficha?.composicao },
     { titulo: 'Cargos e titulares', icon: BriefcaseBusiness, visivel: ficha?.consulta_nominal !== false && (oficial || unidade || sociedade || ficha?.cargos_na_data?.length) },
@@ -136,16 +138,15 @@ export function OrgaosPage() {
                 {ficha.proximo_cursor_inativo && <Button variant="outline" onClick={() => setPaginasInativos(p => [...p, ficha.proximo_cursor_inativo!])}>Mais integrantes</Button>}</div>}
               {ficha.composicao.indeterminados.map(p => <p key={p.pessoa_id}>{p.nome} — situação indeterminada</p>)}
             </div>}
-            {oficial && <MandatosOrgao key={selecionado} orgao={selecionado} identidade={identidade} data={data} cargos={ficha.cargos_na_data} podeAtribuir={podeAtribuir} prazoSugerido={ficha.prazo_sugerido_cargos} conselho={ficha.orgao.tipo === 'CONSELHO'} />}
+            {oficial && <MandatosOrgao key={selecionado} orgao={selecionado} identidade={identidade} data={data} cargos={ficha.cargos_na_data} podeAtribuir={podeAtribuir} preparoRegistro={preparoRegistro} prazoSugerido={ficha.prazo_sugerido_cargos} conselho={ficha.orgao.tipo === 'CONSELHO'} />}
           </>}
           {secao === 'Cargos e titulares' && <>
             {sociedade && ficha.consulta_nominal !== false &&
               <GestaoSociedadeMinisterio area="cargos" key={ficha.orgao.id} ficha={ficha} identidade={identidade} />}
             {!!ficha.cargos_na_data?.length && <section><h3 className="font-semibold">Cargos em {exibirData(data)}</h3>
-              {gestaoHabilitada && oficial && ficha.contexto_id && !ficha.pode_registrar_cargos && perfil !== Perfil.AUDITOR &&
-                <p className="text-sm text-muted-foreground">{perfil === Perfil.ADMINISTRADOR
-                  ? <>Para habilitar o registro de titulares, abra <a className="underline" href="/usuarios">Usuários</a>, escolha a conta responsável e acesse Atuação → Atribuições → Nova atribuição. Conceda o serviço “Registrar eleição, posse e encerramento de cargos”.</>
-                  : 'O registro de titulares exige uma conta vinculada a uma pessoa e autorizada para registrar cargos.'}</p>}
+              {preparoRegistro && <OrientacaoRegistroCargos preparo={preparoRegistro} identidade={identidade} />}
+              {gestaoHabilitada && oficial && ficha.contexto_id && !ficha.pode_registrar_cargos && perfil !== Perfil.AUDITOR && perfil !== Perfil.ADMINISTRADOR &&
+                <p className="text-sm text-muted-foreground">O registro de titulares exige uma conta vinculada a uma pessoa e autorizada para registrar cargos.</p>}
               {gestaoHabilitada && ficha.pode_registrar_cargos && !podeAtribuir && <p>Selecione a data atual da igreja para registrar uma ocupação.</p>}
               <ul className="divide-y">{ficha.cargos_na_data.map(c => <li className="space-y-2 py-3" key={c.id}>
                 <div className="flex flex-wrap justify-between gap-2"><strong>{c.nome}</strong><span>{c.titulares.map(p => p.nome_completo).join(', ') || 'Vago'}</span></div>
