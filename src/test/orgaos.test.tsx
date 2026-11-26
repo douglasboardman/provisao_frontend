@@ -68,6 +68,7 @@ describe('consulta de órgãos', () => {
       expect(screen.getByText('Pessoa eleita')).toBeTruthy()
       fireEvent.click(screen.getByRole('button', { name: 'Voltar' }))
     } else {
+      expect(screen.getByText(/Peça a outro administrador da igreja/)).toBeTruthy()
       expect(screen.getByRole('link', { name: 'Abrir usuários' }).getAttribute('href')).toBe('/usuarios')
     }
     fireEvent.click(screen.getByRole('button', { name: 'Voltar' }))

@@ -34,7 +34,7 @@ export function OrientacaoRegistroCargos({ preparo, identidade }: { preparo: Non
     ]),
   })
   if (preparo === 'VINCULAR_PESSOA') return <div className="space-y-2">
-    <p>Em Usuários, use <strong>Vincular pessoa</strong> na sua conta de administrador e selecione seu cadastro. Depois, volte ao mandato para habilitar o registro de cargos.</p>
+    <p>Peça a outro administrador da igreja que abra sua conta em Usuários e use <strong>Vincular pessoa</strong> para selecionar seu cadastro. Após a conferência, volte ao mandato para habilitar o registro de cargos.</p>
     <Button asChild variant="outline"><a href="/usuarios">Abrir usuários</a></Button>
   </div>
   return <form className="max-w-xl space-y-3" onSubmit={e => { e.preventDefault(); if (usuario && fundamento.trim()) habilitar.mutate() }}>
