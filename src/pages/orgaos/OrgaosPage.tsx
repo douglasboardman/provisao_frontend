@@ -2,7 +2,7 @@ import { Painel, SecaoPainel } from '../../components/shared/Painel'
 import { CriarMinisterio, GestaoSociedadeMinisterio } from './SociedadesMinisterios'
 import { ReferenciaAta } from '../../components/shared/ReferenciaAta'
 import { ProvimentoCargo } from './ProvimentoCargo'
-import { MandatosOrgao, OrientacaoRegistroCargos } from './MandatosOrgao'
+import { MandatosOrgao, OrientacaoVinculoParaRegistro } from './MandatosOrgao'
 import { Badge } from '../../components/ui/badge'
 import { Network, Landmark, UsersRound, Layers, CircleCheck, ArrowRight, BriefcaseBusiness, History, Settings } from 'lucide-react'
 import { WorkspaceHeader, Metric } from '../../components/shared/Workspace'
@@ -147,7 +147,7 @@ export function OrgaosPage() {
             {sociedade && ficha.consulta_nominal !== false &&
               <GestaoSociedadeMinisterio area="cargos" key={ficha.orgao.id} ficha={ficha} identidade={identidade} />}
             {!!ficha.cargos_na_data?.length && <section><h3 className="font-semibold">Cargos em {exibirData(data)}</h3>
-              {preparoRegistro && <OrientacaoRegistroCargos preparo={preparoRegistro} identidade={identidade} />}
+              {preparoRegistro && <OrientacaoVinculoParaRegistro />}
               {gestaoHabilitada && oficial && ficha.contexto_id && !ficha.pode_registrar_cargos && perfil !== Perfil.AUDITOR && perfil !== Perfil.ADMINISTRADOR &&
                 <p className="text-sm text-muted-foreground">O registro de titulares exige uma conta vinculada a uma pessoa e autorizada para registrar cargos.</p>}
               <ul className="divide-y">{ficha.cargos_na_data.map(c => <li className="space-y-2 py-3" key={c.id}>

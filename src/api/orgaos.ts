@@ -12,7 +12,7 @@ export interface DetalheOrgao {
   consulta_nominal?: boolean
   fora_da_composicao?: Pessoa[]
   proximo_cursor_inativo?: string | null
-  preparo_registro_cargos?: 'HABILITAR_SERVICO' | 'VINCULAR_PESSOA' | null
+  preparo_registro_cargos?: 'VINCULAR_PESSOA' | null
   pode_registrar_cargos?: boolean
   cargos_na_data?: VagaCargo[]
   contexto_id?: string | null

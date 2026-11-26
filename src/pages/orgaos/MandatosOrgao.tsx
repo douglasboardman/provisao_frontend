@@ -1,9 +1,7 @@
 import { PainelLocal, SecaoPainel } from '../../components/shared/Painel'
 import { ProvimentoCargo } from './ProvimentoCargo'
 import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { autorizacaoApi } from '../../api/autorizacao'
-import { ApiRequestError } from '../../api/client'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { orgaosApi, type DetalheOrgao, type VagaCargo, type MandatoFicha } from '../../api/orgaos'
 import type { OficialResumo } from '../../api/oficiais'
 import { Perfil } from '../../types/enums'
@@ -21,24 +19,10 @@ function prazo(m: MandatoFicha, dia: string) {
 
 type PreparoRegistro = DetalheOrgao['preparo_registro_cargos']
 
-export function OrientacaoRegistroCargos({ preparo, identidade }: { preparo: NonNullable<PreparoRegistro>; identidade: string }) {
-  const usuario = useAuthStore(s => s.user?.sub)
-  const client = useQueryClient()
-  const habilitar = useMutation({
-    mutationFn: () => autorizacaoApi.conceder(usuario!, 'CARGOS_REGISTRAR', new Date().toISOString(), null, 'Habilitação do registro de cargos pelo titular da conta.'),
-    onSuccess: () => Promise.all([
-      client.invalidateQueries({ queryKey: ['orgaos', identidade, 'detalhe'] }),
-      client.invalidateQueries({ queryKey: ['autorizacao'] }),
-    ]),
-  })
-  if (preparo === 'VINCULAR_PESSOA') return <div className="space-y-2">
-    <p>Peça a outro administrador da igreja que abra sua conta em Usuários e use <strong>Vincular pessoa</strong> para selecionar seu cadastro. Após a conferência, volte ao mandato para habilitar o registro de cargos.</p>
+export function OrientacaoVinculoParaRegistro() {
+  return <div className="space-y-2">
+    <p>Para registrar atos, a conta de administrador precisa estar vinculada ao seu cadastro de pessoa. Peça a outro administrador da igreja para usar <strong>Vincular pessoa</strong> na sua conta em Usuários.</p>
     <Button asChild variant="outline"><a href="/usuarios">Abrir usuários</a></Button>
-  </div>
-  return <div className="max-w-xl space-y-3">
-    <p>Habilite sua conta para registrar eleições e posses. Ao selecionar o cargo, você informará a ata que documenta o ato.</p>
-    <Button type="button" disabled={!usuario || habilitar.isPending} onClick={() => habilitar.mutate()}>Habilitar registro nesta conta</Button>
-    {habilitar.isError && <p role="alert">{habilitar.error instanceof ApiRequestError ? habilitar.error.messages.join(' ') : 'Não foi possível habilitar o registro de cargos.'}</p>}
   </div>
 }
 
@@ -63,7 +47,7 @@ export function MandatosOrgao({ orgao, identidade, data, conselho, cargos, podeA
   const mostrarAtribuicao = !!cargos?.length && (podeAtribuir || preparoRegistro)
   const gestaoHabilitada = import.meta.env.VITE_FEATURE_ORGAOS_GESTAO === 'true'
   const podeRegistrar = gestaoHabilitada && lista.data?.pode_registrar
-  const orientarRegistro = gestaoHabilitada && orgaoOficialAtivo && perfil === Perfil.ADMINISTRADOR &&
+  const orientarRegistro = gestaoHabilitada && orgaoOficialAtivo && preparoRegistro === 'VINCULAR_PESSOA' &&
     lista.isSuccess && !podeRegistrar
   function iniciar(titular?: OficialResumo['pessoa']) { setForm({ titular }); setRegistro(null); setMensagem('') }
   async function concluir() {
@@ -76,11 +60,7 @@ export function MandatosOrgao({ orgao, identidade, data, conselho, cargos, podeA
     {(podeRegistrar || orientarRegistro) && <Button onClick={() => iniciar()}>Registrar mandato</Button>}</div>
     {form && (podeRegistrar || orientarRegistro) && <SecaoPainel titulo={form.titular ? 'Registrar reeleição' : 'Registrar mandato'} voltar={() => setForm(null)}>
       {podeRegistrar ? <RegistroMandato key={form.titular?.id ?? 'novo'} orgao={orgao} identidade={identidade} titular={form.titular} concluir={concluir} />
-        : <div className="max-w-xl space-y-3">
-          <p>O mandato de {conselho ? 'presbítero regente' : 'diácono'} deve ser registrado por uma pessoa autorizada, distinta de quem foi eleito.</p>
-          <p>Em <strong>Usuários → Atuação → Atribuições</strong>, abra a conta da pessoa que fará o registro e conceda a permissão <strong>Registrar e encerrar mandatos de oficiais</strong>. A conta precisa estar vinculada ao cadastro dessa pessoa.</p>
-          <Button asChild variant="outline"><a href="/usuarios">Abrir usuários</a></Button>
-        </div>}
+        : <OrientacaoVinculoParaRegistro />}
     </SecaoPainel>}
     {mensagem && <p role="status">{mensagem}</p>}
     {lista.isPending ? <p>Carregando mandatos…</p> : lista.isError ? <p role="alert">Não foi possível consultar os mandatos.</p> : !lista.data.itens.length ? <p>Nenhum mandato registrado.</p> :
@@ -101,7 +81,7 @@ export function MandatosOrgao({ orgao, identidade, data, conselho, cargos, podeA
       })}
     <Paginacao cursores={paginas} mudar={setPaginas} proximo={lista.data?.proximo_cursor} nome="mandatos" />
     {mostrarAtribuicao && mandatario && <SecaoPainel titulo={`Atribuir cargo a ${mandatario.nome_completo}`} voltar={() => escolherMandatario(null)}>
-      {!podeAtribuir && preparoRegistro && <OrientacaoRegistroCargos preparo={preparoRegistro} identidade={identidade} />}
+      {!podeAtribuir && preparoRegistro && <OrientacaoVinculoParaRegistro />}
       <ul className="divide-y">{cargos?.map(c => <li key={c.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
         <div><strong>{c.nome}</strong><p className="text-sm text-muted-foreground">{c.titulares.map(t => t.nome_completo).join(', ') || 'Vago'}</p></div>
         {podeAtribuir && <Button variant="outline" onClick={() => escolherCargo(c.id)}>{c.titulares.length ? 'Programar sucessão' : 'Selecionar cargo'}</Button>}

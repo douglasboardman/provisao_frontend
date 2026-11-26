@@ -4,10 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { OrgaosPage } from '../pages/orgaos/OrgaosPage'
 import { useAuthStore } from '../stores/auth'
 import { Perfil } from '../types/enums'
-import { autorizacaoApi } from '../api/autorizacao'
 import { orgaosApi } from '../api/orgaos'
-
-vi.mock('../api/autorizacao', () => ({ autorizacaoApi: { conceder: vi.fn() } }))
 
 vi.mock('../api/orgaos', () => ({ orgaosApi: {
   relogio: vi.fn(async () => ({ data_utc: '2026-11-17', data_operacional: '2026-11-16', fuso_iana: 'America/Sao_Paulo', data_no_fuso: '2026-11-16' })),
@@ -56,9 +53,10 @@ describe('consulta de órgãos', () => {
   })
   it.each([false, true])('mostra o caminho para registrar mandato na composição do Conselho (autorizado: %s)', async autorizado => {
     vi.stubEnv('VITE_FEATURE_ORGAOS_GESTAO', 'true')
-    useAuthStore.setState({ user: { sub: 'operador', igreja_id: 'igreja', perfil: autorizado ? Perfil.SECRETARIO : Perfil.ADMINISTRADOR, login: 'x', username: 'x' } })
+    useAuthStore.setState({ user: { sub: 'operador', igreja_id: 'igreja', perfil: Perfil.ADMINISTRADOR, login: 'x', username: 'x' } })
     const ficha = await orgaosApi.detalhe('orgao', '2026-11-16')
-    vi.mocked(orgaosApi.detalhe).mockResolvedValueOnce({ ...ficha, orgao: { ...ficha.orgao, tipo_padrao: 'CONSELHO' } })
+    vi.mocked(orgaosApi.detalhe).mockResolvedValueOnce({ ...ficha, orgao: { ...ficha.orgao, tipo_padrao: 'CONSELHO' }, contexto_id: 'contexto',
+      preparo_registro_cargos: autorizado ? null : 'VINCULAR_PESSOA', })
     vi.mocked(orgaosApi.mandatos).mockResolvedValueOnce({ itens: [], proximo_cursor: null, pode_registrar: autorizado })
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(<QueryClientProvider client={client}><OrgaosPage /></QueryClientProvider>)
@@ -73,12 +71,12 @@ describe('consulta de órgãos', () => {
       expect(screen.queryByRole('textbox', { name: 'Ata da Assembleia que elegeu a pessoa' })).toBeNull()
     }
   })
-  it.each(['VINCULAR_PESSOA', 'HABILITAR_SERVICO'] as const)('orienta o administrador no cartão do mandato em %s', async preparo => {
+  it.each([false, true])('abre o fluxo de cargo a partir do mandato do administrador (conta vinculada: %s)', async vinculada => {
     vi.stubEnv('VITE_FEATURE_ORGAOS_GESTAO', 'true')
     useAuthStore.setState({ user: { sub: 'admin', igreja_id: 'igreja', perfil: Perfil.ADMINISTRADOR, login: 'admin', username: 'Admin' } })
     const ficha = await orgaosApi.detalhe('orgao', '2026-11-16')
     vi.mocked(orgaosApi.detalhe).mockResolvedValueOnce({
-      ...ficha, preparo_registro_cargos: preparo, contexto_id: 'contexto', pode_registrar_cargos: false,
+      ...ficha, preparo_registro_cargos: vinculada ? null : 'VINCULAR_PESSOA', contexto_id: 'contexto', pode_registrar_cargos: vinculada,
       cargos_na_data: [{ id: 'cargo', nome: 'Secretário', titulares: [] }],
     })
     vi.mocked(orgaosApi.mandatos).mockResolvedValueOnce({ proximo_cursor: null, pode_registrar: false, itens: [{
@@ -92,20 +90,15 @@ describe('consulta de órgãos', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Composição e mandatos' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Atribuir cargo' }))
     expect(screen.getByRole('heading', { name: 'Atribuir cargo a Ana Teste' })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Selecionar cargo' })).toBeNull()
-    if (preparo === 'HABILITAR_SERVICO') {
-      vi.mocked(orgaosApi.detalhe).mockResolvedValueOnce({ ...ficha, contexto_id: 'contexto', pode_registrar_cargos: true,
-        cargos_na_data: [{ id: 'cargo', nome: 'Secretário', titulares: [] }] })
-      expect(screen.queryByLabelText('Fundamento da atribuição')).toBeNull()
-      fireEvent.click(screen.getByRole('button', { name: 'Habilitar registro nesta conta' }))
-      fireEvent.click(await screen.findByRole('button', { name: 'Selecionar cargo' }))
-      expect(autorizacaoApi.conceder).toHaveBeenCalledWith('admin', 'CARGOS_REGISTRAR', expect.any(String), null, 'Habilitação do registro de cargos pelo titular da conta.')
+    if (vinculada) {
+      fireEvent.click(screen.getByRole('button', { name: 'Selecionar cargo' }))
       expect(screen.getByRole('heading', { name: 'Eleição e posse · Secretário' })).toBeTruthy()
       expect(screen.getByRole('textbox', { name: 'Ata da eleição' })).toBeTruthy()
       expect((screen.getByRole('button', { name: 'Confirmar ato' }) as HTMLButtonElement).disabled).toBe(true)
       expect(screen.getByText('Pessoa eleita')).toBeTruthy()
       fireEvent.click(screen.getByRole('button', { name: 'Voltar' }))
     } else {
+      expect(screen.queryByRole('button', { name: 'Selecionar cargo' })).toBeNull()
       expect(screen.getByText(/Peça a outro administrador da igreja/)).toBeTruthy()
       expect(screen.getByRole('link', { name: 'Abrir usuários' }).getAttribute('href')).toBe('/usuarios')
     }
