@@ -1,3 +1,4 @@
+import { PainelLocal, SecaoPainel } from './Painel'
 import { SeletorAta, descreverAta } from './SeletorAta'
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -22,10 +23,10 @@ export function PaginacaoAta({ pagina, mudar, proxima }: { pagina: number; mudar
 
 export function ReferenciaAta({ alvo, identidade, label = 'Ata e documentação' }: { alvo: AlvoAta; identidade: string; label?: string }) {
   const [aberto, setAberto] = useState(false)
-  return <div className="mt-2 space-y-2 text-sm">
+  return <PainelLocal><div className="mt-2 space-y-2 text-sm">
     <Button type="button" variant="outline" aria-expanded={aberto} onClick={() => setAberto(!aberto)}>{label}</Button>
-    {aberto && <PainelReferencia alvo={alvo} identidade={identidade} />}
-  </div>
+    {aberto && <SecaoPainel titulo={label} voltar={() => setAberto(false)}><PainelReferencia alvo={alvo} identidade={identidade} /></SecaoPainel>}
+  </div></PainelLocal>
 }
 
 function PainelReferencia({ alvo, identidade }: { alvo: AlvoAta; identidade: string }) {
@@ -52,8 +53,9 @@ function PainelReferencia({ alvo, identidade }: { alvo: AlvoAta; identidade: str
     </article>)}
     <PaginacaoAta pagina={pagina} mudar={n => { setPagina(n); setEditar(false) }} proxima={consulta.data?.tem_proxima} />
     {pagina === 0 && consulta.data?.pode_editar && <Button type="button" variant="outline" onClick={() => { setEditar(!editar); salvar.reset() }}>{editar ? 'Fechar formulário' : atual ? 'Corrigir referência' : 'Registrar referência'}</Button>}
-    {editar && consulta.data?.pode_editar && <FormularioReferencia alvo={alvo} identidade={identidade} revisao={atual?.id ?? null} enviar={salvar.mutate} pendente={salvar.isPending} />}
+    {editar && consulta.data?.pode_editar && <SecaoPainel titulo={atual ? 'Corrigir referência' : 'Registrar referência'} voltar={() => setEditar(false)} ocupado={salvar.isPending}><FormularioReferencia alvo={alvo} identidade={identidade} revisao={atual?.id ?? null} enviar={salvar.mutate} pendente={salvar.isPending} />
     {salvar.isError && <p role="alert">{salvar.error instanceof ApiRequestError ? salvar.error.message : 'Não foi possível salvar a referência.'} <Button type="button" variant="outline" onClick={() => { salvar.reset(); void consulta.refetch() }}>Recarregar</Button></p>}
+    </SecaoPainel>}
     {salvar.isSuccess && <p role="status">Referência registrada.</p>}
   </div>
 }

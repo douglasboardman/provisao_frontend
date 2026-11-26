@@ -126,3 +126,14 @@
     .record-table td[data-label=Ações]::before { display: none; }
   }
 }
+
+.painel-secao { max-height: 75dvh; overflow-y: auto; }
+@media (prefers-reduced-motion: no-preference) {
+  .painel-retorno { animation: painel-volta 150ms ease-out; }
+  @keyframes painel-volta { from { opacity: 0.6; transform: translateX(-0.6rem); } }
+  .painel-secao { animation: painel-entrada 170ms ease-out; }
+  @keyframes painel-entrada {
+    from { opacity: 0.5; transform: translateX(0.6rem); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+}

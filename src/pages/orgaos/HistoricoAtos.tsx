@@ -1,3 +1,4 @@
+import { SecaoPainel } from '../../components/shared/Painel'
 import { useRecurso } from '../../lib/recursos'
 import { ReferenciaAta } from '../../components/shared/ReferenciaAta'
 import { useState } from 'react'
@@ -33,7 +34,7 @@ export function HistoricoAtos({ orgaoId, identidade }: { orgaoId: string; identi
               <ReferenciaAta alvo={{ grupo: 'ORGAO', alvo_id: ato.id, etapa: 'POSSE' }} identidade={identidade} label="Ata da posse" /></>
           : <ReferenciaAta alvo={{ grupo: 'ORGAO', alvo_id: ato.id, etapa: 'ATO' }} identidade={identidade} />
       )}</div>)}
-    <div className="flex gap-2"><Button type="button" variant="outline" disabled={!anteriores.length} onClick={() => { const itens = [...anteriores]; setCursor(itens.pop()); setAnteriores(itens) }}>Atos anteriores</Button><Button type="button" variant="outline" disabled={!atos.data?.proximo_cursor} onClick={() => { if (atos.data?.proximo_cursor) { setAnteriores(a => [...a, cursor]); setCursor(atos.data.proximo_cursor) } }}>Mais atos</Button></div>
+    {(anteriores.length > 0 || atos.data?.proximo_cursor) && <div className="flex gap-2"><Button type="button" variant="outline" disabled={!anteriores.length} onClick={() => { const itens = [...anteriores]; setCursor(itens.pop()); setAnteriores(itens) }}>Atos anteriores</Button><Button type="button" variant="outline" disabled={!atos.data?.proximo_cursor} onClick={() => { if (atos.data?.proximo_cursor) { setAnteriores(a => [...a, cursor]); setCursor(atos.data.proximo_cursor) } }}>Mais atos</Button></div>}
   </section>
 }
 
@@ -42,7 +43,7 @@ function DetalheAto({ orgao, ato, identidade }: { orgao: string; ato: string; id
   const consulta = useQuery({ queryKey: ['orgaos', identidade, 'ato', orgao, ato], queryFn: () => orgaosApi.ato(orgao, ato), enabled: aberto, gcTime: 0, staleTime: 0 })
   return <div>
     <Button type="button" variant="ghost" onClick={() => setAberto(v => !v)}>{aberto ? 'Fechar detalhes do registro' : 'Consultar detalhes do registro'}</Button>
-    {aberto && (consulta.isPending ? <p>Consultando...</p> : consulta.isError ? <p role="alert">Não foi possível consultar o registro.</p> : consulta.data && <div className="rounded border p-3">
+    {aberto && <SecaoPainel titulo="Detalhes do registro" voltar={() => setAberto(false)}>{consulta.isPending ? <p>Consultando...</p> : consulta.isError ? <p role="alert">Não foi possível consultar o registro.</p> : consulta.data && <div className="rounded border p-3">
       {consulta.data.autoridade && <p>Autoridade declarada: {consulta.data.retrato?.pessoas?.find(p => p.id === consulta.data!.autoridade)?.nome ?? consulta.data.autoridade}</p>}
       {consulta.data.evidencia && <p>Evidência: {consulta.data.evidencia}</p>}
       {consulta.data.retrato ? <><p>Órgão no registro: {consulta.data.retrato.orgao?.nome}</p>{consulta.data.retrato.pessoas?.map(p => <p key={p.id}>Pessoa no registro: {p.nome}</p>)}</> : <p>Identificação histórica indisponível para este ato anterior.</p>}
@@ -53,6 +54,6 @@ function DetalheAto({ orgao, ato, identidade }: { orgao: string; ato: string; id
       {typeof consulta.data.detalhes.fundamento === 'string' && <p>Fundamento: {consulta.data.detalhes.fundamento}</p>}
       {typeof consulta.data.detalhes.limites_pauta === 'string' && <p>Limites da pauta: {consulta.data.detalhes.limites_pauta}</p>}
       {consulta.data.detalhes.ratificacao_pendente === true && <p>Ratificação pendente.</p>}
-    </div>)}
+    </div>}</SecaoPainel>}
   </div>
 }

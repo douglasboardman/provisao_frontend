@@ -1,3 +1,4 @@
+import { SecaoPainel } from '../../components/shared/Painel'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { ApiRequestError } from '../../api/client'
@@ -36,9 +37,10 @@ export function ConfiguracaoInstitucional({ orgao, identidade }: { orgao: string
 
   return <section className="space-y-3">
     <Button type="button" variant="outline" aria-expanded={aberto} onClick={() => abrir(!aberto)}>Versões da configuração</Button>
-    {aberto && consulta.isPending && <p>Consultando versões…</p>}
-    {aberto && consulta.isError && <p role="alert">{mensagem(consulta.error)}</p>}
-    {aberto && dados && <div className="space-y-4 rounded border p-4">
+    {aberto && <SecaoPainel titulo="Versões da configuração" voltar={() => abrir(false)} ocupado={ocupada}>
+    {consulta.isPending && <p>Consultando versões…</p>}
+    {consulta.isError && <p role="alert">{mensagem(consulta.error)}</p>}
+    {dados && <div className="space-y-4 rounded border p-4">
       <h3 className="font-semibold">Histórico e vigências</h3>
       <ul className="space-y-1 text-sm">{dados.versoes.map(v => <li key={v.id}>
         Versão {v.numero} · {v.fonte} · {v.inicio.slice(0, 10) > dados.hoje ? 'Programada para' : 'Em vigor desde'} {formatarDataCivil(v.inicio)}
@@ -63,7 +65,7 @@ export function ConfiguracaoInstitucional({ orgao, identidade }: { orgao: string
         adotar.reset()
         setEditar(true)
       }}>{proposta ? 'Rever proposta' : 'Preparar nova versão'}</Button>}
-      {dados.pode_adotar && editar && <form className="max-w-lg space-y-3" onSubmit={e => {
+      {dados.pode_adotar && editar && <SecaoPainel titulo={proposta ? 'Rever proposta' : 'Preparar nova versão'} voltar={() => setEditar(false)} ocupado={ocupada}><form className="max-w-lg space-y-3" onSubmit={e => {
         e.preventDefault()
         const campos = new FormData(e.currentTarget)
         const ler = (nome: string) => String(campos.get(nome) ?? '').trim()
@@ -91,11 +93,13 @@ export function ConfiguracaoInstitucional({ orgao, identidade }: { orgao: string
         </>}
         <div className="flex flex-wrap gap-2">
           <Button type="submit" disabled={ocupada}>Conferir diferenças</Button>
-          <Button type="button" variant="outline" disabled={ocupada} onClick={() => setEditar(false)}>Fechar formulário</Button>
         </div>
-      </form>}
+      </form>
+      {propor.isError && <p role="alert">{mensagem(propor.error)}</p>}
+      </SecaoPainel>}
       {(propor.isError || adotar.isError) && <p role="alert">{mensagem(propor.error ?? adotar.error)}</p>}
       {adotar.isSuccess && <p role="status">Versão programada.</p>}
     </div>}
+    </SecaoPainel>}
   </section>
 }

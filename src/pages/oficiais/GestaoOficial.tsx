@@ -1,3 +1,4 @@
+import { SecaoPainel } from '../../components/shared/Painel'
 import { HistoricoIndicacoes } from './HistoricoIndicacoes'
 import { useRecurso } from '../../lib/recursos'
 import { ReferenciaAta } from '../../components/shared/ReferenciaAta'
@@ -18,10 +19,11 @@ function Campo({ nome, titulo, tipo = 'text', obrigatorio = true }: { nome: stri
 function dataExibida(d: string) { return d.slice(0, 10).split('-').reverse().join('/') }
 function valor(d: FormData, nome: string) { return String(d.get(nome) ?? '').trim() }
 
-export function GestaoOficial({ oficial, identidade, podeConsultarDetalhe, modoInicial = 'ordenacao', periodoInicial, acesso }: { periodoInicial?: string; modoInicial?: Modo; oficial: OficialResumo; identidade: string; podeConsultarDetalhe: boolean; acesso?: AcessoSensivel }) {
+export function GestaoOficial({ voltar, oficial, identidade, podeConsultarDetalhe, modoInicial = 'ordenacao', periodoInicial, acesso }: { voltar: () => void; periodoInicial?: string; modoInicial?: Modo; oficial: OficialResumo; identidade: string; podeConsultarDetalhe: boolean; acesso?: AcessoSensivel }) {
   const secretariaHabilitada = useRecurso('secretaria')
   const formRef = useRef<HTMLFormElement>(null)
   const chaveAcervo = useRef(crypto.randomUUID())
+  const [consulta, abrirConsulta] = useState<'periodos' | 'acervo' | null>(null)
   const [detalheId, setDetalheId] = useState('')
   const [modo, setModo] = useState<Modo>(modoInicial)
   const [resultado, setResultado] = useState('')
@@ -51,18 +53,22 @@ export function GestaoOficial({ oficial, identidade, podeConsultarDetalhe, modoI
     if (caminho && modosLiberados[modo]) salvar.mutate({ caminho, dados, patch })
   }
   const titulo = `Registros de ${oficial.pessoa.nome_completo}`
-  return <section className="space-y-4 rounded border p-4"><h2 className="font-semibold">{titulo}</h2>
+  return <SecaoPainel titulo={titulo} voltar={voltar}>
     {!comum && oficial.tipo === 'PRESBITERO_DOCENTE' && <IdentidadePastoral oficialId={oficial.id} identidade={identidade} />}
-    <div><h3 className="font-medium">Períodos registrados</h3>{periodos.isPending ? <p>Carregando períodos...</p> : periodos.isError ? <p role="alert">Não foi possível carregar os períodos.</p> : <>
+    <div className="flex flex-wrap gap-2">
+      <Button variant="outline" onClick={() => abrirConsulta('periodos')}>Períodos registrados</Button>
+      {consultarAcervo && <Button variant="outline" onClick={() => abrirConsulta('acervo')}>Acervo histórico conferido</Button>}
+    </div>
+    {consulta === 'periodos' && <SecaoPainel titulo="Períodos registrados" voltar={() => abrirConsulta(null)}>{periodos.isPending ? <p>Carregando períodos...</p> : periodos.isError ? <p role="alert">Não foi possível carregar os períodos.</p> : <>
       {!periodos.data?.mandatos.length && !periodos.data?.vinculos.length && <p>Nenhum período registrado.</p>}
       {periodos.data?.mandatos.map(m => <div key={m.id}><p>Mandato: eleição {dataExibida(m.data_eleicao)}, posse {dataExibida(m.data_posse)}, {m.termino_efetivo ? `término efetivo ${dataExibida(m.termino_efetivo)}` : `término previsto ${dataExibida(m.termino_previsto)}`}.{m.revisao_pendente && <strong> Pendente de revisão institucional.</strong>}</p>{secretariaHabilitada && <>{(['ELEICAO', 'POSSE', ...(m.termino_efetivo ? ['ENCERRAMENTO'] : [])] as ('ELEICAO' | 'POSSE' | 'ENCERRAMENTO')[]).map(ato => <div key={ato}><p>Referência de {ato.toLowerCase()}:</p><ReferenciaAta alvo={{ grupo: 'MANDATO', alvo_id: m.id, etapa: ato }} identidade={identidade} /></div>)}</>}</div>)}
       {periodos.data?.vinculos.map(v => <div key={v.id}><p>Vínculo pastoral {v.modalidade}, {v.concilio}: {dataExibida(v.data_inicio)} até {v.data_fim ? dataExibida(v.data_fim) : 'em aberto'}.</p>{secretariaHabilitada && <>{(['INICIO', ...(v.data_fim ? ['ENCERRAMENTO'] : [])] as ('INICIO' | 'ENCERRAMENTO')[]).map(ato => <div key={ato}><p>Referência de {ato.toLowerCase()}:</p><ReferenciaAta alvo={{ grupo: 'PASTORAL', alvo_id: v.id, etapa: ato }} identidade={identidade} /></div>)}</>}</div>)}
-    </>}</div>
+    </>}</SecaoPainel>}
     {!comum && secretariaHabilitada && oficial.tipo !== 'PRESBITERO_DOCENTE' && <HistoricoIndicacoes identidade={identidade} oficial={oficial.id} />}
-    {consultarAcervo && <div><h3 className="font-medium">Acervo histórico conferido</h3><p className="text-sm text-muted-foreground">Estes registros preservam lacunas e não concedem exercício automaticamente.</p>
+    {consulta === 'acervo' && consultarAcervo && <SecaoPainel titulo="Acervo histórico conferido" voltar={() => abrirConsulta(null)}><p className="text-sm text-muted-foreground">Estes registros preservam lacunas e não concedem exercício automaticamente.</p>
       {acervo.isPending ? <p>Carregando acervo...</p> : acervo.isError ? <p role="alert">Não foi possível carregar o acervo.</p> : !acervo.data?.length ? <p>Nenhum registro histórico.</p> : acervo.data.map(a => <div key={a.id} className="my-2 rounded border p-2"><p>{({ ELEICAO: 'Eleição', POSSE: 'Posse', ORDENACAO: 'Ordenação', VINCULO_PASTORAL: 'Vínculo pastoral', FIM_EXERCICIO: 'Fim de exercício' } as const)[a.tipo]} — {a.data_evento ? dataExibida(a.data_evento) : 'data não informada'} — {a.situacao_documental === 'PENDENTE' ? 'documentação pendente' : 'referência externa conferida'}.</p>{podeConsultarDetalhe && <Button type="button" variant="outline" onClick={() => setDetalheId(a.id)}>Consultar referência</Button>}</div>)}
-      {detalheId && podeConsultarDetalhe && (detalhe.isPending ? <p>Carregando referência...</p> : detalhe.isError ? <p role="alert">Não foi possível consultar a referência.</p> : detalhe.data && <div className="rounded border p-2"><p>Data aproximada: {detalhe.data.data_descricao || 'não informada'}</p><p>Referência: {detalhe.data.referencia_externa || 'não informada'}</p><p>Autoridade: {detalhe.data.autoridade || 'não informada'}</p><p>Registrado por: {detalhe.data.criado_por.nome_usuario}</p><Button type="button" variant="outline" onClick={() => setDetalheId('')}>Fechar referência</Button></div>)}
-    </div>}
+      {detalheId && podeConsultarDetalhe && <SecaoPainel titulo="Referência do registro" voltar={() => setDetalheId('')}>{detalhe.isPending ? <p>Carregando referência...</p> : detalhe.isError ? <p role="alert">Não foi possível consultar a referência.</p> : detalhe.data && <div className="rounded border p-2"><p>Data aproximada: {detalhe.data.data_descricao || 'não informada'}</p><p>Referência: {detalhe.data.referencia_externa || 'não informada'}</p><p>Autoridade: {detalhe.data.autoridade || 'não informada'}</p><p>Registrado por: {detalhe.data.criado_por.nome_usuario}</p></div>}</SecaoPainel>}
+    </SecaoPainel>}
     <label className="block space-y-1"><span>Operação</span><select className={inputClass} disabled={salvar.isPending} value={modosLiberados[modo] ? modo : ''} onChange={e => { setModo(e.target.value as Modo); chaveAcervo.current = crypto.randomUUID(); setResultado(''); salvar.reset() }}>
       <option value="" disabled>Selecione</option>{registrarHistorico && <><option value="ordenacao">Registrar ordenação</option><option value="acervo">Importar registro histórico</option></>}
       {oficial.tipo !== 'PRESBITERO_DOCENTE' && perfil === Perfil.ADMINISTRADOR && <option value="politica">Registrar política eleitoral</option>}
@@ -79,5 +85,5 @@ export function GestaoOficial({ oficial, identidade, podeConsultarDetalhe, modoI
       {resultado && <p role="status">{resultado}</p>}
       <Button type="submit" disabled={salvar.isPending}>Salvar registro</Button>
     </form>}
-  </section>
+  </SecaoPainel>
 }

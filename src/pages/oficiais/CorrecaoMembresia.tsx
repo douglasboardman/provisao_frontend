@@ -1,3 +1,4 @@
+import { PainelLocal, SecaoPainel } from '../../components/shared/Painel'
 import { AvisoImpactoOrgaos } from './AvisoImpactoOrgaos'
 import { DecisaoOrgao } from './DecisaoOrgao'
 import { DecisaoEleitoral } from './DecisaoEleitoral'
@@ -28,8 +29,8 @@ export function CorrecaoMembresia({ oficialId, identidade, podeRegistrar, porPes
     aplicar.mutate({ evento_id: evento, nova_data: novaData, hash_previa: aprovada.hash, ...(hashRevisaoOrgaos === aprovada.hash && revisaoOrgaos.length ? { decisoes_orgao: revisaoOrgaos } : {}), ...(decisao ? { decisao_id: decisao } : {}), justificativa: texto('justificativa'), autoridade: texto('autoridade'), evidencia: texto('evidencia'), ciente: d.has('ciente'), idempotencia: chave.current })
   }
   const erro = previa.error ?? aplicar.error
-  return <div className="space-y-3 rounded border p-4"><Button type="button" variant="outline" onClick={() => setAberto(!aberto)}>{aberto ? 'Fechar correção de data' : 'Conferir correção de data de membresia'}</Button>
-    {aberto && <><p className="text-sm text-muted-foreground">A prévia verifica a sequência e o rol de origem. Se houver atos na data de destino, a ordem existente do ato corrigido deve ser posterior às demais.</p>
+  return <PainelLocal><div className="space-y-3"><Button type="button" variant="outline" onClick={() => setAberto(true)}>Conferir correção de data de membresia</Button>
+    {aberto && <SecaoPainel titulo="Conferir correção de data de membresia" voltar={() => setAberto(false)}><p className="text-sm text-muted-foreground">A prévia verifica a sequência e o rol de origem. Se houver atos na data de destino, a ordem existente do ato corrigido deve ser posterior às demais.</p>
       <div><h3 className="font-medium">Correções registradas</h3>{historico.isPending ? <p>Carregando correções...</p> : historico.isError ? <p role="alert">Não foi possível consultar as correções.</p> : !historico.data?.length ? <p>Nenhuma correção registrada.</p> : historico.data.map(c => <details className="my-2 rounded border p-2" key={c.id}><summary>{dia(c.data_anterior)} → {dia(c.data_nova)} — registrado por {c.criado_por.nome_usuario}</summary><p>Justificativa: {c.justificativa}</p><p>Autoridade: {c.autoridade}</p><p>Evidência: {c.evidencia}</p>{c.impacto.mandatos.map(m => <p key={m.id}>Eleição {dia(m.eleicao)}: {m.rol_eleicao_antes} → {m.rol_eleicao_depois}; posse {dia(m.posse)}: {m.rol_posse_antes} → {m.rol_posse_depois}.</p>)}{c.impacto.conferencias.map(a => <p key={a.id}>Conferência {dia(a.data_eleicao)}: {a.rol_antes} → {a.rol_depois}.</p>)}</details>)}</div>
       {eventos.isError && <p role="alert">Não foi possível consultar os eventos.</p>}
       <form className="max-w-xl space-y-3" onSubmit={pedir}><label className="block">Evento de membresia<select className={classe} value={evento} required disabled={previa.isPending || aplicar.isPending} onChange={e => alterar(() => setEvento(e.target.value))}><option value="">Selecione</option>{eventos.data?.map(e => <option key={e.id} value={e.id}>{e.tipo_evento} — {dia(e.data_evento)} — {e.rol} — ordem {e.ordem_dia ?? 'não informada'}</option>)}</select></label><label className="block">Data corrigida<input className={classe} type="date" value={novaData} required disabled={previa.isPending || aplicar.isPending} onChange={e => alterar(() => setNovaData(e.target.value))} /></label><Button type="submit" disabled={!evento || !novaData || previa.isPending}>Gerar prévia</Button></form>
@@ -39,6 +40,6 @@ export function CorrecaoMembresia({ oficialId, identidade, podeRegistrar, porPes
         {(!aprovada.bloqueio_orgao?.bloqueia || (revisaoOrgaos.length > 0 && hashRevisaoOrgaos === aprovada.hash)) && (!aprovada.bloqueada || decisao) && podeRegistrar ? <form className="space-y-3" onSubmit={confirmar}><label className="block">Justificativa<input className={classe} name="justificativa" required maxLength={1000} /></label><label className="block">Autoridade que determinou a correção<input className={classe} name="autoridade" required maxLength={255} /></label><label className="block">Evidência da correção<input className={classe} name="evidencia" required maxLength={1000} /></label><label className="block"><input type="checkbox" name="ciente" required /> Conferi a prévia e a evidência.</label><Button type="submit" disabled={aplicar.isPending}>Confirmar correção</Button></form> : !podeRegistrar ? <p>Seu acesso permite apenas consultar a prévia.</p> : null}
       </div>}
       {erro && <p role="alert">{erro instanceof ApiRequestError ? erro.messages.join(' ') : 'Não foi possível concluir a operação.'}</p>}{mensagem && <p role="status">{mensagem}</p>}
-    </>}
-  </div>
+    </SecaoPainel>}
+  </div></PainelLocal>
 }

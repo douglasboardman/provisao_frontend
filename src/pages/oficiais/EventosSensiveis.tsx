@@ -1,3 +1,4 @@
+import { SecaoPainel } from '../../components/shared/Painel'
 import { HistoricoRevisoesEleitorais } from './DecisaoEleitoral'
 import { InsercaoRetroativaOficial } from './InsercaoRetroativaOficial'
 import { useRef, useState, type FormEvent } from 'react'
@@ -12,7 +13,7 @@ const nomes: Record<EventoSensivel['tipo'], string> = { LICENCA: 'Licença', SUS
 const classe = 'block w-full rounded border bg-background p-2'
 function dia(s: string) { return s.slice(0, 10).split('-').reverse().join('/') }
 
-export function EventosSensiveis({ oficial, identidade, acesso }: { oficial: OficialResumo; identidade: string; acesso: AcessoSensivel }) {
+export function EventosSensiveis({ voltar, oficial, identidade, acesso }: { voltar: () => void; oficial: OficialResumo; identidade: string; acesso: AcessoSensivel }) {
   const formRef = useRef<HTMLFormElement>(null)
   const [tipo, setTipo] = useState<EventoSensivel['tipo']>('LICENCA')
   const [mensagem, setMensagem] = useState('')
@@ -31,7 +32,7 @@ export function EventosSensiveis({ oficial, identidade, acesso }: { oficial: Ofi
     const dados = { tipo, data_efeito: texto('data'), ordem: Number(texto('ordem')), autoridade: texto('autoridade'), evidencia: texto('evidencia'), ...(texto('observacoes') ? { observacoes: texto('observacoes') } : {}), ...(tipo === 'RESTAURACAO' ? { evento_restaurado_id: texto('restaurado') } : {}) }
     salvar.mutate(dados)
   }
-  return <section className="space-y-3 rounded border p-4"><h2 className="font-semibold">Eventos com acesso específico — {oficial.pessoa.nome_completo}</h2>
+  return <SecaoPainel titulo={`Eventos com acesso específico — ${oficial.pessoa.nome_completo}`} voltar={voltar}>
     {consultaOficial && eventos.data && <InsercaoRetroativaOficial oficialId={oficial.id} identidade={identidade} podeRegistrar={registraOficial} eventos={eventos.data} />}
     {consultaMembresia && <HistoricoRevisoesEleitorais pessoaId={oficial.pessoa.id} identidade={identidade} podeRegistrar={decide} />}
     {consultaMembresia && <OrdenacaoMembresia oficialId={oficial.pessoa.id} identidade={identidade} podeRegistrar={retifica} porPessoa />}
@@ -49,5 +50,5 @@ export function EventosSensiveis({ oficial, identidade, acesso }: { oficial: Ofi
       {mensagem && <p role="status">{mensagem}</p>}
       <Button disabled={salvar.isPending} type="submit">Registrar evento</Button>
     </form>}
-  </section>
+  </SecaoPainel>
 }

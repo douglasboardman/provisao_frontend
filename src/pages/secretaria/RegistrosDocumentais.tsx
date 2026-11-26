@@ -1,3 +1,4 @@
+import { Painel } from '../../components/shared/Painel'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { etapasAta, gruposAta, referenciasAtaApi, situacoesAta, tiposFinanceiros, type GrupoAta, type ItemDocumental } from '../../api/referencias-ata'
@@ -40,7 +41,7 @@ export function PendenciasDocumentais({ identidade }: { identidade: string }) {
   const [pagina, setPagina] = useState(0)
   const [grupo, setGrupo] = useState<GrupoAta | ''>('')
   const consulta = useQuery({ queryKey: ['referencias-ata', identidade, 'pendencias', pagina, grupo], queryFn: () => referenciasAtaApi.pendencias(pagina, grupo || undefined), gcTime: 0 })
-  return <section className="space-y-3 rounded border p-4">
+  return <section className="surface"><Painel>
     <h2 className="font-semibold">Pendências documentais</h2>
     <label className="block">Tipo de registro <select className="rounded border bg-background p-2" value={grupo} onChange={e => { setGrupo(e.target.value as GrupoAta | ''); setPagina(0) }}>
       <option value="">Todos os tipos</option>{Object.entries(gruposAta).map(([id, nome]) => <option key={id} value={id}>{nome}</option>)}
@@ -52,5 +53,5 @@ export function PendenciasDocumentais({ identidade }: { identidade: string }) {
       <Lista itens={consulta.data.itens} identidade={identidade} pendencias />
     </>}
     <PaginacaoAta pagina={pagina} mudar={setPagina} proxima={consulta.data?.tem_proxima} />
-  </section>
+  </Painel></section>
 }

@@ -1,3 +1,4 @@
+import { PainelLocal, SecaoPainel } from '../../components/shared/Painel'
 import { useHojeIgreja } from './RelogioIgreja'
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -20,14 +21,13 @@ export function EncerrarAto({ orgaoId, identidade, ocupacao, tipo, aoFechar }: {
     if (!ocupacao) throw new Error('Ocupação não selecionada.')
     return gestaoOrgaosApi.encerrarOcupacao(orgaoId, ocupacao.id, tipo, { ...corpo, idempotencia })
   }, onSuccess: async () => { chave.limpar(); await queryClient.invalidateQueries({ queryKey: ['orgaos', identidade] }); aoFechar() } })
-  return <form className="max-w-xl space-y-3 rounded border p-4" onSubmit={e => { e.preventDefault(); salvar.mutate() }}>
-    <h3 className="font-semibold">{tipo === 'desativar' ? 'Desativar órgão' : `Encerrar ocupação: ${ocupacao?.nome ?? ''}`}</h3>
+  return <PainelLocal><SecaoPainel titulo={tipo === 'desativar' ? 'Desativar órgão' : `Encerrar ocupação: ${ocupacao?.nome ?? ''}`} voltar={aoFechar} ocupado={salvar.isPending}><form className="max-w-xl space-y-3 rounded border p-4" onSubmit={e => { e.preventDefault(); salvar.mutate() }}>
     <p className="text-sm text-muted-foreground">{tipo === 'desativar' ? 'Ocupações vigentes ou futuras precisam ser resolvidas antes da desativação. O histórico será preservado.' : 'Informe o ato de encerramento. O período anterior será preservado.'}</p>
     <div className="space-y-1"><Label htmlFor="ato-encerramento-data">Data de efeito</Label><Input id="ato-encerramento-data" type="date" value={data} onChange={e => setData(e.target.value)} required /></div>
     <div className="space-y-1"><Label htmlFor="ato-encerramento-motivo">Motivo</Label><Input id="ato-encerramento-motivo" value={motivo} onChange={e => setMotivo(e.target.value)} maxLength={1000} required /></div>
     <div className="space-y-1"><Label htmlFor="ato-encerramento-autoridade">Autoridade do ato</Label><Input id="ato-encerramento-autoridade" value={autoridade} onChange={e => setAutoridade(e.target.value)} maxLength={255} required /></div>
     <div className="space-y-1"><Label htmlFor="ato-encerramento-evidencia">Evidência do ato</Label><Input id="ato-encerramento-evidencia" value={evidencia} onChange={e => setEvidencia(e.target.value)} maxLength={1000} required /></div>
     {salvar.isError && <p role="alert">{salvar.error instanceof ApiRequestError ? salvar.error.messages.join(' ') : 'Não foi possível registrar o encerramento.'}</p>}
-    <div className="flex gap-2"><Button type="submit" disabled={salvar.isPending}>Confirmar ato</Button><Button type="button" variant="outline" onClick={aoFechar}>Cancelar</Button></div>
-  </form>
+    <div className="flex gap-2"><Button type="submit" disabled={salvar.isPending}>Confirmar ato</Button></div>
+  </form></SecaoPainel></PainelLocal>
 }

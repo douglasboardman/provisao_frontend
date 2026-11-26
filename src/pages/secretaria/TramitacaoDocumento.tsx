@@ -1,3 +1,4 @@
+import { Painel, SecaoPainel } from '../../components/shared/Painel'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { assinaturasHabilitadas } from '../../api/assinaturas'
@@ -45,7 +46,7 @@ export function TramitacaoDocumento({ documento: d, contexto, identidade, corrig
     return ''
   }
   const avisos = [...new Set(acoes.map(impedimento).filter(Boolean))]
-  return <section id="tramitacao-documento" tabIndex={-1} className="surface space-y-3" aria-label="Tramitação da versão salva">
+  return <section id="tramitacao-documento" tabIndex={-1} className="surface space-y-3" aria-label="Tramitação da versão salva"><Painel>
     <h3 className="font-semibold">Tramitação · Versão {v.numero} · Revisão {d.revisao}</h3>
     <p>{edicao && d.encaminhado_em ? 'Encaminhado para aprovação' : estadosDocumento[d.estado]}{v.congelado_em && ' · Conteúdo congelado'}</p>
     {edicao && pendencias.length > 0 && <div><h4 className="font-medium">Pendências para encaminhar ou aprovar</h4><ul className="list-disc space-y-1 pl-5">{pendencias.map(p => <li key={p.destino+p.mensagem}>{p.mensagem}{contexto.pode_preparar && <button type="button" className="ml-2 underline" onClick={() => corrigir(p.destino)}>Corrigir</button>}</li>)}</ul></div>}
@@ -57,7 +58,7 @@ export function TramitacaoDocumento({ documento: d, contexto, identidade, corrig
       {v.congelado_em && assinaturas && assinaturasHabilitadas() && <a href="#assinaturas-documento" className="self-center underline">Assinaturas e expedição</a>}
     </div>
     {acao && acoes.includes(acao) && !impedimento(acao) && <ConfirmarAcao key={acao} acao={acao} d={d} identidade={identidade} assinaturas={assinaturas} fechar={() => selecionar(undefined)} />}
-  </section>
+  </Painel></section>
 }
 
 function ConfirmarAcao({ acao, d, identidade, assinaturas, fechar }: {
@@ -69,11 +70,10 @@ function ConfirmarAcao({ acao, d, identidade, assinaturas, fechar }: {
   const reunioes = useQuery({ queryKey: ['secretaria', identidade, d.contexto_id, 'reunioes', pagina], queryFn: () => secretariaApi.reunioes(d.contexto_id, pagina), enabled: acao === 'deliberar' })
   const enviar = useComando((dados: { revisao: number; autoridade: string; evidencia: string; modalidade?: string; reuniao_id?: string; resultado?: string; data?: string }) => secretariaApi.comando(d.id, acao, dados), fechar, d.id + ':' + acao)
   const escolherModalidade = acao === 'aprovar' && assinaturas
-  return <form className="space-y-3 rounded border p-3" inert={enviar.isPending} onSubmit={e => {
+  return <SecaoPainel titulo={`${rotulos[acao]} · Revisão ${d.revisao}`} voltar={fechar} ocupado={enviar.isPending}><form className="space-y-3" inert={enviar.isPending} onSubmit={e => {
     e.preventDefault()
     enviar.mutate({ revisao: d.revisao, autoridade, evidencia, ...(escolherModalidade && { modalidade }), ...(acao === 'deliberar' && { reuniao_id: reuniao, resultado, data }) })
   }}>
-    <h4 className="font-medium">{rotulos[acao]} · Revisão {d.revisao}</h4>
     {escolherModalidade && <Escolha label="Modalidade de assinatura" value={modalidade} onChange={setModalidade}><option value="">Selecione a modalidade</option><option value="ELETRONICA">Eletrônica por convite individual</option><option value="FISICA">Física com digitalização conferida</option></Escolha>}
     {acao === 'deliberar' && <>
       <Escolha label="Reunião da deliberação" value={reuniao} onChange={id => { setReuniao(id); setData(reunioes.data?.find(r => r.id === id)?.data.slice(0,10) ?? hoje()) }}><option value="">Selecione a reunião</option>{reunioes.data?.filter(r => d.restrito || !r.dados.restrito).map(r => <option key={r.id} value={r.id}>{r.data.slice(0,10)} · {rotulosModalidadeReuniao[r.modalidade]} · {r.dados.local}</option>)}</Escolha>
@@ -85,6 +85,5 @@ function ConfirmarAcao({ acao, d, identidade, assinaturas, fechar }: {
     <Campo label="Autoridade da ação" value={autoridade} onChange={setAutoridade}/>
     <Area label="Fundamento e evidência da ação" value={evidencia} onChange={setEvidencia}/>
     <Salvar pending={enviar.isPending} error={enviar.error} success={false} label={'Confirmar · ' + rotulos[acao]}/>
-    <Button type="button" variant="ghost" onClick={fechar}>Voltar</Button>
-  </form>
+  </form></SecaoPainel>
 }

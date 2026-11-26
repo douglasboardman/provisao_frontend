@@ -1,3 +1,4 @@
+import { PainelLocal, SecaoPainel } from '../../components/shared/Painel'
 import { SeletorPessoa } from '../../components/shared/SeletorPessoa'
 import { useHojeIgreja } from './RelogioIgreja'
 import { useRef, useState } from 'react'
@@ -25,11 +26,11 @@ export function ParticipacaoUnidade({ orgaoId, identidade }: { orgaoId: string; 
     },
     onSuccess: async () => { tentativa.current = null; setMensagem('Participação atualizada.'); setAberto(false); setPessoa(''); setEvidencia(''); await queryClient.invalidateQueries({ queryKey: ['orgaos', identidade] }) },
   })
-  return <div className="space-y-3">
-    <Button type="button" variant="outline" onClick={() => { if (!aberto) setData(hoje); setMensagem(''); salvar.reset(); setAberto(v => !v) }}>{aberto ? 'Cancelar participação' : 'Registrar participação'}</Button>
+  return <PainelLocal><div className="space-y-3">
+    <Button type="button" variant="outline" onClick={() => { if (!aberto) setData(hoje); setMensagem(''); salvar.reset(); setAberto(true) }}>Registrar participação</Button>
     {mensagem && <p role="status">{mensagem}</p>}
-    {aberto && <form className="max-w-xl space-y-3 rounded border p-4" onSubmit={e => { e.preventDefault(); salvar.mutate() }}>
-      <h3 className="font-semibold">Participação na unidade</h3>
+    {aberto && <SecaoPainel titulo="Participação na unidade" voltar={() => setAberto(false)} ocupado={salvar.isPending}>
+      <form className="max-w-xl space-y-3" onSubmit={e => { e.preventDefault(); salvar.mutate() }}>
       <p className="text-sm text-muted-foreground">O sistema confere o rol na inclusão. A saída não substitui a dispensa de um cargo.</p>
       <div className="space-y-1"><Label htmlFor="participacao-acao">Ação</Label><select id="participacao-acao" className="w-full rounded border bg-background p-2" value={acao} onChange={e => setAcao(e.target.value as typeof acao)}><option value="incluir">Incluir</option><option value="sair">Encerrar participação</option></select></div>
       <div className="space-y-1"><Label htmlFor="participacao-pessoa">Pessoa</Label><SeletorPessoa id="participacao-pessoa" value={pessoa} onChange={id => setPessoa(id)} required opcoes={pessoas.data?.map(p => ({ id: p.id, nome: p.nome_completo }))} />{pessoas.isError && <p role="alert">Não foi possível carregar as pessoas.</p>}</div>
@@ -37,6 +38,7 @@ export function ParticipacaoUnidade({ orgaoId, identidade }: { orgaoId: string; 
       <div className="space-y-1"><Label htmlFor="participacao-evidencia">Referência ou evidência</Label><Input id="participacao-evidencia" value={evidencia} onChange={e => setEvidencia(e.target.value)} maxLength={1000} required /></div>
       {salvar.isError && <p role="alert">{salvar.error instanceof ApiRequestError ? salvar.error.messages.join(' ') : 'Não foi possível registrar a participação.'}</p>}
       <Button type="submit" disabled={salvar.isPending || !pessoa}>Salvar participação</Button>
-    </form>}
-  </div>
+    </form>
+    </SecaoPainel>}
+  </div></PainelLocal>
 }

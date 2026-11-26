@@ -1,3 +1,4 @@
+import { PainelLocal, SecaoPainel } from '../../components/shared/Painel'
 import { SeletorPessoa } from '../../components/shared/SeletorPessoa'
 import { useHojeIgreja } from './RelogioIgreja'
 import { useRef, useState } from 'react'
@@ -26,11 +27,11 @@ export function CompetenciaUnidades({ identidade }: { identidade: string }) {
     },
     onSuccess: async () => { tentativa.current = null; setMensagem('Competência registrada.'); setAberto(false); setUsuario(''); setFim(''); setAutoridade(''); setEvidencia(''); await queryClient.invalidateQueries({ queryKey: ['orgaos', identidade, 'autoridades'] }) },
   })
-  return <section className="space-y-3">
-    <Button type="button" variant="outline" onClick={() => { if (!aberto) setInicio(hoje); setMensagem(''); salvar.reset(); setAberto(v => !v) }}>{aberto ? 'Cancelar registro de competência' : 'Registrar competência de gestor'}</Button>
+  return <PainelLocal><section className="space-y-3">
+    <Button type="button" variant="outline" onClick={() => { if (!aberto) setInicio(hoje); setMensagem(''); salvar.reset(); setAberto(true) }}>Registrar competência de gestor</Button>
     {mensagem && <p role="status">{mensagem}</p>}
-    {aberto && <form className="max-w-2xl space-y-3 rounded border p-4" onSubmit={e => { e.preventDefault(); salvar.mutate() }}>
-      <h2 className="font-semibold">Competência para unidades ministeriais</h2>
+    {aberto && <SecaoPainel titulo="Competência para unidades ministeriais" voltar={() => setAberto(false)} ocupado={salvar.isPending}>
+      <form className="max-w-2xl space-y-3" onSubmit={e => { e.preventDefault(); salvar.mutate() }}>
       <p className="text-sm text-muted-foreground">Registre a autoridade e a evidência conferidas. O perfil de gestor, sozinho, não estabelece essa competência.</p>
       <div className="space-y-1"><Label htmlFor="competencia-gestor">Gestor vinculado a pessoa</Label><SeletorPessoa id="competencia-gestor" value={usuario} onChange={id => setUsuario(id)} required opcoes={usuarios.data?.filter(u => u.ativo && u.perfil === Perfil.GESTOR && u.pessoa_id).map(u => ({ id: u.id, nome: u.nome_usuario }))} />{usuarios.isError && <p role="alert">Não foi possível carregar os usuários.</p>}</div>
       <div className="space-y-1"><Label htmlFor="competencia-inicio">Início da competência</Label><Input id="competencia-inicio" type="date" value={inicio} onChange={e => setInicio(e.target.value)} required /></div>
@@ -39,6 +40,7 @@ export function CompetenciaUnidades({ identidade }: { identidade: string }) {
       <div className="space-y-1"><Label htmlFor="competencia-evidencia">Referência ou evidência</Label><Input id="competencia-evidencia" value={evidencia} onChange={e => setEvidencia(e.target.value)} maxLength={1000} required /></div>
       {salvar.isError && <p role="alert">{salvar.error instanceof ApiRequestError ? salvar.error.messages.join(' ') : 'Não foi possível registrar a competência.'}</p>}
       <Button type="submit" disabled={salvar.isPending || !usuario}>Salvar competência</Button>
-    </form>}
-  </section>
+    </form>
+    </SecaoPainel>}
+  </section></PainelLocal>
 }

@@ -181,7 +181,7 @@ describe('gestão de órgãos', () => {
   })
   it('permite dispensa sem sucessor com sequência posterior à última registrada', async () => {
     renderizar(<DesignacaoLideranca orgaoId="unidade" identidade="igreja:gestor" cargos={[{ id: 'lider', nome: 'Líder', codigo: 'LIDER' }]} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Designar ou dispensar líder' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Atribuir cargo ou dispensar líder' }))
     await screen.findByText(/Última sequência registrada para a unidade: 2/)
     fireEvent.change(screen.getByLabelText('Ação de liderança'), { target: { value: 'dispensar' } })
     expect(screen.queryByLabelText('Pessoa designada')).toBeNull()
@@ -244,7 +244,7 @@ describe('gestão de órgãos', () => {
     await waitFor(() => expect(gestaoOrgaosApi.registrarPolitica).toHaveBeenCalledWith('unidade', expect.objectContaining({ prazo_maximo_meses: 12, idempotencia: expect.any(String) })))
     exibicao.unmount()
     renderizar(<EleicaoCargo orgaoId="unidade" identidade="igreja:gestor" tipo="unidade" cargos={[{ id: 'cargo', nome: 'Presidente', codigo: 'PRESIDENTE', permite_acumulacao: false }]} politicas={[politica]} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Registrar eleição e posse' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Atribuir cargo por eleição' }))
     fireEvent.change(screen.getByLabelText('Cargo eleito'), { target: { value: 'cargo' } })
     fireEvent.change(screen.getByLabelText('Pessoa eleita'), { target: { value: 'Teste' } })
     fireEvent.click(await screen.findByRole('option', { name: 'Pessoa Teste' }))

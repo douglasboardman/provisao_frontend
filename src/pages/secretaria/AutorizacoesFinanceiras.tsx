@@ -1,3 +1,4 @@
+import { Painel, SecaoPainel } from '../../components/shared/Painel'
 import { useRecurso } from '../../lib/recursos'
 import { useState, useRef, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -18,10 +19,10 @@ export function AutorizacoesFinanceiras({ projetos = [], contas = [], selecao = 
   const usuario = useAuthStore(s => s.user)
   const [aberto, setAberto] = useState(false)
   if (!secretariaHabilitada || !usuario || usuario.perfil === Perfil.OPERADOR) return null
-  return <section className="space-y-3">
+  return <section className="surface"><Painel>
     <Button type="button" variant="outline" aria-expanded={aberto} onClick={() => setAberto(!aberto)}>Autorizações financeiras documentadas</Button>
-    {aberto && <ListaAutorizacoes key={`${usuario.igreja_id}:${usuario.sub}`} identidade={`${usuario.igreja_id}:${usuario.sub}`} projetos={projetos} contas={contas} selecao={selecao} />}
-  </section>
+    {aberto && <SecaoPainel titulo="Autorizações financeiras documentadas" voltar={() => setAberto(false)}><ListaAutorizacoes key={`${usuario.igreja_id}:${usuario.sub}`} identidade={`${usuario.igreja_id}:${usuario.sub}`} projetos={projetos} contas={contas} selecao={selecao} /></SecaoPainel>}
+  </Painel></section>
 }
 
 function ListaAutorizacoes({ identidade, projetos, contas, selecao }: {
@@ -71,7 +72,7 @@ function ListaAutorizacoes({ identidade, projetos, contas, selecao }: {
     {consulta.data?.pode_criar && <Button type="button" variant="outline" onClick={() => { setPreparar(!preparar); setNovo(''); setAlvo(filtro); cadastro.reset(); idempotencia.current = null }}>
       {preparar ? 'Fechar registro' : 'Registrar decisão financeira'}
     </Button>}
-    {preparar && <form className="space-y-3" onSubmit={registrar}>
+    {preparar && consulta.data?.pode_criar && <SecaoPainel titulo="Registrar decisão financeira" voltar={() => setPreparar(false)} ocupado={cadastro.isPending}><form className="space-y-3" onSubmit={registrar}>
       <label className="block">Tipo de decisão <select className="block rounded border bg-background p-2" value={tipo} onChange={e => { setTipo(e.target.value as keyof typeof tiposFinanceiros); setAlvo('') }}>
         {Object.entries(tiposFinanceiros).filter(([id]) =>
           (selecao !== 'contas' || !['APROVACAO_PROJETO', 'ENCERRAMENTO_PROJETO'].includes(id)) &&
@@ -88,8 +89,9 @@ function ListaAutorizacoes({ identidade, projetos, contas, selecao }: {
       <label className="block">Evidência da decisão<Textarea name="evidencia" maxLength={1000} required /></label>
       <label className="block"><input name="decisao_ocorreu" type="checkbox" required /> Confirmo que a decisão já ocorreu.</label>
       <Button type="submit" disabled={cadastro.isPending || ((exigeConta || exigeProjeto) && !alvo)}>Registrar decisão</Button>
-    </form>}
+    </form>
     {cadastro.isError && <p role="alert">{cadastro.error instanceof ApiRequestError ? cadastro.error.message : 'Não foi possível registrar a decisão.'}</p>}
+    </SecaoPainel>}
     {novo && <div><p role="status">Decisão registrada. Informe a referência quando disponível.</p><ReferenciaAta alvo={{ grupo: 'FINANCEIRO', alvo_id: novo, etapa: 'ATO' }} identidade={identidade} /></div>}
     {consulta.isPending && <p>Consultando autorizações…</p>}
     {consulta.isError && <p role="alert">Não foi possível consultar as autorizações.</p>}

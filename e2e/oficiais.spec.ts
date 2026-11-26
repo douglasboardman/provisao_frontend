@@ -9,6 +9,7 @@ for (const largura of [320, 1280]) test(`registra indicação e mandato com sele
   await page.route('http://localhost:3000/**', route => {
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
     const url = new URL(route.request().url())
+    if (url.pathname === '/autorizacao/navegacao') return route.fulfill({ headers, json: { permissoes: {} } })
     if (url.pathname === '/auth/profile') return route.fulfill({ headers, json: { sub: 'u', igreja_id: 'i', perfil: 'GESTOR', username: 'Gestor', login: 'g@example.invalid' } })
     if (url.pathname === '/oficiais') return route.fulfill({ headers, json: { itens: [], proximo_cursor: null } })
     if (url.pathname === '/oficiais/indicacoes/selecao-atas') {
@@ -54,7 +55,8 @@ for (const largura of [320, 1280]) test(`registra indicação e mandato com sele
   await page.getByRole('button', { name: 'Salvar indicação' }).click()
   await expect.poll(() => indicacao).toEqual({ pessoa_id: 'p', oficio: 'DIACONO', ata_conselho_versao_id: 'con', data_assembleia: '2026-09-01' })
   await expect(page.getByText('Indicação registrada.')).toBeVisible()
-  await page.getByRole('button', { name: 'Registrar mandato' }).click()
+  await page.getByRole('button', { name: 'Voltar', exact: true }).click()
+  await page.getByRole('button', { name: 'Aproveitar indicação histórica' }).click()
   await page.getByRole('button', { name: 'Selecionar', exact: true }).click()
   await page.getByRole('button', { name: 'Detalhes' }).click()
   await expect(page.getByText('Pauta eleitoral')).toBeVisible()
@@ -77,6 +79,7 @@ test('consulta oficiais e exercício com a funcionalidade habilitada', async ({ 
   await page.route('http://localhost:3000/**', route => {
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
     const url = new URL(route.request().url())
+    if (url.pathname === '/autorizacao/navegacao') return route.fulfill({ headers, json: { permissoes: {} } })
     if (url.pathname === '/auth/profile') return route.fulfill({ headers, json: { sub: 'u', igreja_id: 'i', perfil: 'ADMINISTRADOR', username: 'Secretário', login: 's@example.invalid' } })
     if (url.pathname === '/pessoas') return route.fulfill({ headers, json: [{ id: 'p', nome_completo: 'Pessoa Sintética' }] })
     if (url.pathname === '/oficiais' && route.request().method() === 'POST') { criacao = route.request().postDataJSON(); return route.fulfill({ status: 201, headers, json: { id: 'novo' } }) }
@@ -95,6 +98,7 @@ test('consulta oficiais e exercício com a funcionalidade habilitada', async ({ 
   await page.getByRole('button', { name: 'Consultar exercício' }).click()
   await expect(page.getByText(/Em exercício em/)).toBeVisible()
   await expect(page.getByText(/não substitui a verificação de competência/)).toBeVisible()
+  await page.getByRole('button', { name: 'Voltar', exact: true }).click()
   await page.getByRole('button', { name: 'Registrar ofício' }).click()
   await page.getByLabel('Pessoa', { exact: true }).fill('Sintética')
   await page.getByRole('option', { name: /Sintética/ }).click()
@@ -102,7 +106,9 @@ test('consulta oficiais e exercício com a funcionalidade habilitada', async ({ 
   await page.getByRole('button', { name: 'Salvar ofício' }).click()
   await expect.poll(() => criacao).toEqual({ pessoa_id: 'p', tipo: 'PRESBITERO_REGENTE' })
   await page.getByRole('button', { name: 'Gerir registros' }).click()
+  await page.getByRole('button', { name: 'Períodos registrados' }).click()
   await expect(page.getByText('Nenhum período registrado.')).toBeVisible()
+  await page.getByRole('button', { name: 'Voltar', exact: true }).click()
   await page.getByLabel('Data da ordenação').fill('2026-01-01')
   await page.getByLabel('Ordem do ato no dia').fill('1')
   await page.getByLabel('Autoridade do ato').fill('Conselho')

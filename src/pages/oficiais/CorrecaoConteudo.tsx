@@ -1,3 +1,4 @@
+import { PainelLocal, SecaoPainel } from '../../components/shared/Painel'
 import { DecisaoOrgao } from './DecisaoOrgao'
 import { AvisoImpactoOrgaos } from './AvisoImpactoOrgaos'
 import { DecisaoEleitoral } from './DecisaoEleitoral'
@@ -32,8 +33,8 @@ export function CorrecaoConteudo({ pessoaId, identidade, podeRegistrar }: { pess
   function pedir(e: FormEvent) { e.preventDefault(); setAprovada(null); setRevisaoOrgaos([]); previa.mutate(proposta()) }
   function confirmar(e: FormEvent<HTMLFormElement>) { e.preventDefault(); if (!aprovada) return; const d = new FormData(e.currentTarget); aplicar.mutate({ ...proposta(), hash_previa: aprovada.hash, ...(hashRevisaoOrgaos === aprovada.hash && revisaoOrgaos.length ? { decisoes_orgao: revisaoOrgaos } : {}), ...(decisao ? { decisao_id: decisao } : {}), justificativa: String(d.get('justificativa') ?? '').trim(), autoridade: String(d.get('autoridade') ?? '').trim(), evidencia: String(d.get('evidencia') ?? '').trim(), idempotencia: chave.current, ciente: d.has('ciente') }) }
   const erro = previa.error ?? aplicar.error
-  return <div className="space-y-3 rounded border p-4"><Button type="button" variant="outline" onClick={() => setAberto(!aberto)}>{aberto ? 'Fechar correção de conteúdo' : 'Conferir correção de tipo ou rol'}</Button>
-    {aberto && <><p>Corrija o tipo, o rol ou a motivação de um ato. A data e a ordem não serão alteradas. A prévia não substitui a revisão institucional.</p>
+  return <PainelLocal><div className="space-y-3"><Button type="button" variant="outline" onClick={() => setAberto(true)}>Conferir correção de tipo ou rol</Button>
+    {aberto && <SecaoPainel titulo="Conferir correção de tipo ou rol" voltar={() => setAberto(false)}><p>Corrija o tipo, o rol ou a motivação de um ato. A data e a ordem não serão alteradas. A prévia não substitui a revisão institucional.</p>
       <div><h3 className="font-medium">Correções registradas</h3>{historico.isPending ? <p>Carregando...</p> : historico.isError ? <p role="alert">Não foi possível consultar as correções.</p> : !historico.data?.length ? <p>Nenhuma correção registrada.</p> : historico.data.map(r => <details key={r.id}><summary>Evento {r.evento_id.slice(0, 8)} — {r.criado_por.nome_usuario}</summary><p>Antes: {descricao(r.dados_anteriores)}</p><p>Depois: {descricao(r.dados_novos)}</p><p>Justificativa: {r.justificativa}</p><p>Autoridade: {r.autoridade}</p><p>Evidência: {r.evidencia}</p></details>)}</div>
       {eventos.isError && <p role="alert">Não foi possível consultar os eventos.</p>}
       <form className="max-w-xl space-y-3" onSubmit={pedir}>
@@ -49,6 +50,6 @@ export function CorrecaoConteudo({ pessoaId, identidade, podeRegistrar }: { pess
         {(!aprovada.bloqueio_orgao?.bloqueia || (revisaoOrgaos.length > 0 && hashRevisaoOrgaos === aprovada.hash)) && aprovada.bloqueada && !decisao && podeRegistrar && !aprovada.origem_seguinte_invalida && <DecisaoEleitoral key={aprovada.hash} identidade={identidade} pessoaId={pessoaId} operacao="CONTEUDO" proposta={proposta()} hash={aprovada.hash} aoRegistrar={setDecisao} />}
         {(!aprovada.bloqueio_orgao?.bloqueia || (revisaoOrgaos.length > 0 && hashRevisaoOrgaos === aprovada.hash)) && (!aprovada.bloqueada || decisao) && podeRegistrar ? <form className="space-y-3" onSubmit={confirmar}><label className="block">Justificativa da correção<input className={classe} name="justificativa" required maxLength={1000} /></label><label className="block">Autoridade da correção<input className={classe} name="autoridade" required maxLength={255} /></label><label className="block">Evidência da correção<input className={classe} name="evidencia" required maxLength={1000} /></label><label className="block"><input type="checkbox" name="ciente" required /> Conferi a correção e o impacto.</label><Button type="submit" disabled={aplicar.isPending}>Confirmar conteúdo</Button></form> : !podeRegistrar ? <p>Seu acesso permite apenas consultar a prévia.</p> : null}
       </div>}{erro && <p role="alert">{erro instanceof ApiRequestError ? erro.messages.join(' ') : 'Não foi possível concluir a operação.'}</p>}{mensagem && <p role="status">{mensagem}</p>}
-    </>}
-  </div>
+    </SecaoPainel>}
+  </div></PainelLocal>
 }

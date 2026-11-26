@@ -1,3 +1,4 @@
+import { PainelLocal, SecaoPainel } from '../../components/shared/Painel'
 import { useRef, useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { oficiaisApi, type EventoSensivel, type PreviaOficialRetroativa, type PropostaOficialRetroativa } from '../../api/oficiais'
@@ -20,8 +21,8 @@ export function InsercaoRetroativaOficial({ oficialId, identidade, podeRegistrar
   }
   function confirmar(e: FormEvent<HTMLFormElement>) { e.preventDefault(); if (!aprovada) return; const d = new FormData(e.currentTarget); aplicar.mutate({ ...aprovada.proposta, hash_previa: aprovada.hash, justificativa: String(d.get('justificativa') ?? '').trim(), idempotencia: chave.current, ciente: d.has('ciente') }) }
   const erro = previa.error ?? aplicar.error
-  return <div className="space-y-3 rounded border p-4"><Button type="button" variant="outline" onClick={() => setAberto(!aberto)}>{aberto ? 'Fechar inclusão retroativa de ofício' : 'Conferir evento retroativo de ofício'}</Button>
-    {aberto && <><p>Informe um ato anterior aos eventos já registrados. A prévia compara o exercício cadastrado e não reavalia documentos ou competências.</p>
+  return <PainelLocal><div className="space-y-3"><Button type="button" variant="outline" onClick={() => setAberto(true)}>Conferir evento retroativo de ofício</Button>
+    {aberto && <SecaoPainel titulo="Conferir evento retroativo de ofício" voltar={() => setAberto(false)}><p>Informe um ato anterior aos eventos já registrados. A prévia compara o exercício cadastrado e não reavalia documentos ou competências.</p>
       <div><h3 className="font-medium">Inclusões retroativas registradas</h3>{historico.isPending ? <p>Carregando...</p> : historico.isError ? <p role="alert">Não foi possível consultar as inclusões.</p> : !historico.data?.length ? <p>Nenhuma inclusão registrada.</p> : historico.data.map(r => <details key={r.id}><summary>{nomes[r.impacto.proposta.tipo]} — {dia(r.impacto.proposta.data_efeito)} — {r.criado_por.nome_usuario}</summary><p>Justificativa: {r.justificativa}</p><p>Autoridade: {r.impacto.proposta.autoridade}</p><p>Evidência: {r.impacto.proposta.evidencia}</p></details>)}</div>
       <form className="max-w-xl space-y-3" onSubmit={pedir} onChange={mudar}>
         <label className="block">Tipo de ato retroativo<select className={classe} value={tipo} onChange={e => setTipo(e.target.value)}><option value="ORDENACAO">Ordenação</option><option value="LICENCA">Licença</option><option value="SUSPENSAO">Suspensão</option><option value="DISPONIBILIDADE">Disponibilidade</option><option value="DEPOSICAO">Deposição</option><option value="RESTAURACAO">Restauração</option></select></label>
@@ -32,6 +33,6 @@ export function InsercaoRetroativaOficial({ oficialId, identidade, podeRegistrar
       {aprovada && <div className="space-y-2 rounded border p-3"><h3>Impacto previsto</h3><p>{nomes[aprovada.proposta.tipo]} em {dia(aprovada.proposta.data_efeito)}, ordem {aprovada.proposta.ordem}. Autoridade: {aprovada.proposta.autoridade}. Evidência: {aprovada.proposta.evidencia}.</p><p>{aprovada.observacao}</p>{!aprovada.alteracoes.length && <p>Nenhuma alteração de exercício encontrada nas datas verificadas.</p>}{aprovada.alteracoes.map((a, i) => <p key={`${a.tipo}-${a.id}-${a.data}-${i}`}>{a.tipo === 'MANDATO' ? 'Mandato' : 'Vínculo pastoral'} em {dia(a.data)}: {a.antes.motivo} → {a.depois.motivo}.</p>)}
         {aprovada.bloqueada ? <p role="alert">A inclusão exige revisão institucional da posse.</p> : podeRegistrar ? <form className="space-y-3" onSubmit={confirmar}><label className="block">Justificativa da inclusão retroativa<input className={classe} name="justificativa" required maxLength={1000} /></label><label className="block"><input type="checkbox" name="ciente" required /> Conferi o ato e o impacto no ofício.</label><Button type="submit" disabled={aplicar.isPending}>Confirmar evento retroativo</Button></form> : <p>Seu acesso permite apenas consultar a prévia.</p>}
       </div>}{erro && <p role="alert">{erro instanceof ApiRequestError ? erro.messages.join(' ') : 'Não foi possível concluir a operação.'}</p>}{mensagem && <p role="status">{mensagem}</p>}
-    </>}
-  </div>
+    </SecaoPainel>}
+  </div></PainelLocal>
 }

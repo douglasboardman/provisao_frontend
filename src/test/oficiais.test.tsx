@@ -25,6 +25,8 @@ describe('consulta de oficiais', () => {
     render(<QueryClientProvider client={client}><OficiaisPage /></QueryClientProvider>)
     expect(await screen.findByText('Pessoa Teste')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Consultar exercício' }))
+    expect(screen.queryByRole('heading', { name: 'Ofícios registrados' })).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Mandatos vigentes' })).toBeTruthy()
     expect(await screen.findByText(/Em exercício em/)).toBeTruthy()
     expect(screen.getByText(/não substitui a verificação de competência/)).toBeTruthy()
   })

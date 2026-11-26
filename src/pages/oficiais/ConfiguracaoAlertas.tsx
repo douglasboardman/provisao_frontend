@@ -1,3 +1,4 @@
+import { PainelLocal, SecaoPainel } from '../../components/shared/Painel'
 import { SeletorPessoa } from '../../components/shared/SeletorPessoa'
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -22,8 +23,8 @@ export function ConfiguracaoAlertas({ identidade }: { identidade: string }) {
     salvar.mutate({ ativo: d.has('ativo'), dias_antecedencia: Number(texto('antes')), dias_apos_termino: Number(texto('depois')), fuso_iana: texto('fuso'), autoridade: texto('autoridade'), fundamento: texto('fundamento') })
   }
   const politica: PoliticaAlertas | null | undefined = config.data?.politica
-  return <section className="space-y-3 rounded border p-4"><Button type="button" variant="outline" onClick={() => setAberto(!aberto)}>{aberto ? 'Fechar configuração de avisos' : 'Configurar avisos de mandatos'}</Button>
-    {aberto && <><p className="text-sm text-muted-foreground">A igreja escolhe explicitamente os destinatários. Os avisos são internos; o exercício é calculado pelas datas mesmo se o worker estiver parado.</p>
+  return <PainelLocal><section className="space-y-3"><Button type="button" variant="outline" onClick={() => setAberto(true)}>Configurar avisos de mandatos</Button>
+    {aberto && <SecaoPainel titulo="Configurar avisos de mandatos" voltar={() => setAberto(false)}><p className="text-sm text-muted-foreground">A igreja escolhe explicitamente os destinatários. Os avisos são internos; o exercício é calculado pelas datas mesmo se o worker estiver parado.</p>
       {config.isPending ? <p>Carregando configuração...</p> : config.isError ? <p role="alert">Não foi possível carregar a configuração.</p> : <>
         <form key={politica?.atualizado_em ?? 'nova'} className="max-w-xl space-y-3" onSubmit={enviar}>
           <label className="block"><input type="checkbox" name="ativo" defaultChecked={politica?.ativo ?? false} /> Habilitar avisos</label>
@@ -39,6 +40,6 @@ export function ConfiguracaoAlertas({ identidade }: { identidade: string }) {
         <h3 className="font-medium">Destinatários ativos</h3>{!config.data?.destinatarios.length && <p>Nenhum destinatário indicado.</p>}{config.data?.destinatarios.map(d => <div className="flex flex-wrap items-center gap-2" key={d.id}><span>{d.usuario.nome_usuario}{!d.usuario.ativo ? ' (conta inativa)' : ''}</span><Button type="button" variant="outline" disabled={remover.isPending} onClick={() => { setMensagem(''); remover.reset(); remover.mutate(d.id) }}>Remover destinatário</Button></div>)}
       </>}
       {erro && <p role="alert">{erro instanceof ApiRequestError ? erro.messages.join(' ') : 'Não foi possível atualizar a configuração.'}</p>}{mensagem && <p role="status">{mensagem}</p>}
-    </>}
-  </section>
+    </SecaoPainel>}
+  </section></PainelLocal>
 }

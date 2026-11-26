@@ -1,3 +1,4 @@
+import { PainelLocal, SecaoPainel } from '../../components/shared/Painel'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { gestaoOrgaosApi } from '../../api/orgaos'
@@ -15,10 +16,10 @@ export function ConfiguracaoFuso({ identidade }: { identidade: string }) {
     mutationFn: () => { const dados = { fuso_iana: fuso.trim(), autoridade: autoridade.trim(), evidencia: evidencia.trim() }; return gestaoOrgaosApi.registrarFuso({ ...dados, idempotencia: chave.obter(dados) }) },
     onSuccess: async () => { chave.limpar(); setMensagem('Fuso registrado.'); setFuso(''); setAutoridade(''); setEvidencia(''); await Promise.all([queryClient.invalidateQueries({ queryKey: ['orgaos', identidade, 'fuso'] }), queryClient.invalidateQueries({ queryKey: ['orgaos', identidade, 'relogio'] })]) },
   })
-  return <section className="space-y-3">
-    <Button type="button" variant="outline" disabled={salvar.isPending} onClick={() => { setAberto(v => !v); setMensagem(''); salvar.reset() }}>{aberto ? 'Fechar configuração de fuso' : 'Configurar fuso da igreja'}</Button>
-    {aberto && <form className="max-w-2xl space-y-3 rounded border p-4" onSubmit={e => { e.preventDefault(); salvar.mutate() }}>
-      <h2 className="font-semibold">Fuso horário da igreja</h2>
+  return <PainelLocal><section className="space-y-3">
+    <Button type="button" variant="outline" disabled={salvar.isPending} onClick={() => { setAberto(true); setMensagem(''); salvar.reset() }}>Configurar fuso da igreja</Button>
+    {aberto && <SecaoPainel titulo="Fuso horário da igreja" voltar={() => setAberto(false)} ocupado={salvar.isPending}>
+      <form className="max-w-2xl space-y-3" onSubmit={e => { e.preventDefault(); salvar.mutate() }}>
       <p className="text-sm text-muted-foreground">O fuso define a data corrente dos atos de órgãos. Sem configuração, é usada a data UTC. Confira a data antes de registrar cada ato.</p>
       {atual.isPending ? <p>Consultando fuso...</p> : atual.isError ? <p role="alert">Não foi possível consultar o fuso.</p> : <p>{atual.data?.configuracao ? `Fuso registrado: ${atual.data.configuracao.fuso_iana}` : 'Nenhum fuso registrado.'}</p>}
       <div className="space-y-1"><Label htmlFor="fuso-iana">Fuso IANA</Label><Input id="fuso-iana" placeholder="Ex.: America/Sao_Paulo" value={fuso} onChange={e => setFuso(e.target.value)} disabled={salvar.isPending} maxLength={100} required /></div>
@@ -27,6 +28,7 @@ export function ConfiguracaoFuso({ identidade }: { identidade: string }) {
       {salvar.isError && <p role="alert">{salvar.error instanceof ApiRequestError ? salvar.error.messages.join(' ') : 'Não foi possível registrar o fuso.'}</p>}
       {mensagem && <p role="status">{mensagem}</p>}
       <Button type="submit" disabled={salvar.isPending || atual.isPending || atual.isError}>Salvar fuso</Button>
-    </form>}
-  </section>
+    </form>
+    </SecaoPainel>}
+  </section></PainelLocal>
 }

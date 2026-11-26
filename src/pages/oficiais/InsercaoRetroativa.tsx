@@ -1,3 +1,4 @@
+import { PainelLocal, SecaoPainel } from '../../components/shared/Painel'
 import { DecisaoOrgao } from './DecisaoOrgao'
 import { AvisoImpactoOrgaos } from './AvisoImpactoOrgaos'
 import { DecisaoEleitoral } from './DecisaoEleitoral'
@@ -32,8 +33,8 @@ export function InsercaoRetroativa({ pessoaId, identidade, podeRegistrar }: { pe
   function pedir(e: FormEvent) { e.preventDefault(); setAprovada(null); setRevisaoOrgaos([]); previa.mutate(proposta()) }
   function confirmar(e: FormEvent<HTMLFormElement>) { e.preventDefault(); if (!aprovada) return; const d = new FormData(e.currentTarget); aplicar.mutate({ ...proposta(), hash_previa: aprovada.hash, ...(hashRevisaoOrgaos === aprovada.hash && revisaoOrgaos.length ? { decisoes_orgao: revisaoOrgaos } : {}), ...(decisao ? { decisao_id: decisao } : {}), justificativa: String(d.get('justificativa') ?? '').trim(), autoridade: String(d.get('autoridade') ?? '').trim(), evidencia: String(d.get('evidencia') ?? '').trim(), idempotencia: chave.current, ciente: d.has('ciente') }) }
   const erro = previa.error ?? aplicar.error
-  return <div className="space-y-3 rounded border p-4"><Button type="button" variant="outline" onClick={() => setAberto(!aberto)}>{aberto ? 'Fechar inclusão retroativa' : 'Conferir inclusão retroativa'}</Button>
-    {aberto && <><p>Inclua um ato anterior aos demais. Se houver outros atos na data, confira suas ordens e informe uma posição distinta. A prévia não substitui a revisão institucional.</p>
+  return <PainelLocal><div className="space-y-3"><Button type="button" variant="outline" onClick={() => setAberto(true)}>Conferir inclusão retroativa</Button>
+    {aberto && <SecaoPainel titulo="Conferir inclusão retroativa" voltar={() => setAberto(false)}><p>Inclua um ato anterior aos demais. Se houver outros atos na data, confira suas ordens e informe uma posição distinta. A prévia não substitui a revisão institucional.</p>
       <div><h3 className="font-medium">Inclusões registradas</h3>{historico.isPending ? <p>Carregando...</p> : historico.isError ? <p role="alert">Não foi possível consultar as inclusões.</p> : !historico.data?.length ? <p>Nenhuma inclusão registrada.</p> : historico.data.map(r => <details key={r.id}><summary>{dia(r.data_evento)} — {r.criado_por.nome_usuario}</summary><p>Justificativa: {r.justificativa}</p><p>Autoridade: {r.autoridade}</p><p>Evidência: {r.evidencia}</p></details>)}</div>
       <form className="max-w-xl space-y-3" onSubmit={pedir}>
         <label className="block">Tipo do ato<select className={classe} value={tipo} onChange={e => mudar(() => { setTipo(e.target.value); setRol(''); setMotivacao('') })}><option value="ADMISSAO">Admissão</option><option value="DEMISSAO">Demissão</option><option value="MUDANCA_DE_ROL">Mudança de rol</option></select></label>
@@ -52,6 +53,6 @@ export function InsercaoRetroativa({ pessoaId, identidade, podeRegistrar }: { pe
         {(!aprovada.bloqueio_orgao?.bloqueia || (revisaoOrgaos.length > 0 && hashRevisaoOrgaos === aprovada.hash)) && aprovada.bloqueada && !decisao && podeRegistrar && !aprovada.origem_seguinte_invalida && <DecisaoEleitoral key={aprovada.hash} identidade={identidade} pessoaId={pessoaId} operacao="INSERCAO" proposta={proposta()} hash={aprovada.hash} aoRegistrar={setDecisao} />}
         {(!aprovada.bloqueio_orgao?.bloqueia || (revisaoOrgaos.length > 0 && hashRevisaoOrgaos === aprovada.hash)) && (!aprovada.bloqueada || decisao) && podeRegistrar ? <form className="space-y-3" onSubmit={confirmar}><label className="block">Justificativa da inclusão<input className={classe} name="justificativa" required maxLength={1000} /></label><label className="block">Autoridade da inclusão<input className={classe} name="autoridade" required maxLength={255} /></label><label className="block">Evidência da inclusão<input className={classe} name="evidencia" required maxLength={1000} /></label><label className="block"><input type="checkbox" name="ciente" required /> Conferi o ato e o impacto.</label><Button type="submit" disabled={aplicar.isPending}>Confirmar inclusão</Button></form> : !podeRegistrar ? <p>Seu acesso permite apenas consultar a prévia.</p> : null}
       </div>}{erro && <p role="alert">{erro instanceof ApiRequestError ? erro.messages.join(' ') : 'Não foi possível concluir a operação.'}</p>}{mensagem && <p role="status">{mensagem}</p>}
-    </>}
-  </div>
+    </SecaoPainel>}
+  </div></PainelLocal>
 }

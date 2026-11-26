@@ -1,3 +1,4 @@
+import { Painel, SecaoPainel } from '../../components/shared/Painel'
 import { type FormEvent, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { DetalheOrgao } from '../../api/orgaos'
@@ -12,7 +13,7 @@ const painel = 'space-y-3 rounded-lg border p-4'
 const nomeAto = {
   ATIVACAO_SOCIEDADE: 'Ativar sociedade',
   PARTICIPACAO_INCLUSAO: 'Registrar adesão',
-  PROVIMENTO: 'Registrar titular',
+  PROVIMENTO: 'Atribuir cargo',
   MANUTENCAO_MINISTERIO: 'Editar ministério',
   DESATIVACAO: 'Desativar',
   PARTICIPACAO_SAIDA: 'Encerrar participação',
@@ -68,10 +69,9 @@ export function CriarMinisterio({ identidade, aoCriar }: { identidade: string; a
       prazo_maximo_meses: eleicao ? Number(dados.get('prazo')) : undefined, evidencia: texto(dados, 'evidencia'),
     })
   }
-  return <section className="surface space-y-3">
-    <Button variant="outline" type="button" onClick={() => { abrir(!aberto); salvar.reset() }}>{aberto ? 'Cancelar criação' : 'Criar ministério'}</Button>
-    {aberto && <form className={painel} onSubmit={enviar}>
-      <h3 className="font-semibold">Novo ministério</h3>
+  return <section className="surface"><Painel>
+    <Button variant="outline" type="button" onClick={() => { abrir(true); salvar.reset() }}>Criar ministério</Button>
+    {aberto && <SecaoPainel titulo="Novo ministério" voltar={() => abrir(false)} ocupado={salvar.isPending}><form className={painel} onSubmit={enviar}>
       <label className="block">Nome<Input name="nome" maxLength={255} required /></label>
       <label className="block">Sigla<Input name="sigla" maxLength={40} /></label>
       <label className="block">Finalidade<textarea className={campo} name="finalidade" maxLength={1000} required /></label>
@@ -86,11 +86,11 @@ export function CriarMinisterio({ identidade, aoCriar }: { identidade: string; a
       <label className="block">Referência do ato de instituição<Input name="evidencia" maxLength={1000} required /></label>
       <MensagemErro erro={salvar.error} />
       <Button type="submit" disabled={salvar.isPending}>Salvar ministério</Button>
-    </form>}
-  </section>
+    </form></SecaoPainel>}
+  </Painel></section>
 }
 
-export function GestaoSociedadeMinisterio({ ficha, identidade }: { ficha: DetalheOrgao; identidade: string }) {
+export function GestaoSociedadeMinisterio({ ficha, identidade, area }: { area: 'participacao' | 'cargos' | 'cadastro'; ficha: DetalheOrgao; identidade: string }) {
   const { orgao, data_referencia: data } = ficha
   const hoje = useHojeIgreja()
   const [ato, definirAto] = useState<Ato | null>(null)
@@ -102,25 +102,25 @@ export function GestaoSociedadeMinisterio({ ficha, identidade }: { ficha: Detalh
   function abrir(tipo: Ato['tipo'], alvo?: string, nome?: string) { definirAto({ tipo, alvo, nome }); definirMensagem('') }
   const pode = consulta.data?.pode_gerir
   return <section className="space-y-3">
-    {regra && <p className="text-sm">Faixa de adesão em {data.split('-').reverse().join('/')} · {regra.idade_minima}{regra.idade_maxima === null ? ' anos ou mais' : ` a ${regra.idade_maxima} anos`}{regra.diretoria_reduzida && ' · Diretoria reduzida'}</p>}
+    {area === 'participacao' && regra && <p className="text-sm">Faixa de adesão em {data.split('-').reverse().join('/')} · {regra.idade_minima}{regra.idade_maxima === null ? ' anos ou mais' : ` a ${regra.idade_maxima} anos`}{regra.diretoria_reduzida && ' · Diretoria reduzida'}</p>}
     {pode && <div className="flex flex-wrap gap-2">
-      {!orgao.ativo && sigla && <Button onClick={() => abrir('ATIVACAO_SOCIEDADE')}>Ativar sociedade</Button>}
+      {area === 'cadastro' && !orgao.ativo && sigla && <Button onClick={() => abrir('ATIVACAO_SOCIEDADE')}>Ativar sociedade</Button>}
       {orgao.ativo && <>
-        <Button variant="outline" onClick={() => abrir('PARTICIPACAO_INCLUSAO')}>Registrar adesão</Button>
-        <Button variant="outline" onClick={() => abrir('PROVIMENTO')}>Registrar titular</Button>
-        {orgao.gestao_presidencial && <Button variant="outline" onClick={() => abrir('MANUTENCAO_MINISTERIO')}>Editar ministério</Button>}
-        <Button variant="outline" onClick={() => abrir('DESATIVACAO')}>Desativar {sigla ? 'sociedade' : 'ministério'}</Button>
+        {area === 'participacao' && <Button variant="outline" onClick={() => abrir('PARTICIPACAO_INCLUSAO')}>Registrar adesão</Button>}
+        {area === 'cargos' && <Button onClick={() => abrir('PROVIMENTO')}>Atribuir cargo</Button>}
+        {area === 'cadastro' && orgao.gestao_presidencial && <Button variant="outline" onClick={() => abrir('MANUTENCAO_MINISTERIO')}>Editar ministério</Button>}
+        {area === 'cadastro' && <Button variant="outline" onClick={() => abrir('DESATIVACAO')}>Desativar {sigla ? 'sociedade' : 'ministério'}</Button>}
       </>}
     </div>}
     {mensagem && <p role="status">{mensagem}</p>}
     {ato && consulta.data && pode && <FormularioAto key={ato.tipo + (ato.alvo ?? '')} ato={ato} ficha={ficha} info={consulta.data} identidade={identidade}
       aoFechar={() => definirAto(null)} aoSalvar={() => { definirAto(null); definirMensagem('Ato registrado.') }} />}
-    {pode && orgao.ativo && ficha.ocupacoes.some(o => !o.fim && (!o.termino_previsto || o.termino_previsto.slice(0, 10) >= hoje)) &&
+    {area === 'cargos' && pode && orgao.ativo && ficha.ocupacoes.some(o => !o.fim && (!o.termino_previsto || o.termino_previsto.slice(0, 10) >= hoje)) &&
       <details><summary className="cursor-pointer">Encerrar uma ocupação em exercício</summary>
         <ul className="mt-2 space-y-2">{ficha.ocupacoes.filter(o => !o.fim && o.inicio.slice(0, 10) <= hoje && (!o.termino_previsto || o.termino_previsto.slice(0, 10) >= hoje)).map(o =>
           <li key={o.id}><Button variant="outline" onClick={() => abrir('ENCERRAMENTO_CARGO', o.id, o.pessoa.nome_completo)}>{o.cargo.nome} · {o.pessoa.nome_completo}</Button></li>)}</ul>
       </details>}
-    {ficha.consulta_nominal && <div className="space-y-2">
+    {area === 'participacao' && ficha.consulta_nominal && <div className="space-y-2">
       <h3 className="font-semibold">Participação</h3>
       {ficha.participacoes.length === 0 && <p>Nenhuma adesão registrada.</p>}
       <ul className="space-y-2">{ficha.participacoes.map(p => <li key={p.id} className="flex flex-wrap items-center gap-2">
@@ -180,8 +180,7 @@ function FormularioAto({ ato, ficha, info, identidade, aoFechar, aoSalvar }: {
         ...(tipo === 'ENCERRAMENTO_CARGO' && { ocupacao_id: ato.alvo }) })
     }
   }
-  return <form className={painel} onSubmit={enviar}>
-    <h3 className="font-semibold">{nomeAto[tipo]}{ato.nome && ` · ${ato.nome}`}</h3>
+  return <SecaoPainel titulo={[nomeAto[tipo], ato.nome].filter(Boolean).join(' · ')} voltar={aoFechar} ocupado={salvar.isPending}><form className={painel} onSubmit={enviar}>
     {tipo === 'ATIVACAO_SOCIEDADE' && <>
       <label className="block">Data da organização ou reativação<Input name="data" type="date" max={hoje} defaultValue={hoje} required /></label>
       <label className="block">Guia ou regra adotada<Input name="fonte" defaultValue={info.fonte ?? `GTSI 2022 · ${sigla}`} required /></label>
@@ -224,6 +223,6 @@ function FormularioAto({ ato, ficha, info, identidade, aoFechar, aoSalvar }: {
     {tipo === 'DESATIVACAO' && <p>Os vínculos em exercício serão encerrados. O acervo continuará disponível para consulta.</p>}
     <label className="block">{tipo === 'ATIVACAO_SOCIEDADE' || supervisao ? 'Referência do ato do Conselho' : 'Referência do ato'}<Input name="evidencia" maxLength={1000} required /></label>
     <MensagemErro erro={salvar.error} />
-    <div className="flex flex-wrap gap-2"><Button type="submit" disabled={salvar.isPending}>Registrar ato</Button><Button type="button" variant="outline" onClick={aoFechar}>Cancelar</Button></div>
-  </form>
+    <div className="flex flex-wrap gap-2"><Button type="submit" disabled={salvar.isPending}>Registrar ato</Button></div>
+  </form></SecaoPainel>
 }

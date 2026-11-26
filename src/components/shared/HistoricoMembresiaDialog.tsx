@@ -1,3 +1,4 @@
+import { Painel } from './Painel'
 import { useRecurso } from '../../lib/recursos'
 import { ReferenciaAta } from './ReferenciaAta';
 import { HistoricoRevisoesEleitorais } from '../../pages/oficiais/DecisaoEleitoral';
@@ -370,6 +371,7 @@ export function HistoricoMembresiaDialog({
             )}
             <DialogTitle>Histórico de Membresia</DialogTitle>
           </DialogHeader>
+          <Painel>
 
           {pessoa && (
             <div className="rounded-lg border border-border bg-muted/30 p-4">
@@ -513,6 +515,7 @@ export function HistoricoMembresiaDialog({
             </div>
           )}
           {pessoaId && consultaHistorico && <><HistoricoRevisoesEleitorais key={`revisao-${pessoaId}`} pessoaId={pessoaId} identidade={identidade} podeRegistrar={decideRevisao} /><CorrecaoConteudo key={`conteudo-${pessoaId}`} pessoaId={pessoaId} identidade={identidade} podeRegistrar={retificaHistorico} /><InsercaoRetroativa key={`insercao-${pessoaId}`} pessoaId={pessoaId} identidade={identidade} podeRegistrar={retificaHistorico} /><CorrecaoMembresia key={`correcao-${pessoaId}`} oficialId={pessoaId} identidade={identidade} podeRegistrar={retificaHistorico} porPessoa /><OrdenacaoMembresia key={`ordem-${pessoaId}`} oficialId={pessoaId} identidade={identidade} podeRegistrar={retificaHistorico} porPessoa /></>}
+        </Painel>
         </DialogContent>
       </Dialog>
 

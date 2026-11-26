@@ -1,3 +1,4 @@
+import { PainelLocal, SecaoPainel } from '../../components/shared/Painel'
 import { SeletorPessoa } from '../../components/shared/SeletorPessoa'
 import { useHojeIgreja } from './RelogioIgreja'
 import { useRef, useState } from 'react'
@@ -28,11 +29,11 @@ export function DesignacaoLideranca({ orgaoId, identidade, cargos }: { orgaoId: 
   })
   const ultima = historico.data?.ultima_ordem_designacao
   const ordemInvalida = !ordem || !Number.isInteger(Number(ordem)) || Number(ordem) < 1 || Number(ordem) > 9999 || (ultima != null && Number(ordem) <= ultima)
-  return <div className="space-y-3">
-    <Button type="button" variant="outline" onClick={() => { if (!aberto) setData(hoje); setMensagem(''); salvar.reset(); setAberto(v => !v) }}>{aberto ? 'Cancelar designação ou dispensa' : 'Designar ou dispensar líder'}</Button>
+  return <PainelLocal><div className="space-y-3">
+    <Button type="button" variant="outline" onClick={() => { if (!aberto) setData(hoje); setMensagem(''); salvar.reset(); setAberto(true) }}>Atribuir cargo ou dispensar líder</Button>
     {mensagem && <p role="status">{mensagem}</p>}
-    {aberto && <form className="max-w-xl space-y-3 rounded border p-4" onSubmit={e => { e.preventDefault(); if (!ordemInvalida) salvar.mutate() }}>
-      <h3 className="font-semibold">Designação ou dispensa</h3>
+    {aberto && <SecaoPainel titulo="Designação ou dispensa" voltar={() => setAberto(false)} ocupado={salvar.isPending}>
+      <form className="max-w-xl space-y-3" onSubmit={e => { e.preventDefault(); if (!ordemInvalida) salvar.mutate() }}>
       <p className="text-sm text-muted-foreground">O ato exige o pastor presidente em exercício. A liderança designada exige pessoa comungante; a dispensa pode deixar o cargo vago.</p>
       <div className="space-y-1"><Label htmlFor="lider-acao">Ação de liderança</Label><select id="lider-acao" className="w-full rounded border bg-background p-2" value={acao} onChange={e => setAcao(e.target.value as typeof acao)}><option value="designar">Designar ou substituir</option><option value="dispensar">Dispensar sem sucessor</option></select></div>
       <div className="space-y-1"><Label htmlFor="lider-cargo">Cargo de liderança</Label><select id="lider-cargo" className="w-full rounded border bg-background p-2" value={cargo} onChange={e => setCargo(e.target.value)} required><option value="">Selecione o cargo</option>{cargos.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
@@ -43,6 +44,7 @@ export function DesignacaoLideranca({ orgaoId, identidade, cargos }: { orgaoId: 
       <div className="space-y-1"><Label htmlFor="lider-evidencia">Referência do ato de liderança</Label><Input id="lider-evidencia" value={evidencia} onChange={e => setEvidencia(e.target.value)} maxLength={1000} required /></div>
       {salvar.isError && <p role="alert">{salvar.error instanceof ApiRequestError ? salvar.error.messages.join(' ') : 'Não foi possível registrar o ato.'}</p>}
       <Button type="submit" disabled={salvar.isPending || !cargo || (acao === 'designar' && !pessoa) || ordemInvalida || historico.isPending || historico.isError || !!historico.data?.ordem_designacao_indeterminada}>Salvar ato</Button>
-    </form>}
-  </div>
+    </form>
+    </SecaoPainel>}
+  </div></PainelLocal>
 }

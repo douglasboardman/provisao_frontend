@@ -1,3 +1,4 @@
+import { PainelLocal, SecaoPainel } from '../../components/shared/Painel'
 import { SeletorPessoa } from '../../components/shared/SeletorPessoa'
 import { useRef, useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -24,8 +25,8 @@ export function AcessosSensiveis({ identidade }: { identidade: string }) {
   }
   function encerrar(e: FormEvent<HTMLFormElement>, id: string) { e.preventDefault(); setMensagem(''); revogar.reset(); revogar.mutate({ id, motivo: String(new FormData(e.currentTarget).get('motivo') ?? '').trim() }) }
   const erro = conceder.error ?? revogar.error
-  return <section className="space-y-3 rounded border p-4"><Button type="button" variant="outline" onClick={() => setAberto(!aberto)}>{aberto ? 'Fechar gestão de acessos' : 'Gerir acessos a eventos restritos'}</Button>
-    {aberto && <><p className="text-sm text-muted-foreground">A concessão é individual e não atribui competência institucional. Não é possível conceder acesso a si próprio.</p>
+  return <PainelLocal><section className="space-y-3"><Button type="button" variant="outline" onClick={() => setAberto(true)}>Gerir acessos a eventos restritos</Button>
+    {aberto && <SecaoPainel titulo="Gerir acessos a eventos restritos" voltar={() => setAberto(false)}><p className="text-sm text-muted-foreground">A concessão é individual e não atribui competência institucional. Não é possível conceder acesso a si próprio.</p>
       {usuarios.isError && <p role="alert">Não foi possível carregar usuários.</p>}{acessos.isError && <p role="alert">Não foi possível carregar concessões.</p>}
       <form ref={formRef} className="max-w-xl space-y-3" onSubmit={enviar}><label className="block">Usuário<SeletorPessoa rotulo="Usuário" value={alvo} required onChange={id => setAlvo(id)} opcoes={usuarios.data?.filter(u => u.ativo && u.id !== usuarioAtual && [Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO, Perfil.AUDITOR, Perfil.COMUM].includes(u.perfil)).map(u => ({ id: u.id, nome: `${u.nome_usuario} — ${u.email_login}` }))} /></label>
         <label className="block"><input type="checkbox" name="consultar" /> Consultar eventos restritos</label><label className="block"><input type="checkbox" name="registrar" disabled={escolhido?.perfil === Perfil.AUDITOR} /> Registrar eventos restritos</label>
@@ -33,6 +34,6 @@ export function AcessosSensiveis({ identidade }: { identidade: string }) {
       </form>
       {erro && <p role="alert">{erro instanceof ApiRequestError ? erro.messages.join(' ') : 'Não foi possível atualizar o acesso.'}</p>}{mensagem && <p role="status">{mensagem}</p>}
       <h3 className="font-medium">Concessões recentes (até 100)</h3>{acessos.data?.map(a => <div key={a.id} className="space-y-2 rounded border p-2"><p>{a.usuario.nome_usuario} — {a.revogado_em ? 'revogada' : 'ativa'} — {a.pode_consultar ? 'consulta ' : ''}{a.pode_registrar ? 'registro' : ''}</p><p>Fundamento: {a.fundamento}</p>{!a.revogado_em && <form className="flex flex-wrap gap-2" onSubmit={e => encerrar(e, a.id)}><label>Motivo da revogação<input className={classe} name="motivo" required maxLength={1000} /></label><Button type="submit" variant="outline" disabled={revogar.isPending}>Revogar acesso</Button></form>}</div>)}
-    </>}
-  </section>
+    </SecaoPainel>}
+  </section></PainelLocal>
 }

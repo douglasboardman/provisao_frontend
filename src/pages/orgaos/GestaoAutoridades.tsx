@@ -1,3 +1,4 @@
+import { PainelLocal, SecaoPainel } from '../../components/shared/Painel'
 import { ConferenciaPresidencia } from '../configuracoes/AtuacaoConta'
 import { SeletorPessoa } from '../../components/shared/SeletorPessoa'
 import { useHojeIgreja } from './RelogioIgreja'
@@ -25,15 +26,14 @@ function EncerrarAutoridade({ tipo, id, identidade, aoFechar }: { tipo: 'compete
       ? gestaoOrgaosApi.encerrarCompetencia(id, { ...comum, data_fim: data, idempotencia: tentativa.current.id })
       : gestaoOrgaosApi.encerrarPresidencia(id, { ...comum, data_efeito: data, idempotencia: tentativa.current.id })
   }, onSuccess: async () => { tentativa.current = null; await queryClient.invalidateQueries({ queryKey: ['orgaos', identidade] }); aoFechar() } })
-  return <form className="max-w-xl space-y-3 rounded border p-4" onSubmit={e => { e.preventDefault(); encerrar.mutate() }}>
-    <h3 className="font-semibold">Encerrar {tipo === 'competencia' ? 'competência' : 'presidência'}</h3>
+  return <SecaoPainel titulo={tipo === 'competencia' ? 'Encerrar competência' : 'Encerrar presidência'} voltar={aoFechar} ocupado={encerrar.isPending}><form className="max-w-xl space-y-3" onSubmit={e => { e.preventDefault(); encerrar.mutate() }}>
     <p className="text-sm text-muted-foreground">O encerramento exige autoridade e evidência. Os registros anteriores permanecem no histórico.</p>
     <div className="space-y-1"><Label htmlFor={`${tipo}-fim-data`}>Data de efeito</Label><Input id={`${tipo}-fim-data`} type="date" value={data} onChange={e => setData(e.target.value)} required /></div>
     <div className="space-y-1"><Label htmlFor={`${tipo}-fim-autoridade`}>Autoridade do encerramento</Label><Input id={`${tipo}-fim-autoridade`} value={autoridade} onChange={e => setAutoridade(e.target.value)} maxLength={255} required /></div>
     <div className="space-y-1"><Label htmlFor={`${tipo}-fim-evidencia`}>Evidência do encerramento</Label><Input id={`${tipo}-fim-evidencia`} value={evidencia} onChange={e => setEvidencia(e.target.value)} maxLength={1000} required /></div>
     {encerrar.isError && <p role="alert">{encerrar.error instanceof ApiRequestError ? encerrar.error.messages.join(' ') : 'Não foi possível encerrar o registro.'}</p>}
-    <div className="flex gap-2"><Button type="submit" disabled={encerrar.isPending}>Confirmar encerramento</Button><Button type="button" variant="outline" onClick={aoFechar}>Cancelar</Button></div>
-  </form>
+    <div className="flex gap-2"><Button type="submit" disabled={encerrar.isPending}>Confirmar encerramento</Button></div>
+  </form></SecaoPainel>
 }
 
 function RegistrarPresidencia({ identidade, aoFechar }: { identidade: string; aoFechar: () => void }) {
@@ -58,15 +58,14 @@ function RegistrarPresidencia({ identidade, aoFechar }: { identidade: string; ao
     if (tentativa.current?.conteudo !== conteudo) tentativa.current = { conteudo, id: crypto.randomUUID() }
     return gestaoOrgaosApi.registrarPresidencia({ ...corpo, idempotencia: tentativa.current.id })
   }, onSuccess: async () => { tentativa.current = null; await queryClient.invalidateQueries({ queryKey: ['orgaos', identidade] }); aoFechar() } })
-  return <form className="max-w-xl space-y-3 rounded border p-4" onSubmit={e => { e.preventDefault(); salvar.mutate() }}>
-    <h3 className="font-semibold">Registrar presidência institucional</h3>
+  return <SecaoPainel titulo="Registrar presidência institucional" voltar={aoFechar} ocupado={salvar.isPending}><form className="max-w-xl space-y-3" onSubmit={e => { e.preventDefault(); salvar.mutate() }}>
     <p className="text-sm text-muted-foreground">O registro exige presbítero docente com vínculo pastoral institucional e exercício comprovado. Informe a evidência da presidência.</p>
     <div className="space-y-1"><Label htmlFor="presidencia-docente">Presbítero docente</Label><SeletorPessoa id="presidencia-docente" value={oficial} onChange={id => setOficial(id)} required opcoes={docentes.data?.map(o => ({ id: o.id, nome: o.pessoa.nome_completo }))} />{docentes.isError && <p role="alert">Não foi possível carregar os docentes.</p>}</div>
     <div className="space-y-1"><Label htmlFor="presidencia-inicio">Início da presidência</Label><Input id="presidencia-inicio" type="date" value={inicio} onChange={e => setInicio(e.target.value)} required /></div>
     <div className="space-y-1"><Label htmlFor="presidencia-evidencia">Evidência da presidência</Label><Input id="presidencia-evidencia" value={evidencia} onChange={e => setEvidencia(e.target.value)} maxLength={1000} required /></div>
     {salvar.isError && <p role="alert">{salvar.error instanceof ApiRequestError ? salvar.error.messages.join(' ') : 'Não foi possível registrar a presidência.'}</p>}
-    <div className="flex gap-2"><Button type="submit" disabled={salvar.isPending || !oficial}>Salvar presidência</Button><Button type="button" variant="outline" onClick={aoFechar}>Cancelar</Button></div>
-  </form>
+    <div className="flex gap-2"><Button type="submit" disabled={salvar.isPending || !oficial}>Salvar presidência</Button></div>
+  </form></SecaoPainel>
 }
 
 export function GestaoAutoridades({ identidade }: { identidade: string }) {
@@ -87,9 +86,9 @@ export function GestaoAutoridades({ identidade }: { identidade: string }) {
     else { const lista = [...anterioresP]; setCursorP(lista.pop()); setAnterioresP(lista) }
     setEncerrando(null)
   }
-  return <section className="space-y-3">
+  return <PainelLocal><section className="space-y-3">
     <Button type="button" variant="outline" onClick={() => { setAberto(v => !v); setEncerrando(null); setRegistrar(false) }}>{aberto ? 'Fechar autoridades institucionais' : 'Consultar autoridades institucionais'}</Button>
-    {aberto && <div className="space-y-5 rounded border p-4">
+    {aberto && <SecaoPainel titulo="Autoridades institucionais" voltar={() => setAberto(false)}><div className="space-y-5">
       <p className="text-sm text-muted-foreground">Um registro aberto não comprova, sozinho, competência atual: também são conferidos o vínculo, a vigência e o exercício pastoral aplicáveis.</p>
       <div className="space-y-2"><h2 className="font-semibold">Competências de gestores</h2>
         {competencias.isPending ? <p>Carregando competências...</p> : competencias.isError ? <p role="alert">Não foi possível consultar competências.</p> : competencias.data?.itens.length ? competencias.data.itens.map(c => <div key={c.id} className="rounded border p-3"><p>{c.usuario.nome_usuario} · pessoa: {c.pessoa.nome_completo}</p><p className="text-sm text-muted-foreground">Início {dataCivil(c.inicio)} · {c.fim ? (c.fim.slice(0, 10) === c.inicio.slice(0, 10) ? 'sem período de vigência' : `primeiro dia sem competência: ${dataCivil(c.fim)}`) : 'registro aberto'}{!c.usuario.ativo || c.usuario.perfil !== 'GESTOR' || c.usuario.pessoa_id !== c.pessoa_id ? ' · vínculo atual precisa de conferência' : ''}</p>{(!c.fim || (c.fim.slice(0, 10) > hoje && c.fim.slice(0, 10) > c.inicio.slice(0, 10))) && <Button type="button" variant="outline" onClick={() => { setRegistrar(false); setEncerrando({ tipo: 'competencia', id: c.id }) }}>Encerrar competência de {c.usuario.nome_usuario}</Button>}</div>) : <p>Nenhuma competência registrada.</p>}
@@ -101,6 +100,6 @@ export function GestaoAutoridades({ identidade }: { identidade: string }) {
       </div>
       {registrar && <RegistrarPresidencia identidade={identidade} aoFechar={() => setRegistrar(false)} />}
       {encerrando && <EncerrarAutoridade key={`${encerrando.tipo}:${encerrando.id}`} tipo={encerrando.tipo} id={encerrando.id} identidade={identidade} aoFechar={() => setEncerrando(null)} />}
-    </div>}
-  </section>
+    </div></SecaoPainel>}
+  </section></PainelLocal>
 }
