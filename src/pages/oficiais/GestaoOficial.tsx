@@ -31,6 +31,7 @@ export function GestaoOficial({ voltar, oficial, identidade, podeConsultarDetalh
   const [resultado, setResultado] = useState('')
   const [periodo, setPeriodo] = useState(periodoInicial ?? '')
   const [ataEncerramento, setAtaEncerramento] = useState<BuscaAtaOpcao | null>(null)
+  const docente = oficial.tipo === 'PRESBITERO_DOCENTE'
   const encerramentoComAta = modo === 'encerrar' && secretariaHabilitada && periodo.startsWith('mandatos:')
   const perfil = useAuthStore(s => s.user?.perfil)
   const comum = perfil === Perfil.COMUM
@@ -51,7 +52,15 @@ export function GestaoOficial({ voltar, oficial, identidade, podeConsultarDetalh
     const texto = (nome: string) => valor(d, nome)
     let caminho = '', dados: unknown, patch = false
     if (modo === 'acervo') { caminho = `${id}/acervo-historico`; dados = { tipo: texto('tipo_historico'), data_evento: texto('data') || null, data_descricao: texto('data_descricao') || null, situacao_documental: texto('documento'), referencia_externa: texto('referencia') || null, autoridade: texto('autoridade') || null, idempotencia: chaveAcervo.current } }
-    if (modo === 'ordenacao') { caminho = `${id}/eventos`; dados = { tipo: 'ORDENACAO', data_efeito: texto('data'), ordem: Number(texto('ordem')), autoridade: texto('autoridade'), evidencia: texto('evidencia') } }
+    if (modo === 'ordenacao') {
+      caminho = `${id}/eventos`
+      dados = {
+        tipo: 'ORDENACAO', data_efeito: texto('data'),
+        ...(!docente && { ordem: Number(texto('ordem')) }),
+        autoridade: texto('autoridade') || undefined,
+        evidencia: texto('evidencia') || undefined,
+      }
+    }
     if (modo === 'politica') { caminho = 'politicas'; dados = { versao: texto('versao'), fonte: texto('fonte'), autoridade: texto('autoridade'), idade_minima: Number(texto('idade')), aniversario_bissexto: texto('bissexto'), vigente_desde: texto('inicio'), vigente_ate: texto('fim') || null } }
     if (modo === 'vinculo') { caminho = `${id}/vinculos-pastorais`; dados = { modalidade: texto('modalidade'), concilio: texto('concilio'), ato: texto('ato'), data_inicio: texto('inicio'), exercicio_institucional: d.has('exercicio'), evidencia: texto('evidencia') } }
     if (modo === 'encerrar') {
@@ -93,7 +102,12 @@ export function GestaoOficial({ voltar, oficial, identidade, podeConsultarDetalh
     </select></label>
     {modosLiberados[modo] && <form ref={formRef} key={`${oficial.id}:${modo}`} className="max-w-xl space-y-3" onSubmit={enviar}>
       {modo === 'acervo' && <><p className="text-sm text-muted-foreground">Importe apenas o que foi conferido. Deixe a data em branco quando for desconhecida; este registro não ativa o exercício.</p><label className="block">Fato histórico<select className={inputClass} name="tipo_historico"><option value="ELEICAO">Eleição</option><option value="POSSE">Posse</option><option value="ORDENACAO">Ordenação</option><option value="VINCULO_PASTORAL">Vínculo pastoral</option><option value="FIM_EXERCICIO">Fim de exercício</option></select></label><Campo nome="data" titulo="Data exata (opcional)" tipo="date" obrigatorio={false} /><Campo nome="data_descricao" titulo="Data aproximada ou lacuna (opcional)" obrigatorio={false} /><label className="block">Situação documental<select className={inputClass} name="documento"><option value="PENDENTE">Pendente</option><option value="EXTERNO_CONFERIDO">Referência externa conferida</option></select></label><Campo nome="referencia" titulo="Referência externa (obrigatória se conferida)" obrigatorio={false} /><Campo nome="autoridade" titulo="Autoridade do ato (opcional)" obrigatorio={false} /></>}
-      {modo === 'ordenacao' && <><Campo nome="data" titulo="Data da ordenação" tipo="date" /><Campo nome="ordem" titulo="Ordem do ato no dia" tipo="number" /><Campo nome="autoridade" titulo="Autoridade do ato" /><Campo nome="evidencia" titulo="Referência ou evidência" /></>}
+      {modo === 'ordenacao' && <>
+        <Campo nome="data" titulo="Data da ordenação" tipo="date" />
+        {!docente && <Campo nome="ordem" titulo="Ordem do ato no dia" tipo="number" />}
+        <Campo nome="autoridade" titulo={docente ? 'Autoridade do ato (opcional)' : 'Autoridade do ato'} obrigatorio={!docente} />
+        <Campo nome="evidencia" titulo={docente ? 'Referência (opcional)' : 'Referência ou evidência'} obrigatorio={!docente} />
+      </>}
       {modo === 'politica' && <><Campo nome="versao" titulo="Versão" /><Campo nome="fonte" titulo="Fonte normativa" /><Campo nome="autoridade" titulo="Autoridade que aprovou a regra" /><Campo nome="idade" titulo="Idade mínima" tipo="number" /><label className="block">Aniversário em ano não bissexto<select className={inputClass} name="bissexto"><option value="DIA_28_FEVEREIRO">28 de fevereiro</option><option value="DIA_01_MARCO">1º de março</option></select></label><Campo nome="inicio" titulo="Vigente desde" tipo="date" /><Campo nome="fim" titulo="Vigente até (opcional)" tipo="date" obrigatorio={false} /></>}
       {modo === 'vinculo' && <><Campo nome="modalidade" titulo="Modalidade" /><Campo nome="concilio" titulo="Concílio competente" /><Campo nome="ato" titulo="Ato do concílio" /><Campo nome="inicio" titulo="Início do vínculo" tipo="date" /><label className="block"><input type="checkbox" name="exercicio" /> Exercício institucional</label><Campo nome="evidencia" titulo="Evidência do vínculo" /></>}
       {modo === 'encerrar' && <>
