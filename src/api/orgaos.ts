@@ -98,7 +98,11 @@ export type DocenteResumo = { id: string; pessoa: { nome_completo: string } }
 export type OcupacaoAtual = { id: string; ato_id?: string | null; inicio: string; fim: string | null; termino_previsto: string | null; pessoa: Pessoa }
 export type VagaCargo = { id: string; nome: string; titulares: Pessoa[]; ocupacoes?: OcupacaoAtual[] }
 export type ProvaCargo = { versao_id: string; trecho: string }
-export type AtoEleicao = { pessoa_id: string; data_eleicao: string; data_posse: string; termino_previsto: string; autoridade: string; evidencia: string; idempotencia: string; comprovacao?: { eleicao: ProvaCargo; posse: ProvaCargo; sucede_id?: string; confirmar_historico?: true } }
+type AtaEleicao = { versao_id: string; trecho?: string }
+export type AtoEleicao = { pessoa_id: string; data_eleicao: string; data_posse: string; termino_previsto: string; idempotencia: string } & (
+  { autoridade: string; evidencia: string; comprovacao?: never } |
+  { autoridade?: string; evidencia?: string; comprovacao: { eleicao: AtaEleicao; posse: AtaEleicao; sucede_id?: string; confirmar_historico?: true } }
+)
 export type AtoEncerramento = { data_efeito: string; motivo: string; autoridade: string; evidencia: string; idempotencia: string; comprovacao?: ProvaCargo }
 export type RegraCargo = { permite_acumulacao: boolean; fonte: string; versao: string; autoridade: string; evidencia: string; idempotencia: string }
 export type PoliticaUnidade = { versao: string; fonte: string; autoridade: string; evidencia: string; inicio: string; fim: string; prazo_maximo_meses: number; idempotencia: string }
@@ -145,7 +149,7 @@ export const gestaoOrgaosApi = {
   criarCargo: (orgaoId: string, dados: RegraCargo & { codigo: string; nome: string; funcao?: 'SECRETARIO' | 'TESOUREIRO' | 'OUTRO' }) => apiClient.post<{ id: string }>(`orgaos/gestao/${encodeURIComponent(orgaoId)}/cargos`, dados),
   configurarAcumulacao: (orgaoId: string, cargoId: string, dados: RegraCargo) => apiClient.patch<{ id: string; permite_acumulacao: boolean }>(`orgaos/gestao/${encodeURIComponent(orgaoId)}/cargos/${encodeURIComponent(cargoId)}/acumulacao`, dados),
   registrarPolitica: (orgaoId: string, dados: PoliticaUnidade) => apiClient.post<{ id: string }>(`orgaos/gestao/${encodeURIComponent(orgaoId)}/politicas`, dados),
-  candidatosCargo: (orgao: string, cargo: string, filtros: Record<string, string>) => apiClient.get<(Pessoa & { limite_exercicio: string | null })[]>(
+  candidatosCargo: (orgao: string, cargo: string, filtros: Record<string, string>) => apiClient.get<(Pessoa & { limite_exercicio: string | null; termino_sugerido: string })[]>(
     `orgaos/gestao/${encodeURIComponent(orgao)}/cargos/${encodeURIComponent(cargo)}/candidatos?${new URLSearchParams(filtros)}`),
   atasCargos: (orgao: string, filtros: Record<string, string>) => apiClient.get<PaginaSelecao>(
     `orgaos/gestao/${encodeURIComponent(orgao)}/atas-cargos?${new URLSearchParams(filtros)}`),

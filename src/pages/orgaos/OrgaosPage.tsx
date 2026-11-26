@@ -138,7 +138,7 @@ export function OrgaosPage() {
                 {ficha.proximo_cursor_inativo && <Button variant="outline" onClick={() => setPaginasInativos(p => [...p, ficha.proximo_cursor_inativo!])}>Mais integrantes</Button>}</div>}
               {ficha.composicao.indeterminados.map(p => <p key={p.pessoa_id}>{p.nome} — situação indeterminada</p>)}
             </div>}
-            {oficial && <MandatosOrgao key={selecionado} orgao={selecionado} identidade={identidade} data={data} cargos={ficha.cargos_na_data} podeAtribuir={podeAtribuir} preparoRegistro={preparoRegistro} prazoSugerido={ficha.prazo_sugerido_cargos} conselho={ficha.orgao.tipo === 'CONSELHO'} />}
+            {oficial && <MandatosOrgao key={selecionado} orgao={selecionado} identidade={identidade} data={data} cargos={ficha.cargos_na_data} podeAtribuir={podeAtribuir} preparoRegistro={preparoRegistro} conselho={ficha.orgao.tipo === 'CONSELHO'} />}
           </>}
           {secao === 'Cargos e titulares' && <>
             {sociedade && ficha.consulta_nominal !== false &&
@@ -159,7 +159,6 @@ export function OrgaosPage() {
                   {c.ocupacoes?.[0] && !c.ocupacoes[0].fim && <Button variant="outline" onClick={() => definirProvimento({ cargo: c, titular: c.ocupacoes![0], encerrar: true })}>Registrar encerramento</Button>}
                 </div>}
                 {podeAtribuir && provimento?.cargo.id === c.id && <ProvimentoCargo key={c.id + ':' + provimento.encerrar} orgao={selecionado} identidade={identidade}
-                  prazoSugerido={ficha.prazo_sugerido_cargos}
                   {...provimento} aoFechar={() => definirProvimento(null)} />}
                 </li>)}</ul></section>}
             {podeManter && unidade && ficha.orgao.constituicao === 'DESIGNACAO' && <DesignacaoLideranca key={`DesignacaoLideranca:${ficha.orgao.id}`} orgaoId={ficha.orgao.id} identidade={identidade} cargos={ficha.cargos_configurados} />}

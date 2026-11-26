@@ -34,7 +34,7 @@ it('oferece reeleição para a pessoa do mandato no último dia inclusivo', asyn
   expect(screen.queryByText('Indicação para esta eleição')).toBeNull()
 })
 
-it('atribui o cargo ao titular selecionado somente após conferir a elegibilidade nas datas do ato', async () => {
+it.each([false, true])('registra o cargo pela ata com ajuste de datas opcional (%s)', async ajustar => {
   vi.spyOn(orgaosApi, 'mandatos').mockResolvedValue({ itens: [mandato], proximo_cursor: null, pode_registrar: false })
   vi.spyOn(gestaoOrgaosApi, 'atasCargos').mockResolvedValue({
     contextos: [], tem_proxima: false, itens: [{
@@ -43,9 +43,9 @@ it('atribui o cargo ao titular selecionado somente após conferir a elegibilidad
     }],
   })
   vi.spyOn(gestaoOrgaosApi, 'candidatosCargo').mockImplementation(async (_orgao, _cargo, filtros) =>
-    filtros.pessoa_id === mandato.oficial.pessoa.id && filtros.posse === '2027-03-01' ? [{ id: 'eleito', nome_completo: 'Paulo', limite_exercicio: '2032-01-31' }] : [])
+    filtros.pessoa_id === mandato.oficial.pessoa.id && (!ajustar || filtros.posse === '2027-03-01') ? [{ id: 'eleito', nome_completo: 'Paulo', limite_exercicio: '2032-01-31', termino_sugerido: '2032-01-31' }] : [])
   const registrar = vi.spyOn(gestaoOrgaosApi, 'registrarEleicao').mockResolvedValue({ ato_id: 'ato', ocupacao_id: 'ocupacao' })
-  montar('2027-02-01', [{ id: 'cargo', nome: 'Secretário', titulares: [] }])
+  montar('2027-02-02', [{ id: 'cargo', nome: 'Secretário', titulares: [] }])
   fireEvent.click(await screen.findByRole('button', { name: 'Atribuir cargo' }))
   fireEvent.click(screen.getByRole('button', { name: 'Selecionar cargo' }))
   expect(screen.getByRole('heading', { name: 'Eleição e posse · Secretário' })).toBeTruthy()
@@ -53,21 +53,26 @@ it('atribui o cargo ao titular selecionado somente após conferir a elegibilidad
   expect(screen.getByRole('heading', { name: 'Atribuir cargo a Paulo' })).toBeTruthy()
   fireEvent.click(screen.getByRole('button', { name: 'Selecionar cargo' }))
   const mudar = (rotulo: string, value: string) => fireEvent.change(screen.getByLabelText(rotulo), { target: { value } })
-  mudar('Data da posse', '2027-02-01')
+  expect(screen.queryByLabelText(/Item da ata/)).toBeNull()
+  expect(screen.queryByLabelText('Autoridade do ato')).toBeNull()
+  expect(screen.queryByLabelText('Data da posse')).toBeNull()
   fireEvent.click(screen.getByRole('button', { name: 'Selecionar' }))
-  fireEvent.click(await screen.findByRole('button', { name: 'Detalhes' }))
+  await screen.findByRole('button', { name: 'Detalhes' })
   fireEvent.click(screen.getByRole('button', { name: 'Selecionar' }))
-  await screen.findByText(/Esta pessoa não está entre os candidatos elegíveis/)
-  expect((screen.getByRole('button', { name: 'Confirmar ato' }) as HTMLButtonElement).disabled).toBe(true)
-  mudar('Data da posse', '2027-03-01')
-  mudar('Último dia previsto no cargo', '2027-12-31')
-  mudar('Item da ata que identifica a pessoa e o ato', 'Item 1')
-  mudar('Item da ata que documenta a posse', 'Item 2')
-  mudar('Autoridade do ato', 'Conselho')
+  if (ajustar) {
+    await screen.findByText(/Esta pessoa não está entre os candidatos elegíveis/)
+    expect((screen.getByRole('button', { name: 'Confirmar ato' }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Ajustar posse e período' }))
+    mudar('Data da posse', '2027-03-01')
+    mudar('Último dia previsto no cargo', '2027-12-31')
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar' }))
+  }
   const confirmar = screen.getByRole('button', { name: 'Confirmar ato' }) as HTMLButtonElement
   await waitFor(() => expect(confirmar.disabled).toBe(false))
   fireEvent.click(confirmar)
   await waitFor(() => expect(registrar).toHaveBeenCalledWith('conselho', 'cargo', 'oficial', expect.objectContaining({
-    pessoa_id: 'eleito', data_eleicao: '2027-02-01', data_posse: '2027-03-01', termino_previsto: '2027-12-31',
+    pessoa_id: 'eleito', data_eleicao: '2027-02-01', data_posse: ajustar ? '2027-03-01' : '2027-02-01',
+    termino_previsto: ajustar ? '2027-12-31' : '2032-01-31',
+    comprovacao: { eleicao: { versao_id: 'versao' }, posse: { versao_id: 'versao' }, ...(!ajustar && { confirmar_historico: true }) },
   })))
 })

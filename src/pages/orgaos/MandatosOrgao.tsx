@@ -42,7 +42,7 @@ export function OrientacaoRegistroCargos({ preparo, identidade }: { preparo: Non
   </div>
 }
 
-export function MandatosOrgao({ orgao, identidade, data, conselho, cargos, podeAtribuir = false, preparoRegistro, prazoSugerido }: { podeAtribuir?: boolean; preparoRegistro?: PreparoRegistro; cargos?: VagaCargo[]; prazoSugerido?: number | null; orgao: string; identidade: string; data: string; conselho: boolean }) {
+export function MandatosOrgao({ orgao, identidade, data, conselho, cargos, podeAtribuir = false, preparoRegistro }: { podeAtribuir?: boolean; preparoRegistro?: PreparoRegistro; cargos?: VagaCargo[]; orgao: string; identidade: string; data: string; conselho: boolean }) {
   const [paginas, setPaginas] = useState<string[]>([])
   const [paginasPastores, setPaginasPastores] = useState<string[]>([])
   const [mandatario, escolherMandatario] = useState<OficialResumo['pessoa'] | null>(null)
@@ -95,7 +95,7 @@ export function MandatosOrgao({ orgao, identidade, data, conselho, cargos, podeA
         {podeAtribuir && <Button variant="outline" onClick={() => escolherCargo(c.id)}>{c.titulares.length ? 'Programar sucessão' : 'Selecionar cargo'}</Button>}
       </li>)}</ul>
       {podeAtribuir && cargo && <ProvimentoCargo orgao={orgao} identidade={identidade} cargo={cargo} titular={cargo.ocupacoes?.[0]} encerrar={false}
-        mandatario={mandatario} prazoSugerido={prazoSugerido} aoFechar={() => escolherCargo('')} aoSalvar={() => { setMensagem(`Atribuição registrada: ${cargo.nome} · ${mandatario.nome_completo}.`); escolherMandatario(null); escolherCargo('') }} />}
+        mandatario={mandatario} aoFechar={() => escolherCargo('')} aoSalvar={() => { setMensagem(`Atribuição registrada: ${cargo.nome} · ${mandatario.nome_completo}.`); escolherMandatario(null); escolherCargo('') }} />}
     </SecaoPainel>}
     {conselho && <Button variant="outline" aria-expanded={mostrarPastores} onClick={() => setMostrarPastores(!mostrarPastores)}>Vínculos pastorais do Conselho</Button>}
     {mostrarPastores && conselho && <SecaoPainel titulo="Vínculos pastorais do Conselho" voltar={() => setMostrarPastores(false)}>
