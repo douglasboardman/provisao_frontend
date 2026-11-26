@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils"
 import { useAuthStore } from "../../stores/auth"
 import { canAccessModule, type Module } from "../../lib/permissions"
 import type { LucideIcon } from "lucide-react"
-import { Perfil } from "../../types/enums"
+import { Perfil, PERFIL_LABELS } from "../../types/enums"
 import { useRecurso } from "../../lib/recursos"
 
 type NavGroup = { kind: "group"; label: string }
@@ -86,7 +86,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pendentes = notificacoes.data?.filter(item => !item.lido_em).length ?? 0
   const acessoInstitucional = [Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO, Perfil.AUDITOR].includes(perfil)
   const navegacao = useNavegacao()
-  const rotuloPerfil = navegacao.data?.perfis_atuacao?.join(' · ') || 'Perfil padrão'
+  const rotuloPerfil = navegacao.data?.perfis_atuacao?.join(' · ') || PERFIL_LABELS[perfil]
   const podeVer = (modulo: Module) => {
     const acoes = navegacao.data?.permissoes[modulo]
     return acoes ? acoes.includes('view') || modulo === 'pessoas' && acoes.includes('create') : canAccessModule(perfil, modulo)

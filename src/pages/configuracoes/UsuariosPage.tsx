@@ -31,18 +31,8 @@ import { AccessRequestsPanel } from "./AccessRequestsPanel"
 import { usuariosApi } from "../../api/usuarios"
 import { pessoasApi } from "../../api/pessoas"
 import { ApiRequestError } from "../../api/client"
-import { Perfil } from "../../types/enums"
+import { Perfil, PERFIL_LABELS } from "../../types/enums"
 import type { Usuario } from "../../types/models"
-
-const PERFIL_LABELS: Record<Perfil, string> = {
-  [Perfil.COMUM]: "Conta comum",
-  [Perfil.ADMINISTRADOR]: "Administrador",
-  [Perfil.AUDITOR]: "Auditor",
-  [Perfil.OPERADOR]: "Operador",
-  [Perfil.SECRETARIO]: "Secretário",
-  [Perfil.TESOUREIRO]: "Tesoureiro",
-  [Perfil.GESTOR]: "Gestor",
-}
 
 const schema = z.object({
   nome_usuario: z.string().min(1, "Nome é obrigatório"),

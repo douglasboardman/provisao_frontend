@@ -16,6 +16,16 @@ export enum Perfil {
   SECRETARIO = "SECRETARIO",
 }
 
+export const PERFIL_LABELS: Record<Perfil, string> = {
+  [Perfil.COMUM]: "Conta comum",
+  [Perfil.ADMINISTRADOR]: "Administrador",
+  [Perfil.AUDITOR]: "Auditor",
+  [Perfil.OPERADOR]: "Operador",
+  [Perfil.SECRETARIO]: "Secretário",
+  [Perfil.TESOUREIRO]: "Tesoureiro",
+  [Perfil.GESTOR]: "Gestor",
+}
+
 export enum Sexo {
   MASCULINO = "MASCULINO",
   FEMININO = "FEMININO",
