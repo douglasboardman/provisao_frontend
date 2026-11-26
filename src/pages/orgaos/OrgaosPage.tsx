@@ -80,7 +80,7 @@ export function OrgaosPage() {
   const podeManter = gestaoHabilitada && ficha?.orgao.ativo && !!perfil &&
     ((oficial && [Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO].includes(perfil)) ||
       (unidade && !sociedade && perfil === Perfil.GESTOR))
-  const podeAtribuir = gestaoHabilitada && ficha?.pode_registrar_cargos && data === relogio.data?.data_operacional
+  const podeAtribuir = gestaoHabilitada && ficha?.pode_registrar_cargos
   const preparoRegistro = gestaoHabilitada && ficha?.contexto_id && data === relogio.data?.data_operacional
     ? ficha.preparo_registro_cargos : null
   const secoes = [
@@ -147,7 +147,6 @@ export function OrgaosPage() {
               {preparoRegistro && <OrientacaoRegistroCargos preparo={preparoRegistro} identidade={identidade} />}
               {gestaoHabilitada && oficial && ficha.contexto_id && !ficha.pode_registrar_cargos && perfil !== Perfil.AUDITOR && perfil !== Perfil.ADMINISTRADOR &&
                 <p className="text-sm text-muted-foreground">O registro de titulares exige uma conta vinculada a uma pessoa e autorizada para registrar cargos.</p>}
-              {gestaoHabilitada && ficha.pode_registrar_cargos && !podeAtribuir && <p>Selecione a data atual da igreja para registrar uma ocupação.</p>}
               <ul className="divide-y">{ficha.cargos_na_data.map(c => <li className="space-y-2 py-3" key={c.id}>
                 <div className="flex flex-wrap justify-between gap-2"><strong>{c.nome}</strong><span>{c.titulares.map(p => p.nome_completo).join(', ') || 'Vago'}</span></div>
                 {c.ocupacoes?.map(o => <div className="text-sm" key={o.id}>
@@ -180,7 +179,13 @@ export function OrgaosPage() {
           {secao === 'Histórico' && <>
             <div className="space-y-2"><h3 className="font-semibold">Histórico de ocupações</h3><p className="text-sm text-muted-foreground">Os registros de cargo não comprovam, por si só, exercício atual ou competência para um ato. A sequência ordena os atos registrados no mesmo dia.</p>
               {!ficha.ocupacoes.length && <p>Nenhuma ocupação registrada.</p>}
-              {ficha.ocupacoes.map(o => <div key={o.id} className="space-y-1"><p>{o.cargo.nome}: {o.pessoa.nome_completo} — início em {exibirData(o.inicio)}{o.inicio_ordem > 1 ? `, sequência ${o.inicio_ordem}` : ''}{o.termino_previsto ? `; último dia previsto ${exibirData(o.termino_previsto)}` : ''}{o.fim ? `; término efetivo em ${exibirData(o.fim)}${o.fim_ordem && o.fim_ordem > 1 ? `, sequência ${o.fim_ordem}` : ''}` : ''}.{avisoMembresia(o.situacao_membresia)}</p>{gestaoHabilitada && !o.fim && o.termino_previsto && ficha.orgao.ativo && perfil && ((['CONSELHO', 'JUNTA'].includes(ficha.orgao.tipo) && (!ficha.versao || !ficha.contexto_id) && [Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO].includes(perfil)) || (ficha.orgao.tipo === 'UNIDADE_MINISTERIAL' && !ficha.orgao.gestao_presidencial && ficha.orgao.constituicao === 'ELEICAO' && perfil === Perfil.GESTOR)) && <Button type="button" variant="outline" onClick={() => setEncerrando({ tipo: ficha.orgao.tipo === 'UNIDADE_MINISTERIAL' ? 'unidade' : 'oficial', ocupacao: { id: o.id, nome: `${o.cargo.nome} — ${o.pessoa.nome_completo}` } })}>Encerrar ocupação de {o.pessoa.nome_completo}</Button>}</div>)}
+              {ficha.ocupacoes.map(o => <div key={o.id} className="space-y-1"><p>{o.cargo.nome}: {o.pessoa.nome_completo} — início em {exibirData(o.inicio)}{o.inicio_ordem > 1 ? `, sequência ${o.inicio_ordem}` : ''}{o.termino_previsto ? `; último dia previsto ${exibirData(o.termino_previsto)}` : ''}{o.fim ? `; término efetivo em ${exibirData(o.fim)}${o.fim_ordem && o.fim_ordem > 1 ? `, sequência ${o.fim_ordem}` : ''}` : ''}.{avisoMembresia(o.situacao_membresia)}</p>
+                {oficial && podeAtribuir && !o.fim && <Button variant="outline" onClick={() => definirProvimento({
+                  cargo: { id: o.cargo_id, nome: o.cargo.nome, titulares: [o.pessoa] }, titular: o, encerrar: true,
+                })}>Registrar encerramento de {o.pessoa.nome_completo}</Button>}
+                {podeAtribuir && provimento?.encerrar && provimento.titular?.id === o.id &&
+                  <ProvimentoCargo key={o.id} orgao={selecionado} identidade={identidade} {...provimento} aoFechar={() => definirProvimento(null)} />}
+                {gestaoHabilitada && !o.fim && o.termino_previsto && ficha.orgao.ativo && perfil && ((['CONSELHO', 'JUNTA'].includes(ficha.orgao.tipo) && (!ficha.versao || !ficha.contexto_id) && [Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO].includes(perfil)) || (ficha.orgao.tipo === 'UNIDADE_MINISTERIAL' && !ficha.orgao.gestao_presidencial && ficha.orgao.constituicao === 'ELEICAO' && perfil === Perfil.GESTOR)) && <Button type="button" variant="outline" onClick={() => setEncerrando({ tipo: ficha.orgao.tipo === 'UNIDADE_MINISTERIAL' ? 'unidade' : 'oficial', ocupacao: { id: o.id, nome: `${o.cargo.nome} — ${o.pessoa.nome_completo}` } })}>Encerrar ocupação de {o.pessoa.nome_completo}</Button>}</div>)}
               {(anterioresOcupacao.length > 0 || ficha.proximo_cursor_ocupacao) && <div className="flex gap-2"><Button type="button" variant="outline" disabled={!anterioresOcupacao.length} onClick={() => { const itens = [...anterioresOcupacao]; setCursorOcupacao(itens.pop()); setAnterioresOcupacao(itens) }}>Ocupações anteriores</Button><Button type="button" variant="outline" disabled={!ficha.proximo_cursor_ocupacao} onClick={() => { const proximo = ficha?.proximo_cursor_ocupacao; if (proximo) { setAnterioresOcupacao(a => [...a, cursorOcupacao]); setCursorOcupacao(proximo) } }}>Mais ocupações</Button></div>}
               {ficha.cargos_limitados && <p>A lista mostra os 100 primeiros cargos ativos.</p>}
             </div>

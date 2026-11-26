@@ -27,7 +27,7 @@ export interface DetalheOrgao {
   politicas_limitadas: boolean
   ultima_ordem_designacao: number | null
   ordem_designacao_indeterminada: boolean
-  ocupacoes: { id: string; inicio: string; inicio_ordem: number; fim: string | null; fim_ordem: number | null; termino_previsto: string | null; pessoa: Pessoa; cargo: { nome: string }; situacao_membresia: SituacaoMembresia }[]
+  ocupacoes: { id: string; cargo_id: string; inicio: string; inicio_ordem: number; fim: string | null; fim_ordem: number | null; termino_previsto: string | null; pessoa: Pessoa; cargo: { nome: string }; situacao_membresia: SituacaoMembresia }[]
   ocupacoes_limitadas: boolean
   proximo_cursor_ocupacao: string | null
   participacoes: { categoria_participacao?: string | null; direito_voto?: boolean; revisao_faixa?: { data_limite: string; situacao: 'PROXIMA' | 'REVISAR'; destino: string | null } | null; id: string; inicio: string; inicio_ordem?: number; fim: string | null; fim_ordem?: number | null; pessoa: Pessoa; situacao_membresia: SituacaoMembresia }[]

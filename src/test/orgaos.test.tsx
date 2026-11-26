@@ -14,7 +14,7 @@ vi.mock('../api/orgaos', () => ({ orgaosApi: {
   listar: vi.fn(async () => ({ itens: [{ id: 'orgao', tipo: 'CONSELHO', constituicao: 'OFICIAL', nome: 'Conselho Central', sigla: null, ativo: true }], proximo_cursor: null })),
   mandatos: vi.fn(),
   atos: vi.fn(async () => ({ itens: [], proximo_cursor: null })),
-  detalhe: vi.fn(async (_id: string, data: string) => ({ orgao: { id: 'orgao', tipo: 'CONSELHO', constituicao: 'OFICIAL', nome: 'Conselho Central', sigla: null, ativo: true, finalidade: 'Governança', data_criacao: '2020-01-01T00:00:00Z' }, data_referencia: data, vigente_na_data: true, composicao: { membros: [{ pessoa_id: 'pessoa', nome: 'Ana Teste', oficios: ['PRESBITERO_REGENTE'], revisao_pendente: true }], indeterminados: [{ pessoa_id: 'outra', nome: 'Pessoa Pendente' }] }, ocupacoes: [{ id: 'cargo', inicio: '2025-01-01T00:00:00Z', inicio_ordem: 2, fim: null, fim_ordem: null, termino_previsto: '2029-12-31T00:00:00Z', pessoa: { id: 'pessoa', nome_completo: 'Ana Teste' }, cargo: { nome: 'Secretário' } }], ocupacoes_limitadas: false, participacoes: [], participacoes_limitadas: false })),
+  detalhe: vi.fn(async (_id: string, data: string) => ({ orgao: { id: 'orgao', tipo: 'CONSELHO', constituicao: 'OFICIAL', nome: 'Conselho Central', sigla: null, ativo: true, finalidade: 'Governança', data_criacao: '2020-01-01T00:00:00Z' }, data_referencia: data, vigente_na_data: true, composicao: { membros: [{ pessoa_id: 'pessoa', nome: 'Ana Teste', oficios: ['PRESBITERO_REGENTE'], revisao_pendente: true }], indeterminados: [{ pessoa_id: 'outra', nome: 'Pessoa Pendente' }] }, ocupacoes: [{ id: 'cargo', cargo_id: 'id-cargo', inicio: '2025-01-01T00:00:00Z', inicio_ordem: 2, fim: null, fim_ordem: null, termino_previsto: '2029-12-31T00:00:00Z', pessoa: { id: 'pessoa', nome_completo: 'Ana Teste' }, cargo: { nome: 'Secretário' } }], ocupacoes_limitadas: false, participacoes: [], participacoes_limitadas: false })),
 }, gestaoOrgaosApi: { fuso: vi.fn() } }))
 
 describe('consulta de órgãos', () => {
@@ -36,6 +36,23 @@ describe('consulta de órgãos', () => {
     expect(screen.getByText(/Secretário: Ana Teste/)).toBeTruthy()
     expect(screen.getByText(/sequência 2/)).toBeTruthy()
     expect(screen.getByText(/Data adotada para atos: 16\/11\/2026 \(America\/Sao_Paulo\)/)).toBeTruthy()
+  })
+  it('permite registrar no histórico o encerramento retroativo de uma ocupação vencida', async () => {
+    vi.stubEnv('VITE_FEATURE_ORGAOS_GESTAO', 'true')
+    const ficha = await orgaosApi.detalhe('orgao', '2026-11-16')
+    vi.mocked(orgaosApi.detalhe).mockResolvedValueOnce({
+      ...ficha, pode_registrar_cargos: true, contexto_id: 'contexto',
+      ocupacoes: [{ ...ficha.ocupacoes[0], termino_previsto: '2025-12-31' }],
+    })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<QueryClientProvider client={client}><OrgaosPage /></QueryClientProvider>)
+    fireEvent.click(await screen.findByRole('button', { name: 'Consultar' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Histórico' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Registrar encerramento de Ana Teste' }))
+    expect(await screen.findByRole('heading', { name: 'Encerramento · Secretário' })).toBeTruthy()
+    const data = screen.getByLabelText('Data de efeito do encerramento') as HTMLInputElement
+    fireEvent.change(data, { target: { value: '2025-12-10' } })
+    expect(data.validity.valid).toBe(true)
   })
   it.each(['VINCULAR_PESSOA', 'HABILITAR_SERVICO'] as const)('orienta o administrador no cartão do mandato em %s', async preparo => {
     vi.stubEnv('VITE_FEATURE_ORGAOS_GESTAO', 'true')
@@ -88,7 +105,7 @@ describe('consulta de órgãos', () => {
     vi.mocked(orgaosApi.detalhe).mockResolvedValueOnce({
       orgao: { id: 'orgao', tipo: 'UNIDADE_MINISTERIAL', constituicao: 'DESIGNACAO', nome: 'Unidade', sigla: null, ativo: true, finalidade: 'Teste', data_criacao: '2020-01-01' },
       data_referencia: '2026-02-01', vigente_na_data: true, composicao: null, cargos_configurados: [], cargos_limitados: false, politicas: [], politicas_limitadas: false, ultima_ordem_designacao: 0, ordem_designacao_indeterminada: false,
-      ocupacoes: [{ id: 'cargo', inicio: '2026-01-01', inicio_ordem: 1, fim: null, fim_ordem: null, termino_previsto: null, pessoa: { id: 'pessoa', nome_completo: 'Líder Teste' }, cargo: { nome: 'Líder' }, situacao_membresia: 'NAO_ELEGIVEL' }], ocupacoes_limitadas: false, proximo_cursor_ocupacao: null,
+      ocupacoes: [{ id: 'cargo', cargo_id: 'id-cargo', inicio: '2026-01-01', inicio_ordem: 1, fim: null, fim_ordem: null, termino_previsto: null, pessoa: { id: 'pessoa', nome_completo: 'Líder Teste' }, cargo: { nome: 'Líder' }, situacao_membresia: 'NAO_ELEGIVEL' }], ocupacoes_limitadas: false, proximo_cursor_ocupacao: null,
       participacoes: [{ id: 'participacao', inicio: '2026-01-01', fim: null, pessoa: { id: 'outra', nome_completo: 'Participante Teste' }, situacao_membresia: 'INDETERMINADA' }], participacoes_limitadas: false, proximo_cursor_participacao: null,
     })
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
