@@ -36,7 +36,7 @@ export interface DetalheOrgao {
 }
 
 export interface EntradaMandato {
-  pessoa_id: string; ata_eleicao: string; trecho_eleicao: string; ata_posse: string; trecho_posse: string; data_posse: string
+  pessoa_id: string; ata_eleicao: string; ata_posse: string
   indicacao_id?: string
   ordenacao?: { data: string; autoridade: string; evidencia: string }
   idempotencia: string

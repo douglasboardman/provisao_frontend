@@ -25,13 +25,15 @@ export function RegistroMandato({ orgao, identidade, titular, concluir }: { orga
     enabled: !!eleicao && !!pessoa, queryFn: () => orgaosApi.indicacoesMandato(orgao, pessoa, eleicao!.versao_id) })
   const previa = useMutation({ mutationFn: (entrada: EntradaMandato) => orgaosApi.previaMandato(orgao, entrada) })
   const salvar = useMutation({ mutationFn: () => orgaosApi.registrarMandato(orgao, { ...previa.variables!, previa: previa.data!.previa }), onSuccess: concluir })
+  const dataEleicao = eleicao?.data.slice(0, 10)
+  const dataPosse = posse?.data.slice(0, 10)
+  const posseAnterior = !!dataEleicao && !!dataPosse && dataPosse < dataEleicao
   function conferir(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!pessoa || !eleicao || !posse) return
+    if (!pessoa || !eleicao || !posse || posseAnterior) return
     const campos = new FormData(e.currentTarget)
     const ler = (campo: string) => String(campos.get(campo) ?? '').trim()
-    const dados = { pessoa_id: pessoa, ata_eleicao: eleicao.versao_id, trecho_eleicao: ler('trechoEleicao'),
-      ata_posse: posse.versao_id, trecho_posse: ler('trechoPosse'), data_posse: ler('dataPosse'),
+    const dados = { pessoa_id: pessoa, ata_eleicao: eleicao.versao_id, ata_posse: posse.versao_id,
       ...(ler('indicacao') && { indicacao_id: ler('indicacao') }),
       ...(ordenacao && { ordenacao: { data: ler('ordenacao'), autoridade: ler('autoridade'), evidencia: ler('evidencia') } }) }
     previa.mutate({ ...dados, idempotencia: chave.obter(dados) })
@@ -52,18 +54,17 @@ export function RegistroMandato({ orgao, identidade, titular, concluir }: { orga
           {indicacoes.data.map(i => <option key={i.id} value={i.id}>{i.ata_conselho.assunto} · {data(i.ata_conselho.data_documento)}</option>)}
         </select>
       </label>}
-      <label className="block">Item da ata que identifica a pessoa, a eleição e sua aptidão<Input name="trechoEleicao" required maxLength={1000} /></label>
       <label className="block">Origem da ata de posse<select className="block rounded border p-2" value={tipoPosse} onChange={e => { setTipoPosse(e.target.value as typeof tipoPosse); setPosse(null) }}>
         <option value="CONSELHO">Conselho</option><option value="ASSEMBLEIA">Assembleia, quando prevista na configuração</option></select></label>
       <SeletorAta key={tipoPosse} label="Ata que documenta a posse" valor={posse ? descreverAta(posse) : ''} chave={[identidade, orgao, 'posse', tipoPosse]}
         buscar={f => oficiaisApi.selecaoAtas(tipoPosse, f)} selecionar={setPosse} />
-      <label className="block">Item da ata que identifica a pessoa e a data da posse<Input name="trechoPosse" required maxLength={1000} /></label>
-      <label className="block">Data da posse<Input name="dataPosse" type="date" min={eleicao?.data.slice(0,10)} required /></label>
+      {!previa.data && dataEleicao && dataPosse && <p>Eleição em <strong>{data(dataEleicao)}</strong> · Posse em <strong>{data(dataPosse)}</strong></p>}
+      {posseAnterior && <p role="alert">A ata da posse tem data anterior à eleição. Selecione a ata que documenta a posse.</p>}
       <label className="flex items-center gap-2"><input type="checkbox" checked={ordenacao} onChange={e => setOrdenacao(e.target.checked)} />Registrar ordenação documentada pela primeira vez</label>
       {ordenacao && <><label className="block">Data da ordenação<Input name="ordenacao" type="date" required /></label>
         <label className="block">Autoridade da ordenação<Input name="autoridade" required maxLength={1000} /></label>
         <label className="block">Referência da ordenação<Input name="evidencia" required maxLength={1000} /></label></>}
-      {!previa.data && <Button type="submit" disabled={!eleicao || !posse || !pessoa}>Conferir mandato</Button>}
+      {!previa.data && <Button type="submit" disabled={!eleicao || !posse || !pessoa || posseAnterior}>Conferir mandato</Button>}
     </fieldset>
     {previa.data && <section className="space-y-2" aria-live="polite"><h4 className="font-semibold">{previa.data.reeleicao ? 'Reeleição' : 'Investidura'} de {previa.data.nome}</h4>
       <p>Eleição em {data(previa.data.data_eleicao)}. Mandato de {data(previa.data.data_posse)} a {data(previa.data.termino_previsto)}.</p>

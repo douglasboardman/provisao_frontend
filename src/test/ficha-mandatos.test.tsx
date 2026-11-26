@@ -1,9 +1,10 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, expect, it, vi } from 'vitest'
 import { RelogioIgreja } from '../pages/orgaos/RelogioIgreja'
 import { MandatosOrgao } from '../pages/orgaos/MandatosOrgao'
 import { gestaoOrgaosApi, orgaosApi, type VagaCargo } from '../api/orgaos'
+import { oficiaisApi } from '../api/oficiais'
 
 const mandato = { id: 'periodo', data_eleicao: '2026-11-01', data_posse: '2027-02-01', termino_previsto: '2032-01-31',
   termino_efetivo: null, versao_orgao: { numero: 1 }, pode_encerrar: false,
@@ -27,11 +28,39 @@ it('exibe posse futura e omite registro e reeleição quando o servidor recusa o
 it('oferece reeleição para a pessoa do mandato no último dia inclusivo', async () => {
   vi.stubEnv('VITE_FEATURE_ORGAOS_GESTAO','true')
   vi.spyOn(orgaosApi,'mandatos').mockResolvedValue({ itens: [mandato], proximo_cursor: null, pode_registrar: true })
+  vi.spyOn(orgaosApi, 'indicacoesMandato').mockResolvedValue([])
+  vi.spyOn(oficiaisApi, 'selecaoAtas').mockImplementation(async tipo => ({
+    contextos: [], tem_proxima: false, itens: [{
+      documento_id: tipo, versao_id: 'versao-' + tipo, versao: 1, numero: 1, ano: 2032, sigla: tipo,
+      data: tipo === 'ASSEMBLEIA' ? '2032-01-15' : '2032-02-01',
+      contexto: tipo, contexto_id: tipo, assunto: tipo === 'ASSEMBLEIA' ? 'Eleição' : 'Posse',
+      pauta: '', arrolados: [], resolucoes: [], estado: 'APROVADO',
+    }],
+  }))
+  const conferir = vi.spyOn(orgaosApi, 'previaMandato').mockResolvedValue({
+    nome: 'Paulo', data_eleicao: '2032-01-15', data_posse: '2032-02-01', termino_previsto: '2037-01-31',
+    versao: 1, previa: 'previa', reeleicao: true, transcricao_historica: false,
+  })
   montar('2032-01-31')
   expect(await screen.findByText('No período do mandato')).toBeTruthy()
   fireEvent.click(screen.getByRole('button', { name: 'Registrar reeleição' }))
   expect(screen.getByRole('group', { name: 'Reeleição de Paulo' })).toBeTruthy()
   expect(screen.queryByText('Indicação para esta eleição')).toBeNull()
+  expect(screen.queryByLabelText(/Item da ata/)).toBeNull()
+  expect(screen.queryByLabelText('Data da posse')).toBeNull()
+  for (const rotulo of ['Ata da Assembleia que elegeu a pessoa', 'Ata que documenta a posse']) {
+    const campo = screen.getByRole('textbox', { name: rotulo })
+    fireEvent.click(within(campo.parentElement!).getByRole('button', { name: 'Selecionar' }))
+    const dialogo = await screen.findByRole('dialog')
+    fireEvent.click(await within(dialogo).findByRole('button', { name: 'Selecionar' }))
+  }
+  expect(screen.getByText('15/01/2032')).toBeTruthy()
+  expect(screen.getByText('01/02/2032')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Conferir mandato' }))
+  await screen.findByRole('button', { name: 'Confirmar registro' })
+  expect(conferir).toHaveBeenCalledWith('conselho', {
+    pessoa_id: 'eleito', ata_eleicao: 'versao-ASSEMBLEIA', ata_posse: 'versao-CONSELHO', idempotencia: expect.any(String),
+  })
 })
 
 it.each([false, true])('registra o cargo pela ata com ajuste de datas opcional (%s)', async ajustar => {
