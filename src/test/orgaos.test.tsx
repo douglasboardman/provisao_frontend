@@ -60,11 +60,13 @@ describe('consulta de órgãos', () => {
     if (preparo === 'HABILITAR_SERVICO') {
       vi.mocked(orgaosApi.detalhe).mockResolvedValueOnce({ ...ficha, contexto_id: 'contexto', pode_registrar_cargos: true,
         cargos_na_data: [{ id: 'cargo', nome: 'Secretário', titulares: [] }] })
-      fireEvent.change(screen.getByLabelText('Fundamento da atribuição'), { target: { value: 'Registro das atas da igreja' } })
+      expect(screen.queryByLabelText('Fundamento da atribuição')).toBeNull()
       fireEvent.click(screen.getByRole('button', { name: 'Habilitar registro nesta conta' }))
       fireEvent.click(await screen.findByRole('button', { name: 'Selecionar cargo' }))
-      expect(autorizacaoApi.conceder).toHaveBeenCalledWith('admin', 'CARGOS_REGISTRAR', expect.any(String), null, 'Registro das atas da igreja')
+      expect(autorizacaoApi.conceder).toHaveBeenCalledWith('admin', 'CARGOS_REGISTRAR', expect.any(String), null, 'Habilitação do registro de cargos pelo titular da conta.')
       expect(screen.getByRole('heading', { name: 'Eleição e posse · Secretário' })).toBeTruthy()
+      expect(screen.getByRole('textbox', { name: 'Ata da eleição' })).toBeTruthy()
+      expect((screen.getByRole('button', { name: 'Confirmar ato' }) as HTMLButtonElement).disabled).toBe(true)
       expect(screen.getByText('Pessoa eleita')).toBeTruthy()
       fireEvent.click(screen.getByRole('button', { name: 'Voltar' }))
     } else {

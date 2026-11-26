@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { autorizacaoApi } from '../../api/autorizacao'
 import { ApiRequestError } from '../../api/client'
-import { Input } from '../../components/ui/input'
 import { orgaosApi, type DetalheOrgao, type VagaCargo, type MandatoFicha } from '../../api/orgaos'
 import type { OficialResumo } from '../../api/oficiais'
 import { Perfil } from '../../types/enums'
@@ -24,10 +23,9 @@ type PreparoRegistro = DetalheOrgao['preparo_registro_cargos']
 
 export function OrientacaoRegistroCargos({ preparo, identidade }: { preparo: NonNullable<PreparoRegistro>; identidade: string }) {
   const usuario = useAuthStore(s => s.user?.sub)
-  const [fundamento, justificar] = useState('')
   const client = useQueryClient()
   const habilitar = useMutation({
-    mutationFn: () => autorizacaoApi.conceder(usuario!, 'CARGOS_REGISTRAR', new Date().toISOString(), null, fundamento.trim()),
+    mutationFn: () => autorizacaoApi.conceder(usuario!, 'CARGOS_REGISTRAR', new Date().toISOString(), null, 'Habilitação do registro de cargos pelo titular da conta.'),
     onSuccess: () => Promise.all([
       client.invalidateQueries({ queryKey: ['orgaos', identidade, 'detalhe'] }),
       client.invalidateQueries({ queryKey: ['autorizacao'] }),
@@ -37,12 +35,11 @@ export function OrientacaoRegistroCargos({ preparo, identidade }: { preparo: Non
     <p>Peça a outro administrador da igreja que abra sua conta em Usuários e use <strong>Vincular pessoa</strong> para selecionar seu cadastro. Após a conferência, volte ao mandato para habilitar o registro de cargos.</p>
     <Button asChild variant="outline"><a href="/usuarios">Abrir usuários</a></Button>
   </div>
-  return <form className="max-w-xl space-y-3" onSubmit={e => { e.preventDefault(); if (usuario && fundamento.trim()) habilitar.mutate() }}>
-    <p>Habilite sua conta para registrar eleições e posses da igreja. Você também poderá registrar o próprio cargo quando for elegível e a ata documentar o ato.</p>
-    <label className="block text-sm font-medium">Fundamento da atribuição<Input required maxLength={1000} value={fundamento} onChange={e => justificar(e.target.value)} /></label>
-    <Button disabled={!usuario || !fundamento.trim() || habilitar.isPending}>Habilitar registro nesta conta</Button>
+  return <div className="max-w-xl space-y-3">
+    <p>Habilite sua conta para registrar eleições e posses. Ao selecionar o cargo, você informará a ata que documenta o ato.</p>
+    <Button type="button" disabled={!usuario || habilitar.isPending} onClick={() => habilitar.mutate()}>Habilitar registro nesta conta</Button>
     {habilitar.isError && <p role="alert">{habilitar.error instanceof ApiRequestError ? habilitar.error.messages.join(' ') : 'Não foi possível habilitar o registro de cargos.'}</p>}
-  </form>
+  </div>
 }
 
 export function MandatosOrgao({ orgao, identidade, data, conselho, cargos, podeAtribuir = false, preparoRegistro, prazoSugerido }: { podeAtribuir?: boolean; preparoRegistro?: PreparoRegistro; cargos?: VagaCargo[]; prazoSugerido?: number | null; orgao: string; identidade: string; data: string; conselho: boolean }) {
