@@ -1,6 +1,6 @@
 import { useNavegacao } from '../../hooks/use-navegacao'
 import {
-  Home, Users, UsersRound, BookUser, IdCard,
+  Home, Users, BookUser, IdCard,
   Landmark, ArrowRightLeft, TrendingUp, TrendingDown, Scale,
   Sprout, UserCog, Settings, LogOut, ShieldCheck,
 } from "lucide-react"
@@ -26,10 +26,8 @@ const navEntries: NavEntry[] = [
   { kind: "item", path: "/oficiais", icon: IdCard, label: "Oficiais" },
   { kind: "item", path: "/orgaos", icon: Landmark, label: "Estrutura da igreja" },
   { kind: "item", path: "/secretaria", icon: BookUser, label: "Secretaria", modules: ["secretaria"] },
-  { kind: "item", path: "/pessoas", icon: Users, label: "Pessoas", modules: ["pessoas"] },
-  { kind: "item", path: "/grupos-familiares", icon: UsersRound, label: "Grupos Familiares", modules: ["grupos-familiares"] },
+  { kind: "item", path: "/pessoas", icon: Users, label: "Pessoas", modules: ["pessoas", "grupos-familiares"] },
   { kind: "item", path: "/rol-membros", icon: BookUser, label: "Rol de Membros", modules: ["eventos-membresia"] },
-  { kind: "item", path: "/gestao-membresia", icon: IdCard, label: "Gestão de Membresia", modules: ["eventos-membresia"] },
 
   { kind: "group", label: "Financeiro" },
   { kind: "item", path: "/contas", icon: Landmark, label: "Contas", modules: ["contas"] },

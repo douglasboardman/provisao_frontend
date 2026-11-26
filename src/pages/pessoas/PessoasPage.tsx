@@ -1,10 +1,10 @@
-import { ContactRound as PageIcon } from "lucide-react"
-import { WorkspaceHeader } from "../../components/shared/Workspace"
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Plus, Pencil, Trash2, Users } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { DataTable, type Column } from "../../components/shared/DataTable"
+import { CampoBusca } from "../../components/shared/CampoBusca"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { DeleteDialog } from "../../components/shared/DeleteDialog"
 import { FamiliaViewDialog } from "../../components/shared/FamiliaViewDialog"
 import { PessoaEditDialog } from "../../components/shared/PessoaEditDialog"
@@ -20,21 +20,33 @@ import { ApiRequestError } from "../../api/client"
 import { Sexo } from "../../types/enums"
 import { formatCpf } from "../../lib/formatters"
 import { calcAge } from "../../lib/membresia-labels"
+import { correspondeBusca, correspondeCpf, normalizarBusca } from "../../lib/busca"
+import { useAuthStore } from "../../stores/auth"
 import type { Pessoa } from "../../types/models"
 
 const SEXO_LABELS: Record<Sexo, string> = { [Sexo.MASCULINO]: "Masculino", [Sexo.FEMININO]: "Feminino" }
 
 export function PessoasPage() {
   const [deleteTarget, setDeleteTarget] = useState<Pessoa | null>(null)
+  const [busca, setBusca] = useState("")
+  const [sexo, setSexo] = useState("todos")
+  const [familia, setFamilia] = useState("todas")
   const { canView, canCreate, canEdit, canDelete } = usePermissions("pessoas")
+  const identidade = useAuthStore(s => `${s.user?.igreja_id}:${s.user?.sub}`)
   const queryClient = useQueryClient()
   const { current, hasBack, push, pop, closeAll } = useModalStack()
 
-  const { data, isLoading, isError, error, refetch } = useQuery({ queryKey: ["pessoas"], queryFn: pessoasApi.list, enabled: canView })
+  const { data, isLoading, isError, error, refetch } = useQuery({ queryKey: ["pessoas", identidade], queryFn: pessoasApi.list, enabled: canView })
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => pessoasApi.remove(id),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["pessoas"] }); toast({ title: "Pessoa excluída" }); setDeleteTarget(null) },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pessoas"] })
+      queryClient.invalidateQueries({ queryKey: ["grupos-familiares"] })
+      queryClient.invalidateQueries({ queryKey: ["eventos-membresia"] })
+      toast({ title: "Pessoa excluída" })
+      setDeleteTarget(null)
+    },
     onError: (e) => toast({ title: "Erro", description: e instanceof ApiRequestError ? e.messages[0] : "Erro ao excluir", variant: "destructive" }),
   })
 
@@ -64,22 +76,55 @@ export function PessoasPage() {
       )
     : undefined
 
-  return (
-    <div className="workspace">
-      <WorkspaceHeader icon={PageIcon} title="Pessoas" description="Gerencie os membros e participantes">
-        {canCreate && (
-          <Button onClick={() => push({ type: "pessoa-edit", pessoaId: null })}><Plus size={18} className="mr-2" />Nova Pessoa</Button>
-        )}
-      </WorkspaceHeader>
+  const termo = normalizarBusca(busca)
+  const filtradas = (data ?? []).filter(p =>
+    (correspondeBusca(termo, p.nome_completo, p.email, p.grupos_familiares?.nome_familia) || correspondeCpf(termo, p.cpf)) &&
+    (sexo === "todos" || p.sexo === sexo) &&
+    (familia === "todas" || (familia === "com" ? !!p.grupo_familiar_id : !p.grupo_familiar_id))
+  )
 
+  return (
+    <div className="space-y-4">
+      <div className="surface flex flex-wrap items-end gap-3">
+        {canView && <>
+          <div className="min-w-48 flex-[2]">
+            <CampoBusca rotulo="Buscar pessoas" placeholder="Nome, CPF, e-mail ou família" valor={busca} mudar={setBusca} />
+          </div>
+          <div className="min-w-36 flex-1 space-y-1.5">
+            <label htmlFor="pessoas-sexo" className="text-sm font-medium">Sexo</label>
+            <Select value={sexo} onValueChange={setSexo}>
+              <SelectTrigger id="pessoas-sexo" className="w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos</SelectItem>
+                {Object.entries(SEXO_LABELS).map(([id, label]) => <SelectItem key={id} value={id}>{label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="min-w-40 flex-1 space-y-1.5">
+            <label htmlFor="pessoas-familia" className="text-sm font-medium">Vínculo familiar</label>
+            <Select value={familia} onValueChange={setFamilia}>
+              <SelectTrigger id="pessoas-familia" className="w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todas">Todos os vínculos</SelectItem>
+                <SelectItem value="com">Com grupo familiar</SelectItem>
+                <SelectItem value="sem">Sem grupo familiar</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {(busca || sexo !== "todos" || familia !== "todas") && <Button variant="ghost" onClick={() => { setBusca(""); setSexo("todos"); setFamilia("todas") }}>Limpar filtros</Button>}
+        </>}
+        {canCreate && <Button className="ml-auto" onClick={() => push({ type: "pessoa-edit", pessoaId: null })}><Plus size={18} className="mr-2" />Nova Pessoa</Button>}
+      </div>
       {canView && (isLoading ? (
         <div className="py-16 text-center text-muted-foreground">Carregando...</div>
       ) : isError ? (
         <ErrorState error={error} onRetry={() => refetch()} />
       ) : !data?.length ? (
         <EmptyState icon={Users} title="Nenhuma pessoa" description="Nenhuma pessoa cadastrada" />
+      ) : !filtradas.length ? (
+        <EmptyState icon={Users} title="Nenhuma pessoa encontrada" description="Altere a busca ou os filtros." />
       ) : (
-        <DataTable data={data} columns={columns} keyExtractor={(p) => p.id} actions={actions} />
+        <DataTable data={filtradas} columns={columns} keyExtractor={(p) => p.id} actions={actions} pageResetKey={JSON.stringify([termo, sexo, familia])} />
       ))}
 
       {current?.type === "familia" && <FamiliaViewDialog

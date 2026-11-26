@@ -86,6 +86,7 @@ export function PessoaEditDialog({ pessoaId, open, onClose, onBack }: PessoaEdit
   const consultaProfissoes = useCanAccessModule('profissoes')
   const familias = usePermissions('grupos-familiares')
   const igrejaId = useAuthStore(s => s.user?.igreja_id)
+  const identidade = useAuthStore(s => `${s.user?.igreja_id}:${s.user?.sub}`)
   const [formReady, setFormReady] = useState(false)
   const [fetchingCep, setFetchingCep] = useState(false)
   const [cepReady, setCepReady] = useState(false)
@@ -95,8 +96,8 @@ export function PessoaEditDialog({ pessoaId, open, onClose, onBack }: PessoaEdit
 
   const handleDone = onBack ?? onClose
 
-  const { data: allPessoas } = useQuery({ queryKey: ["pessoas"], queryFn: pessoasApi.list, enabled: open && consultaPessoas })
-  const { data: grupos } = useQuery({ queryKey: ["grupos-familiares"], queryFn: gruposFamiliaresApi.list, enabled: open && familias.canView })
+  const { data: allPessoas } = useQuery({ queryKey: ["pessoas", identidade], queryFn: pessoasApi.list, enabled: open && consultaPessoas })
+  const { data: grupos } = useQuery({ queryKey: ["grupos-familiares", identidade], queryFn: gruposFamiliaresApi.list, enabled: open && familias.canView })
   const { data: tratamentos } = useQuery({ queryKey: ["tratamentos"], queryFn: tratamentosApi.list, enabled: open && consultaTratamentos })
   const profissoes = useQuery({ queryKey: ["profissoes", igrejaId], queryFn: profissoesApi.list, enabled: open && !!igrejaId && consultaProfissoes })
 
@@ -175,7 +176,12 @@ export function PessoaEditDialog({ pessoaId, open, onClose, onBack }: PessoaEdit
     mutationFn: (d: FormData) => pessoasApi.create({
       ...clean(d), ...(d.profissao_id ? { profissao_id: d.profissao_id } : {}),
     }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["pessoas"] }); toast({ title: "Pessoa criada com sucesso" }); handleDone() },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pessoas"] })
+      queryClient.invalidateQueries({ queryKey: ["grupos-familiares"] })
+      toast({ title: "Pessoa criada com sucesso" })
+      handleDone()
+    },
     onError: (e) => toast({ title: "Erro", description: e instanceof ApiRequestError ? e.messages[0] : "Erro ao criar", variant: "destructive" }),
   })
 
@@ -183,7 +189,13 @@ export function PessoaEditDialog({ pessoaId, open, onClose, onBack }: PessoaEdit
     mutationFn: ({ dados, profissaoAlterada }: { dados: FormData; profissaoAlterada: boolean }) => pessoasApi.update(pessoaId!, {
       ...clean(dados), ...(profissaoAlterada ? { profissao_id: dados.profissao_id || null } : {}),
     }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["pessoas"] }); toast({ title: "Pessoa atualizada" }); handleDone() },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pessoas"] })
+      queryClient.invalidateQueries({ queryKey: ["grupos-familiares"] })
+      queryClient.invalidateQueries({ queryKey: ["eventos-membresia"] })
+      toast({ title: "Pessoa atualizada" })
+      handleDone()
+    },
     onError: (e) => toast({ title: "Erro", description: e instanceof ApiRequestError ? e.messages[0] : "Erro ao atualizar", variant: "destructive" }),
   })
 

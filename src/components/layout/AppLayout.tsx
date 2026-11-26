@@ -15,10 +15,10 @@ export function AppLayout() {
     return () => desktop.removeEventListener('change', close)
   }, [])
   return <Drawer.Root open={open} onOpenChange={setOpen}>
-    <div className="flex h-dvh overflow-hidden bg-background">
+    <div className="app-shell flex h-dvh overflow-hidden bg-background">
       <a className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-white focus:p-3" href="#conteudo">Ir para o conteúdo</a>
       <div className="hidden lg:block"><Sidebar /></div>
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="app-shell-body flex min-w-0 flex-1 flex-col">
         <Header />
         <main key={pathname} id="conteudo" tabIndex={-1} className="min-w-0 flex-1 overflow-y-auto">
           <div className="app-content"><Suspense fallback={<p role="status">Carregando página…</p>}><Outlet /></Suspense></div>

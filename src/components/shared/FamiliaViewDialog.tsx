@@ -10,6 +10,9 @@ import { pessoasApi } from "../../api/pessoas"
 import { eventosMembresiaApi } from "../../api/eventos-membresia"
 import type { EventoMembresia } from "../../types/models"
 import { ROL_LABELS, TIPO_LABELS, TIPO_BADGE_VARIANT, calcAge } from "../../lib/membresia-labels"
+import { usePermissions } from "../../hooks/use-permissions"
+import { useAuthStore } from "../../stores/auth"
+import { ErrorState } from "./ErrorState"
 
 interface FamiliaViewDialogProps {
   grupo: { id: string; nome_familia: string } | null
@@ -20,8 +23,12 @@ interface FamiliaViewDialogProps {
 }
 
 export function FamiliaViewDialog({ grupo, onClose, onBack, onEditPessoa, onViewHistorico }: FamiliaViewDialogProps) {
-  const { data: pessoas } = useQuery({ queryKey: ["pessoas"], queryFn: pessoasApi.list })
-  const { data: eventos } = useQuery({ queryKey: ["eventos-membresia"], queryFn: eventosMembresiaApi.list })
+  const identidade = useAuthStore(s => `${s.user?.igreja_id}:${s.user?.sub}`)
+  const cadastro = usePermissions("pessoas")
+  const membresia = usePermissions("eventos-membresia")
+  const pessoasQuery = useQuery({ queryKey: ["pessoas", identidade], queryFn: pessoasApi.list, enabled: !!grupo && cadastro.canView })
+  const { data: eventos, isSuccess: eventosConsultados } = useQuery({ queryKey: ["eventos-membresia", identidade], queryFn: eventosMembresiaApi.list, enabled: !!grupo && cadastro.canView && membresia.canView })
+  const pessoas = pessoasQuery.data
 
   const lastEventMap = useMemo(() => {
     const map = new Map<string, EventoMembresia>()
@@ -50,7 +57,13 @@ export function FamiliaViewDialog({ grupo, onClose, onBack, onEditPessoa, onView
           <DialogTitle>Família {grupo?.nome_familia}</DialogTitle>
         </DialogHeader>
 
-        {!membros.length ? (
+        {!cadastro.canView ? (
+          <p className="text-sm text-muted-foreground">Sua conta pode consultar a composição numérica do grupo.</p>
+        ) : pessoasQuery.isPending ? (
+          <p role="status">Carregando integrantes…</p>
+        ) : pessoasQuery.isError ? (
+          <ErrorState error={pessoasQuery.error} onRetry={pessoasQuery.refetch} />
+        ) : !membros.length ? (
           <div className="py-8 text-center text-muted-foreground">Nenhum integrante neste grupo familiar</div>
         ) : (
           <div className="space-y-3">
@@ -65,22 +78,20 @@ export function FamiliaViewDialog({ grupo, onClose, onBack, onEditPessoa, onView
                         <span className="font-medium truncate">{pessoa.nome_completo}</span>
                         <span className="text-sm text-muted-foreground shrink-0">{age} anos</span>
                       </div>
-                      <div className="flex items-center gap-2 flex-wrap">
+                      {membresia.canView && eventosConsultados && <div className="flex items-center gap-2 flex-wrap">
                         {lastEvent ? (
                           <>
                             <Badge variant={TIPO_BADGE_VARIANT[lastEvent.tipo_evento]}>{TIPO_LABELS[lastEvent.tipo_evento]}</Badge>
                             <Badge variant="outline">{ROL_LABELS[lastEvent.rol]}</Badge>
                           </>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">Sem registro de membresia</span>
-                        )}
-                      </div>
+                        ) : <span className="text-sm text-muted-foreground">Sem registro de membresia</span>}
+                      </div>}
                     </div>
                     <div className="flex gap-1 shrink-0">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" title="Editar pessoa" onClick={() => onEditPessoa(pessoa.id)}>
+                      {cadastro.canEdit && <Button variant="ghost" size="icon" className="h-8 w-8" title="Editar pessoa" onClick={() => onEditPessoa(pessoa.id)}>
                         <Pencil size={14} />
-                      </Button>
-                      {lastEvent && (
+                      </Button>}
+                      {membresia.canView && lastEvent && (
                         <Button variant="ghost" size="icon" className="h-8 w-8" title="Histórico de membresia" onClick={() => onViewHistorico(pessoa.id)}>
                           <History size={14} />
                         </Button>

@@ -14,53 +14,18 @@ import { EmptyState } from "../../components/shared/EmptyState"
 import { ErrorState } from "../../components/shared/ErrorState"
 import { pessoasApi } from "../../api/pessoas"
 import { eventosMembresiaApi } from "../../api/eventos-membresia"
-import { Sexo, MembresiaRol, TipoEvento, MotivacaoEvento } from "../../types/enums"
-import type { EventoMembresia } from "../../types/models"
-import { ROL_LABELS, MOTIVACAO_LABELS, calcAge } from "../../lib/membresia-labels"
-import { dataCivilLocal, eventoMembresiaVigente } from "../../lib/membresia-temporal"
+import { Sexo, MembresiaRol } from "../../types/enums"
+import { MOTIVACAO_LABELS } from "../../lib/membresia-labels"
+import { dataCivilLocal, formatarDataCivil } from "../../lib/membresia-temporal"
 import { useEnumRelations } from "../../hooks/use-enum-relations"
 
-const NAO_ARROLADO = "NAO_ARROLADO"
-const INDETERMINADO = "INDETERMINADO"
-
-const CATEGORY_ORDER = [
-  MembresiaRol.COMUNGANTES,
-  MembresiaRol.NAO_COMUNGANTES,
-  MembresiaRol.ROL_SEPARADO,
-  MembresiaRol.EXCLUIDOS,
-  NAO_ARROLADO,
-  INDETERMINADO,
-] as const
-
-const CATEGORY_LABELS: Record<string, string> = {
-  ...ROL_LABELS,
-  [NAO_ARROLADO]: "Não Arrolados",
-  [INDETERMINADO]: "Histórico indeterminado",
-}
-
-const CATEGORY_COLORS: Record<string, string> = {
-  [MembresiaRol.COMUNGANTES]: "#6C4CAF",
-  [MembresiaRol.NAO_COMUNGANTES]: "#2563EB",
-  [MembresiaRol.ROL_SEPARADO]: "#CA8A04",
-  [MembresiaRol.EXCLUIDOS]: "#DC2626",
-  [NAO_ARROLADO]: "#9CA3AF",
-  [INDETERMINADO]: "#B45309",
-}
-
-type MemberView = {
-  id: string
-  nome: string
-  idade: number
-  sexo: Sexo
-  rolKey: string
-  rolLabel: string
-  admissaoMotivacao: MotivacaoEvento | null
-  admissaoLabel: string
-  tempoRolMeses: number | null
-  tempoRolFormatted: string
-}
+import { CampoBusca } from "../../components/shared/CampoBusca"
+import { correspondeBusca, correspondeCpf, normalizarBusca } from "../../lib/busca"
+import { useAuthStore } from "../../stores/auth"
+import { CATEGORY_ORDER, CATEGORY_LABELS, CATEGORY_COLORS, INDETERMINADO, NAO_ARROLADO, montarRol, resumirRol, type MemberView } from "./dados-rol"
 
 type Filters = {
+  busca: string
   idadeMin: string
   idadeMax: string
   sexo: string
@@ -71,6 +36,7 @@ type Filters = {
 }
 
 const initialFilters: Filters = {
+  busca: "",
   idadeMin: "",
   idadeMax: "",
   sexo: "",
@@ -80,36 +46,12 @@ const initialFilters: Filters = {
   tempoMax: "",
 }
 
-function getTempoRolMonths(dataEvento: string): number {
-  const [ano, mes, dia] = dataEvento.slice(0, 10).split('-').map(Number)
-  const d = new Date(ano, mes - 1, dia)
-  const now = new Date()
-  let months = (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth())
-  if (now.getDate() < d.getDate()) months--
-  return Math.max(0, months)
-}
-
-function formatTempoRol(dataEvento: string): string {
-  const months = getTempoRolMonths(dataEvento)
-  const y = Math.floor(months / 12)
-  const m = months % 12
-
-  if (y === 0) {
-    if (m === 0) return "< 1 mês"
-    return m === 1 ? "há 1 mês" : `há ${m} meses`
-  }
-
-  const yStr = y === 1 ? "1 ano" : `${y} anos`
-  if (m === 0) return `há ${yStr}`
-  const mStr = m === 1 ? "1 mês" : `${m} meses`
-  return `há ${yStr} e ${mStr}`
-}
-
-export function RolMembrosPage() {
+export function RolMembrosPage({ dentroDaArea = false }: { dentroDaArea?: boolean }) {
   const [filters, setFilters] = useState<Filters>(initialFilters)
+  const identidade = useAuthStore(s => `${s.user?.igreja_id}:${s.user?.sub}`)
 
-  const { data: pessoas, isLoading: loadingPessoas, isError: errorPessoas, error: errPessoas, refetch: refetchPessoas } = useQuery({ queryKey: ["pessoas"], queryFn: pessoasApi.list })
-  const { data: eventos, isLoading: loadingEventos, isError: errorEventos, error: errEventos, refetch: refetchEventos } = useQuery({ queryKey: ["eventos-membresia"], queryFn: eventosMembresiaApi.list })
+  const { data: pessoas, isLoading: loadingPessoas, isError: errorPessoas, error: errPessoas, refetch: refetchPessoas } = useQuery({ queryKey: ["pessoas", identidade], queryFn: pessoasApi.list })
+  const { data: eventos, isLoading: loadingEventos, isError: errorEventos, error: errEventos, refetch: refetchEventos } = useQuery({ queryKey: ["eventos-membresia", identidade], queryFn: eventosMembresiaApi.list })
 
   const { getFilter } = useEnumRelations("membresia")
 
@@ -122,59 +64,13 @@ export function RolMembrosPage() {
 
   // Sem fuso da igreja cadastrado, a referência é a data civil deste dispositivo.
   const hoje = dataCivilLocal(new Date())
-  const estados = useMemo(() => {
-    const grupos = new Map<string, EventoMembresia[]>()
-    for (const evento of eventos ?? []) { const grupo = grupos.get(evento.pessoa_id) ?? []; grupo.push(evento); grupos.set(evento.pessoa_id, grupo) }
-    const mapa = new Map<string, ReturnType<typeof eventoMembresiaVigente>>()
-    for (const [pessoaId, grupo] of grupos) mapa.set(pessoaId, eventoMembresiaVigente(grupo, hoje))
-    return mapa
-  }, [eventos, hoje])
-  const admissionMap = useMemo(() => {
-    const grupos = new Map<string, EventoMembresia[]>()
-    for (const evento of eventos ?? []) if (evento.tipo_evento === TipoEvento.ADMISSAO) { const grupo = grupos.get(evento.pessoa_id) ?? []; grupo.push(evento); grupos.set(evento.pessoa_id, grupo) }
-    const mapa = new Map<string, EventoMembresia>()
-    for (const [pessoaId, grupo] of grupos) { const vigente = eventoMembresiaVigente(grupo, hoje); if (vigente.situacao === 'DEFINIDO') mapa.set(pessoaId, vigente.evento) }
-    return mapa
-  }, [eventos, hoje])
-
-  const members: MemberView[] = useMemo(() => {
-    if (!pessoas) return []
-    return pessoas.map((p) => {
-      const estado = estados.get(p.id)
-      const lastEvent = estado?.situacao === 'DEFINIDO' ? estado.evento : undefined
-      const admEvent = admissionMap.get(p.id)
-      const rolKey = estado?.situacao === 'AMBIGUO' ? INDETERMINADO : lastEvent ? lastEvent.rol : NAO_ARROLADO
-      const tempoRolMeses = lastEvent ? getTempoRolMonths(lastEvent.data_evento) : null
-      return {
-        id: p.id,
-        nome: p.nome_completo,
-        idade: calcAge(p.data_nascimento),
-        sexo: p.sexo,
-        rolKey,
-        rolLabel: CATEGORY_LABELS[rolKey] ?? rolKey,
-        admissaoMotivacao: admEvent?.motivacao_evento ?? null,
-        admissaoLabel: admEvent ? MOTIVACAO_LABELS[admEvent.motivacao_evento] ?? "" : "—",
-        tempoRolMeses,
-        tempoRolFormatted: lastEvent ? formatTempoRol(lastEvent.data_evento) : "—",
-      }
-    })
-  }, [pessoas, estados, admissionMap])
-
-  const summary = useMemo(() => {
-    const counts: Record<string, number> = Object.fromEntries(CATEGORY_ORDER.map((k) => [k, 0]))
-    for (const m of members) counts[m.rolKey] = (counts[m.rolKey] ?? 0) + 1
-    const total = members.length
-    return CATEGORY_ORDER.map((key) => ({
-      key,
-      label: CATEGORY_LABELS[key],
-      count: counts[key] ?? 0,
-      percent: total > 0 ? ((counts[key] ?? 0) / total) * 100 : 0,
-      color: CATEGORY_COLORS[key],
-    }))
-  }, [members])
+  const members = useMemo(() => montarRol(pessoas ?? [], eventos ?? [], hoje), [pessoas, eventos, hoje])
+  const summary = useMemo(() => resumirRol(members), [members])
+  const termo = normalizarBusca(filters.busca)
 
   const filtered = useMemo(() => {
     return members.filter((m) => {
+      if (!correspondeBusca(termo, m.nome, m.familia) && !correspondeCpf(termo, m.cpf)) return false
       if (!filters.roles[m.rolKey]) return false
       if (filters.idadeMin && m.idade < Number(filters.idadeMin)) return false
       if (filters.idadeMax && m.idade > Number(filters.idadeMax)) return false
@@ -184,10 +80,10 @@ export function RolMembrosPage() {
       if (filters.tempoMax && (m.tempoRolMeses === null || m.tempoRolMeses > Number(filters.tempoMax))) return false
       return true
     })
-  }, [members, filters])
+  }, [members, filters, termo])
 
   const hasActiveFilters = useMemo(() => {
-    return filters.idadeMin !== "" || filters.idadeMax !== "" ||
+    return filters.busca !== "" || filters.idadeMin !== "" || filters.idadeMax !== "" ||
       filters.sexo !== "" || filters.admissao !== "" ||
       filters.tempoMin !== "" || filters.tempoMax !== "" ||
       Object.values(filters.roles).some((v) => !v)
@@ -225,8 +121,10 @@ export function RolMembrosPage() {
   ]
 
   return (
-    <div className="workspace">
-      <WorkspaceHeader icon={PageIcon} title="Rol de Membros" description="Composição na data civil deste dispositivo. Eventos futuros não alteram o rol atual." />
+    <div className={dentroDaArea ? "space-y-5" : "workspace"}>
+      {dentroDaArea
+        ? <p className="text-sm text-muted-foreground">Composição em {formatarDataCivil(hoje)}, pela data deste dispositivo.</p>
+        : <WorkspaceHeader icon={PageIcon} title="Rol de Membros" description="Composição na data civil deste dispositivo. Eventos futuros não alteram o rol atual." />}
 
       {isLoading ? (
         <div className="py-16 text-center text-muted-foreground">Carregando...</div>
@@ -282,9 +180,9 @@ export function RolMembrosPage() {
           </div>
 
           {/* Filters + Table */}
-          <div className="grid grid-cols-[260px_1fr] gap-6 items-start">
+          <div className="grid items-start gap-5 lg:grid-cols-[16rem_minmax(0,1fr)]">
             {/* Filters sidebar */}
-            <aside className="rounded-lg border bg-card p-4 space-y-5 sticky top-4">
+            <aside className="rounded-lg border bg-card p-4 space-y-5 lg:sticky lg:top-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Filtros</h3>
                 {hasActiveFilters && (
@@ -321,6 +219,8 @@ export function RolMembrosPage() {
                   <Input
                     type="number"
                     placeholder="Mín"
+                    aria-label="Idade mínima"
+                    min={0}
                     value={filters.idadeMin}
                     onChange={(e) => setFilters((f) => ({ ...f, idadeMin: e.target.value }))}
                     className="h-8 text-sm"
@@ -328,6 +228,8 @@ export function RolMembrosPage() {
                   <Input
                     type="number"
                     placeholder="Máx"
+                    aria-label="Idade máxima"
+                    min={0}
                     value={filters.idadeMax}
                     onChange={(e) => setFilters((f) => ({ ...f, idadeMax: e.target.value }))}
                     className="h-8 text-sm"
@@ -339,7 +241,7 @@ export function RolMembrosPage() {
               <div className="space-y-2">
                 <Label className="text-xs font-semibold text-muted-foreground">Sexo</Label>
                 <Select value={filters.sexo || "all"} onValueChange={(v) => setFilters((f) => ({ ...f, sexo: v === "all" ? "" : v }))}>
-                  <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectTrigger aria-label="Sexo" className="h-8 text-sm"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
                     <SelectItem value={Sexo.MASCULINO}>Masculino</SelectItem>
@@ -352,7 +254,7 @@ export function RolMembrosPage() {
               <div className="space-y-2">
                 <Label className="text-xs font-semibold text-muted-foreground">Forma de Admissão</Label>
                 <Select value={filters.admissao || "all"} onValueChange={(v) => setFilters((f) => ({ ...f, admissao: v === "all" ? "" : v }))}>
-                  <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectTrigger aria-label="Forma de admissão" className="h-8 text-sm"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas</SelectItem>
                     {admMotivacoes.map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
@@ -367,6 +269,8 @@ export function RolMembrosPage() {
                   <Input
                     type="number"
                     placeholder="Mín"
+                    aria-label="Tempo mínimo no rol em meses"
+                    min={0}
                     value={filters.tempoMin}
                     onChange={(e) => setFilters((f) => ({ ...f, tempoMin: e.target.value }))}
                     className="h-8 text-sm"
@@ -374,6 +278,8 @@ export function RolMembrosPage() {
                   <Input
                     type="number"
                     placeholder="Máx"
+                    aria-label="Tempo máximo no rol em meses"
+                    min={0}
                     value={filters.tempoMax}
                     onChange={(e) => setFilters((f) => ({ ...f, tempoMax: e.target.value }))}
                     className="h-8 text-sm"
@@ -389,11 +295,15 @@ export function RolMembrosPage() {
             </aside>
 
             {/* Table */}
-            <DataTable
-              data={filtered}
-              columns={columns}
-              keyExtractor={(m) => m.id}
-            />
+            <div className="min-w-0 space-y-4">
+              <div className="surface">
+                <CampoBusca rotulo="Buscar no rol" placeholder="Nome, CPF ou família" valor={filters.busca}
+                  mudar={busca => setFilters(f => ({ ...f, busca }))} />
+              </div>
+              {filtered.length ? <DataTable data={filtered} columns={columns} keyExtractor={m => m.id}
+                pageResetKey={JSON.stringify(filters)} /> :
+                <EmptyState icon={ScrollText} title="Nenhuma pessoa encontrada" description="Altere a busca ou os filtros." />}
+            </div>
           </div>
         </>
       )}

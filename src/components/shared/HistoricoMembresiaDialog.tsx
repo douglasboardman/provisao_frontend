@@ -94,6 +94,7 @@ export function HistoricoMembresiaDialog({
   const secretariaHabilitada = useRecurso('secretaria')
   const governancaHabilitada = useRecurso('governanca')
   const { canEdit, canDelete } = usePermissions("eventos-membresia");
+  const { canView: podeConsultarPessoas } = usePermissions("pessoas");
   const { getFilter, getMapping } = useEnumRelations("membresia");
   const queryClient = useQueryClient();
 
@@ -123,11 +124,12 @@ export function HistoricoMembresiaDialog({
   }
 
   const { data: allPessoas } = useQuery({
-    queryKey: ["pessoas"],
+    queryKey: ["pessoas", identidade],
     queryFn: pessoasApi.list,
+    enabled: open && !!pessoaId && podeConsultarPessoas,
   });
   const { data: pessoaEventos, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ["eventos-membresia", "pessoa", pessoaId],
+    queryKey: ["eventos-membresia", identidade, "pessoa", pessoaId],
     queryFn: () => eventosMembresiaApi.getByPessoa(pessoaId!),
     enabled: !!pessoaId && open,
   });

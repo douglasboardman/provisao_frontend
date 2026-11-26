@@ -51,6 +51,8 @@ import {
 } from "../../lib/membresia-labels";
 import { eventoMembresiaVigente, formatarDataCivil } from "../../lib/membresia-temporal";
 import { useEnumRelations } from "../../hooks/use-enum-relations";
+import { CampoBusca } from "../../components/shared/CampoBusca";
+import { correspondeBusca, normalizarBusca } from "../../lib/busca";
 
 const admissaoSchema = z.object({
   pessoa_id: z.string().min(1, "Pessoa é obrigatória"),
@@ -86,17 +88,22 @@ export function GestaoMembresiaPage() {
   const secretariaHabilitada = useRecurso('secretaria')
   const [modal, setModal] = useState<ModalType>(null);
   const [historyPessoaId, setHistoryPessoaId] = useState<string | null>(null);
+  const [busca, setBusca] = useState("");
+  const [tipo, setTipo] = useState("todos");
   const { canCreate } = usePermissions("eventos-membresia");
+  const { canView: podeConsultarPessoas } = usePermissions("pessoas");
+  const identidade = useAuthStore(s => `${s.user?.igreja_id}:${s.user?.sub}`);
   const { getFilter, getMapping } = useEnumRelations("membresia");
   const queryClient = useQueryClient();
 
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ["eventos-membresia"],
+    queryKey: ["eventos-membresia", identidade],
     queryFn: eventosMembresiaApi.list,
   });
   const { data: pessoas } = useQuery({
-    queryKey: ["pessoas"],
+    queryKey: ["pessoas", identidade],
     queryFn: pessoasApi.list,
+    enabled: canCreate && podeConsultarPessoas,
   });
 
   const { lastEventMap, ambiguos } = useMemo(() => {
@@ -112,10 +119,13 @@ export function GestaoMembresiaPage() {
     return { lastEventMap: mapa, ambiguos: pendentes };
   }, [data]);
 
-  const lastEvents = useMemo(
-    () => Array.from(lastEventMap.values()),
-    [lastEventMap],
-  );
+  const termo = normalizarBusca(busca);
+  const lastEvents = Array.from(lastEventMap.values(), evento => ({
+    ...evento,
+    nome: evento.pessoas?.nome_completo ?? evento.pessoa_id.slice(0, 8),
+  }));
+  const filtrados = lastEvents.filter(evento => (tipo === "todos" || evento.tipo_evento === tipo) &&
+    correspondeBusca(termo, evento.nome));
 
   const pessoasAdmissao = useMemo(() => {
     if (!pessoas) return [];
@@ -195,8 +205,6 @@ export function GestaoMembresiaPage() {
     return lastEvent ? lastEvent.data_evento.split("T")[0] : undefined;
   }, [mudPessoaId, lastEventMap]);
 
-  const usuario = useAuthStore(s => s.user);
-  const identidade = `${usuario?.igreja_id}:${usuario?.sub}`;
   const [eventoCriado, setEventoCriado] = useState<{ id: string; identidade: string } | null>(null);
 
   const createMut = useMutation({
@@ -267,13 +275,13 @@ export function GestaoMembresiaPage() {
     );
   }
 
-  const columns: Column<EventoMembresia>[] = [
+  const columns: Column<(typeof lastEvents)[number]>[] = [
     {
-      key: "pessoa",
+      key: "nome",
       header: "Pessoa",
       render: (v) => (
         <span className="font-medium">
-          {v.pessoas?.nome_completo ?? v.pessoa_id.slice(0, 8)}
+          {v.nome}
         </span>
       ),
       sortable: true,
@@ -353,11 +361,11 @@ export function GestaoMembresiaPage() {
         mudForm.setValue("motivacao_evento", "");
       }
     }
-  }, [mudMotivacoes]);
+  }, [mudMotivacoes, mudForm]);
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-heading font-bold">
             Gestão de Membresia
@@ -367,7 +375,7 @@ export function GestaoMembresiaPage() {
           </p>
         </div>
         {canCreate && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="default"
               onClick={() => {
@@ -403,6 +411,22 @@ export function GestaoMembresiaPage() {
         )}
       </div>
 
+      <div className="surface flex flex-wrap items-end gap-3">
+        <div className="min-w-48 flex-[2]">
+          <CampoBusca rotulo="Buscar na gestão de membresia" placeholder="Nome da pessoa" valor={busca} mudar={setBusca} />
+        </div>
+        <div className="min-w-40 flex-1 space-y-1.5">
+          <label htmlFor="gestao-tipo" className="text-sm font-medium">Tipo do último evento</label>
+          <Select value={tipo} onValueChange={setTipo}>
+            <SelectTrigger id="gestao-tipo" className="w-full"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os tipos</SelectItem>
+              {Object.entries(TIPO_LABELS).map(([id, label]) => <SelectItem key={id} value={id}>{label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        {(busca || tipo !== "todos") && <Button variant="ghost" onClick={() => { setBusca(""); setTipo("todos"); }}>Limpar filtros</Button>}
+      </div>
       {ambiguos.size > 0 && <p role="alert">{ambiguos.size} histórico(s) têm atos recentes no mesmo dia sem ordem confirmada e foram excluídos das ações até a conferência.</p>}
       {isLoading ? (
         <div className="py-16 text-center text-muted-foreground">
@@ -416,11 +440,14 @@ export function GestaoMembresiaPage() {
           title="Nenhum evento"
           description="Nenhum evento de membresia registrado"
         />
+      ) : !filtrados.length ? (
+        <EmptyState icon={History} title="Nenhum evento encontrado" description="Altere a busca ou o filtro." />
       ) : (
         <DataTable
-          data={lastEvents}
+          data={filtrados}
           columns={columns}
           keyExtractor={(v) => v.pessoa_id}
+          pageResetKey={JSON.stringify([termo, tipo])}
           actions={(item) => (
             <Button
               variant="ghost"

@@ -4,6 +4,7 @@ import type { BloqueioOrgao, OficialResumo } from './oficiais'
 
 export type TipoOrgao = 'ASSEMBLEIA_GERAL' | 'SOCIEDADE_INTERNA' | 'CONSELHO' | 'JUNTA' | 'UNIDADE_MINISTERIAL'
 export interface OrgaoResumo { categoria?: string; tipo_padrao?: string | null; gestao_presidencial?: boolean; integrantes?: number; vagas?: number; id: string; tipo: TipoOrgao; constituicao: 'OFICIAL' | 'ELEICAO' | 'DESIGNACAO'; nome: string; sigla: string | null; ativo: boolean }
+interface ResumoEstrutura { oficiais: number; sociedades: number; unidades: number; mandatos_vigentes: number | null }
 type Pessoa = { id: string; nome_completo: string }
 type SituacaoMembresia = 'ELEGIVEL' | 'NAO_ELEGIVEL' | 'INDETERMINADA' | null
 export interface DetalheOrgao {
@@ -78,7 +79,7 @@ export const orgaosApi = {
   registrarMandato: (id: string, dados: EntradaMandato & { previa: string }) => apiClient.post<{ id: string; oficial_id: string }>(`orgaos/${id}/mandatos`, dados),
   ato: (orgao: string, ato: string) => apiClient.get<{ id: string; autoridade: string | null; evidencia: string | null; detalhes: Record<string, unknown>; retrato: { orgao?: { nome: string }; operador?: { nome: string }; pessoas?: { id: string; nome: string }[] } | null }>(`orgaos/${encodeURIComponent(orgao)}/atos/${encodeURIComponent(ato)}`),
   relogio: () => apiClient.get<{ data_utc: string; data_operacional: string | null; fuso_iana: string | null; data_no_fuso: string | null }>('orgaos/relogio'),
-  listar: (cursor?: string, data?: string) => apiClient.get<Pagina<OrgaoResumo> & { pode_gerir_sociedades?: boolean }>(`orgaos?${new URLSearchParams({ ...(cursor && { cursor }), ...(data && { data }) })}`),
+  listar: (cursor?: string, data?: string) => apiClient.get<Pagina<OrgaoResumo> & { resumo?: ResumoEstrutura; pode_gerir_sociedades?: boolean }>(`orgaos?${new URLSearchParams({ ...(cursor && { cursor }), ...(data && { data }) })}`),
   detalhe: (id: string, data: string, cursores?: { ocupacao?: string; participacao?: string; inativos?: boolean; cursorInativo?: string }) => {
     const params = new URLSearchParams({ data })
     if (cursores?.inativos) params.set('inativos', '1')

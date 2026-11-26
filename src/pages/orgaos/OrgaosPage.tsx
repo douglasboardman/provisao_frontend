@@ -98,7 +98,12 @@ export function OrgaosPage() {
   if (!relogio.data.data_operacional) return <main className="space-y-4 p-6"><p role="alert">O fuso cadastrado é inválido; corrija-o antes de registrar atos.</p>{gestaoHabilitada && perfil === Perfil.ADMINISTRADOR && <ConfiguracaoFuso identidade={identidade} />}</main>
   return <RelogioIgreja dia={relogio.data.data_operacional}><div className="workspace">
     <WorkspaceHeader icon={Network} title="Estrutura da igreja" description="Estrutura institucional, composição e histórico de ocupações." />
-    <div className="metric-grid">{([{icon:Landmark,label:'Conselhos',tipo:'CONSELHO'},{icon:UsersRound,label:'Juntas',tipo:'JUNTA'},{icon:Layers,label:'Unidades',tipo:'UNIDADE_MINISTERIAL'},{icon:CircleCheck,label:'Cadastros ativos',tipo:'ativos'}]).map(m => <Metric key={m.tipo} icon={m.icon} label={m.label + (cursor || lista.data?.proximo_cursor ? ' nesta página' : '')} value={lista.data?.itens.filter(o => m.tipo === 'ativos' ? o.ativo : o.tipo === m.tipo).length ?? '—'} />)}</div>
+    <div className="metric-grid">
+      <Metric icon={Landmark} label="Órgãos Oficiais" value={lista.data?.resumo?.oficiais ?? '—'} />
+      <Metric icon={UsersRound} label="Sociedades Internas" value={lista.data?.resumo?.sociedades ?? '—'} />
+      <Metric icon={Layers} label="Un. Ministeriais" value={lista.data?.resumo?.unidades ?? '—'} />
+      <Metric icon={CircleCheck} label="Mandatos Vigentes" value={lista.data?.resumo?.mandatos_vigentes ?? '—'} />
+    </div>
     <p className="text-sm text-muted-foreground">Data adotada para atos: {exibirData(relogio.data.data_operacional)} ({relogio.data.fuso_iana ?? 'UTC, sem fuso cadastrado'}).</p>
     <div className="max-w-xs space-y-2"><Label htmlFor="data-orgaos">Data de referência</Label><Input id="data-orgaos" type="date" value={data} onChange={e => { setData(e.target.value); limparHistoricos() }} /></div>
     <section className="surface"><Painel className="space-y-4"><h2 className="text-lg font-semibold">Órgãos cadastrados</h2>

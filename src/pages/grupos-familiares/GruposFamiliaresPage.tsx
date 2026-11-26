@@ -1,5 +1,3 @@
-import { UsersRound as PageIcon } from "lucide-react"
-import { WorkspaceHeader } from "../../components/shared/Workspace"
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
@@ -13,6 +11,8 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "../../components/ui/dialog"
 import { DataTable, type Column } from "../../components/shared/DataTable"
+import { CampoBusca } from "../../components/shared/CampoBusca"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { DeleteDialog } from "../../components/shared/DeleteDialog"
 import { FamiliaViewDialog } from "../../components/shared/FamiliaViewDialog"
 import { PessoaEditDialog } from "../../components/shared/PessoaEditDialog"
@@ -24,6 +24,8 @@ import { useModalStack } from "../../hooks/use-modal-stack"
 import { toast } from "../../components/ui/use-toast"
 import { gruposFamiliaresApi } from "../../api/grupos-familiares"
 import { ApiRequestError } from "../../api/client"
+import { correspondeBusca, normalizarBusca } from "../../lib/busca"
+import { useAuthStore } from "../../stores/auth"
 import type { GrupoFamiliar } from "../../types/models"
 
 const schema = z.object({
@@ -36,12 +38,16 @@ export function GruposFamiliaresPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<GrupoFamiliar | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<GrupoFamiliar | null>(null)
+  const [busca, setBusca] = useState("")
+  const [composicao, setComposicao] = useState("todos")
   const { canCreate, canEdit, canDelete } = usePermissions("grupos-familiares")
+  const { canView: podeConsultarPessoas } = usePermissions("pessoas")
+  const identidade = useAuthStore(s => `${s.user?.igreja_id}:${s.user?.sub}`)
   const queryClient = useQueryClient()
   const { current, hasBack, push, pop, closeAll } = useModalStack()
 
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ["grupos-familiares"],
+    queryKey: ["grupos-familiares", identidade],
     queryFn: gruposFamiliaresApi.list,
   })
 
@@ -64,6 +70,7 @@ export function GruposFamiliaresPage() {
     mutationFn: ({ id, d }: { id: string; d: FormData }) => gruposFamiliaresApi.update(id, d),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["grupos-familiares"] })
+      queryClient.invalidateQueries({ queryKey: ["pessoas"] })
       toast({ title: "Grupo familiar atualizado" })
       closeDialog()
     },
@@ -74,6 +81,7 @@ export function GruposFamiliaresPage() {
     mutationFn: (id: string) => gruposFamiliaresApi.remove(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["grupos-familiares"] })
+      queryClient.invalidateQueries({ queryKey: ["pessoas"] })
       toast({ title: "Grupo familiar excluído" })
       setDeleteTarget(null)
     },
@@ -112,34 +120,54 @@ export function GruposFamiliaresPage() {
     },
   ]
 
-  const actions = (item: GrupoFamiliar) => (
+  const actions = (canEdit || canDelete || podeConsultarPessoas) ? (item: GrupoFamiliar) => (
     <div className="flex gap-1">
-      <Button variant="ghost" size="icon" onClick={() => push({ type: "familia", grupo: { id: item.id, nome_familia: item.nome_familia } })} title="Ver integrantes">
+      {podeConsultarPessoas && <Button variant="ghost" size="icon" onClick={() => push({ type: "familia", grupo: { id: item.id, nome_familia: item.nome_familia } })} title="Ver integrantes">
         <Eye size={16} />
-      </Button>
+      </Button>}
       {canEdit && (
-        <Button variant="ghost" size="icon" onClick={() => openEdit(item)}>
+        <Button aria-label={`Editar ${item.nome_familia}`} variant="ghost" size="icon" onClick={() => openEdit(item)}>
           <Pencil size={16} />
         </Button>
       )}
       {canDelete && (
-        <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(item)}>
+        <Button aria-label={`Excluir ${item.nome_familia}`} variant="ghost" size="icon" onClick={() => setDeleteTarget(item)}>
           <Trash2 size={16} className="text-destructive" />
         </Button>
       )}
     </div>
+  ) : undefined
+
+  const termo = normalizarBusca(busca)
+  const filtrados = (data ?? []).filter(grupo => correspondeBusca(termo, grupo.nome_familia) &&
+    (composicao === "todos" || ((grupo._count?.pessoas ?? 0) > 0) === (composicao === "com"))
   )
 
   return (
-    <div className="workspace">
-      <WorkspaceHeader icon={PageIcon} title="Grupos Familiares" description="Gerencie os grupos familiares da igreja">
+    <div className="space-y-4">
+      <div className="surface flex flex-wrap items-end gap-3">
+        <div className="min-w-48 flex-[2]">
+          <CampoBusca rotulo="Buscar grupos familiares" placeholder="Nome da família" valor={busca} mudar={setBusca} />
+        </div>
+        <div className="min-w-40 flex-1 space-y-1.5">
+          <label htmlFor="grupos-composicao" className="text-sm font-medium">Composição</label>
+          <Select value={composicao} onValueChange={setComposicao}>
+            <SelectTrigger id="grupos-composicao" className="w-full"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os grupos</SelectItem>
+              <SelectItem value="com">Com integrantes</SelectItem>
+              <SelectItem value="sem">Sem integrantes</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {(busca || composicao !== "todos") && <Button variant="ghost" onClick={() => { setBusca(""); setComposicao("todos") }}>Limpar filtros</Button>}
         {canCreate && (
-          <Button onClick={openCreate}>
+          <Button className="ml-auto" onClick={openCreate}>
             <Plus size={18} className="mr-2" />
             Novo Grupo
           </Button>
         )}
-      </WorkspaceHeader>
+      </div>
 
       {isLoading ? (
         <div className="py-16 text-center text-muted-foreground">Carregando...</div>
@@ -147,8 +175,10 @@ export function GruposFamiliaresPage() {
         <ErrorState error={error} onRetry={() => refetch()} />
       ) : !data?.length ? (
         <EmptyState icon={Building2} title="Nenhum grupo familiar" description="Nenhum grupo familiar cadastrado" />
+      ) : !filtrados.length ? (
+        <EmptyState icon={Building2} title="Nenhum grupo familiar encontrado" description="Altere a busca ou o filtro." />
       ) : (
-        <DataTable data={data} columns={columns} keyExtractor={(item) => item.id} actions={actions} />
+        <DataTable data={filtrados} columns={columns} keyExtractor={(item) => item.id} actions={actions} pageResetKey={JSON.stringify([termo, composicao])} />
       )}
 
       <FamiliaViewDialog

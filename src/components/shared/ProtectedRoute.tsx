@@ -5,7 +5,7 @@ import { useAuthStore } from '../../stores/auth'
 
 const rotas: Record<string, string[]> = {
   '/orgaos': ['orgaos'], '/oficiais': ['oficiais'], '/secretaria': ['secretaria'],
-  '/pessoas': ['pessoas'], '/grupos-familiares': ['grupos-familiares'],
+  '/pessoas': ['pessoas', 'grupos-familiares'], '/grupos-familiares': ['grupos-familiares'],
   '/rol-membros': ['eventos-membresia'], '/gestao-membresia': ['eventos-membresia'],
   '/contas': ['contas'], '/lancamentos': ['lancamentos'], '/receitas': ['receitas'], '/despesas': ['despesas'],
   '/tipo-receita': ['receitas'], '/tipo-despesa': ['despesas'],

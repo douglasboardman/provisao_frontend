@@ -15,6 +15,7 @@ interface DataTableProps<T> {
   actions?: (item: T) => ReactNode
   keyExtractor: (item: T) => string | number
   pageSize?: number
+  pageResetKey?: string
 }
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
@@ -26,11 +27,18 @@ export function DataTable<T>({
   actions,
   keyExtractor,
   pageSize: initialPageSize = 10,
+  pageResetKey,
 }: DataTableProps<T>) {
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc")
   const [currentPage, setCurrentPage] = useState(1)
+  const [previousPageResetKey, setPreviousPageResetKey] = useState(pageResetKey)
   const [pageSize, setPageSize] = useState(initialPageSize)
+
+  if (previousPageResetKey !== pageResetKey) {
+    setPreviousPageResetKey(pageResetKey)
+    setCurrentPage(1)
+  }
 
   function handleSort(key: string) {
     if (sortKey === key) {

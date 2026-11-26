@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { Search } from 'lucide-react'
 import { Input } from '../ui/input'
+import { normalizarBusca } from '../../lib/busca'
 
 type Opcao = { id: string; nome: string }
 type Props = {
@@ -16,8 +17,6 @@ type Props = {
   disabled?: boolean
   carregando?: boolean
 }
-
-const normalizar = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLocaleLowerCase('pt-BR').trim()
 
 export function SeletorPessoa({
   opcoes = [],
@@ -42,8 +41,8 @@ export function SeletorPessoa({
   const nome =
     opcoes.find((o) => o.id === selecionado)?.nome ??
     (onBusca && escolhida && escolhida.id === selecionado ? escolhida.nome : '')
-  const filtro = normalizar(consulta ?? '')
-  const visiveis = opcoes.filter((o) => normalizar(o.nome).includes(filtro))
+  const filtro = normalizarBusca(consulta ?? '')
+  const visiveis = opcoes.filter((o) => normalizarBusca(o.nome).includes(filtro))
   const ativo = indice >= 0 && indice < visiveis.length ? indice : -1
   useEffect(() => {
     if (aberta && ativo >= 0) document.getElementById(`${lista}-${ativo}`)?.scrollIntoView?.({ block: 'nearest' })

@@ -38,10 +38,8 @@ const OficiaisPage = lazy(() => import('./pages/oficiais/OficiaisPage').then(m =
 const OrgaosPage = lazy(() => import('./pages/orgaos/OrgaosPage').then(m => ({ default: m.OrgaosPage })))
 const ConfiguracoesPage = lazy(() => import('./pages/configuracoes/ConfiguracoesPage').then(m => ({ default: m.ConfiguracoesPage })))
 const PerfisAtuacaoPage = lazy(() => import('./pages/configuracoes/PerfisAtuacaoPage').then(m => ({ default: m.PerfisAtuacaoPage })))
-const GestaoMembresiaPage = lazy(() => import('./pages/membresia/GestaoMembresiaPage').then(m => ({ default: m.GestaoMembresiaPage })))
-const RolMembrosPage = lazy(() => import('./pages/membresia/RolMembrosPage').then(m => ({ default: m.RolMembrosPage })))
-const PessoasPage = lazy(() => import('./pages/pessoas/PessoasPage').then(m => ({ default: m.PessoasPage })))
-const GruposFamiliaresPage = lazy(() => import('./pages/grupos-familiares/GruposFamiliaresPage').then(m => ({ default: m.GruposFamiliaresPage })))
+const AreaMembresia = lazy(() => import('./pages/membresia/AreaMembresia').then(m => ({ default: m.AreaMembresia })))
+const AreaPessoas = lazy(() => import('./pages/pessoas/AreaPessoas').then(m => ({ default: m.AreaPessoas })))
 
 function OficiaisRoute() {
   const governancaHabilitada = useRecurso('governanca')
@@ -110,10 +108,10 @@ function App() {
           <Route path="orgaos" element={<OrgaosRoute />} />
           <Route path="secretaria" element={<SecretariaRoute />} />
           <Route path="secretaria/:contextoId/documentos/:documentoId" element={<SecretariaRoute />} />
-          <Route path="pessoas" element={<PessoasPage />} />
-          <Route path="grupos-familiares" element={<GruposFamiliaresPage />} />
-          <Route path="rol-membros" element={<RolMembrosPage />} />
-          <Route path="gestao-membresia" element={<GestaoMembresiaPage />} />
+          <Route path="pessoas" element={<AreaPessoas />} />
+          <Route path="grupos-familiares" element={<Navigate to="/pessoas?aba=grupos-familiares" replace />} />
+          <Route path="rol-membros" element={<AreaMembresia />} />
+          <Route path="gestao-membresia" element={<Navigate to="/rol-membros?aba=gestao" replace />} />
 
           {/* Financeiro */}
           <Route path="contas" element={<ContasPage />} />

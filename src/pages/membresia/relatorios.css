@@ -1,0 +1,125 @@
+.relatorio-membresia {
+  color: #221934;
+  background: #fff;
+  border: 1px solid #ded8e6;
+  border-radius: 1rem;
+  padding: clamp(1rem, 3vw, 2rem);
+}
+
+.relatorio-membresia-cabecalho {
+  display: flex;
+  align-items: flex-start;
+  gap: .875rem;
+  border-bottom: 2px solid #674390;
+  padding-bottom: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.relatorio-membresia-cabecalho img {
+  flex: none;
+}
+
+.relatorio-membresia-dados {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .75rem 2rem;
+  padding: 1rem 0;
+  font-size: .875rem;
+}
+
+.relatorio-membresia-dados dt {
+  color: #514960;
+  font-size: .75rem;
+}
+
+.relatorio-membresia-dados dd {
+  font-weight: 600;
+}
+
+.relatorio-membresia-tabela {
+  overflow-x: auto;
+}
+
+.relatorio-membresia table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .875rem;
+  text-align: left;
+}
+
+@media screen {
+  .relatorio-membresia-tabela[data-modelo="movimentacoes"] table {
+    min-width: 36rem;
+  }
+}
+
+.relatorio-membresia :is(th, td) {
+  border-bottom: 1px solid #ded8e6;
+  padding: .5rem .625rem;
+  overflow-wrap: anywhere;
+  vertical-align: top;
+}
+
+.relatorio-membresia th {
+  background: #eee9f4;
+  font-weight: 600;
+}
+
+.relatorio-membresia tbody tr:nth-child(even) {
+  background: #f9f7fb;
+}
+
+.relatorio-membresia footer {
+  margin-top: 1.25rem;
+  font-size: .75rem;
+  color: #514960;
+}
+
+@media print {
+  @page membresia {
+    size: A4;
+    margin: 14mm 13mm;
+
+    @bottom-right {
+      content: "Página " counter(page) " de " counter(pages);
+      font: 9pt sans-serif;
+      color: #514960;
+    }
+  }
+
+  #root:has(.relatorio-membresia) :is(.app-shell, .app-shell-body, #conteudo, .app-content, .workspace, [role="tabpanel"]):has(.relatorio-membresia) {
+    display: block;
+    height: auto;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    background: #fff;
+  }
+
+  #root:has(.relatorio-membresia) :is(.app-shell, .app-shell-body, .workspace, [role="tabpanel"], .relatorios-membresia):has(.relatorio-membresia) > :not(.relatorio-membresia, :has(.relatorio-membresia)),
+  #root:has(.relatorio-membresia) [role="tablist"] {
+    display: none;
+  }
+
+  .relatorio-membresia {
+    page: membresia;
+    padding: 0;
+    border: 0;
+    margin: 0;
+    break-inside: auto;
+    print-color-adjust: exact;
+  }
+
+  .relatorio-membresia-cabecalho, .relatorio-membresia-dados, .relatorio-membresia tr {
+    break-inside: avoid;
+  }
+
+  .relatorio-membresia-tabela {
+    overflow: visible;
+  }
+
+  .relatorio-membresia thead {
+    display: table-header-group;
+  }
+}
