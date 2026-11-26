@@ -138,7 +138,10 @@ export function OrgaosPage() {
                 {ficha.proximo_cursor_inativo && <Button variant="outline" onClick={() => setPaginasInativos(p => [...p, ficha.proximo_cursor_inativo!])}>Mais integrantes</Button>}</div>}
               {ficha.composicao.indeterminados.map(p => <p key={p.pessoa_id}>{p.nome} — situação indeterminada</p>)}
             </div>}
-            {oficial && <MandatosOrgao key={selecionado} orgao={selecionado} identidade={identidade} data={data} cargos={ficha.cargos_na_data} podeAtribuir={podeAtribuir} preparoRegistro={preparoRegistro} conselho={ficha.orgao.tipo === 'CONSELHO'} />}
+            {oficial && <MandatosOrgao key={selecionado} orgao={selecionado} identidade={identidade} data={data}
+              cargos={ficha.cargos_na_data} podeAtribuir={podeAtribuir} preparoRegistro={preparoRegistro}
+              orgaoOficialAtivo={ficha.orgao.ativo && ficha.orgao.tipo_padrao === ficha.orgao.tipo}
+              conselho={ficha.orgao.tipo === 'CONSELHO'} />}
           </>}
           {secao === 'Cargos e titulares' && <>
             {sociedade && ficha.consulta_nominal !== false &&

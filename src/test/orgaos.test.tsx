@@ -54,6 +54,25 @@ describe('consulta de órgãos', () => {
     fireEvent.change(data, { target: { value: '2025-12-10' } })
     expect(data.validity.valid).toBe(true)
   })
+  it.each([false, true])('mostra o caminho para registrar mandato na composição do Conselho (autorizado: %s)', async autorizado => {
+    vi.stubEnv('VITE_FEATURE_ORGAOS_GESTAO', 'true')
+    useAuthStore.setState({ user: { sub: 'operador', igreja_id: 'igreja', perfil: autorizado ? Perfil.SECRETARIO : Perfil.ADMINISTRADOR, login: 'x', username: 'x' } })
+    const ficha = await orgaosApi.detalhe('orgao', '2026-11-16')
+    vi.mocked(orgaosApi.detalhe).mockResolvedValueOnce({ ...ficha, orgao: { ...ficha.orgao, tipo_padrao: 'CONSELHO' } })
+    vi.mocked(orgaosApi.mandatos).mockResolvedValueOnce({ itens: [], proximo_cursor: null, pode_registrar: autorizado })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<QueryClientProvider client={client}><OrgaosPage /></QueryClientProvider>)
+    fireEvent.click(await screen.findByRole('button', { name: 'Consultar' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Composição e mandatos' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Registrar mandato' }))
+    expect(screen.getByRole('heading', { name: 'Registrar mandato' })).toBeTruthy()
+    if (autorizado) {
+      expect(screen.getByRole('textbox', { name: 'Ata da Assembleia que elegeu a pessoa' })).toBeTruthy()
+    } else {
+      expect(screen.getByRole('link', { name: 'Abrir usuários' }).getAttribute('href')).toBe('/usuarios')
+      expect(screen.queryByRole('textbox', { name: 'Ata da Assembleia que elegeu a pessoa' })).toBeNull()
+    }
+  })
   it.each(['VINCULAR_PESSOA', 'HABILITAR_SERVICO'] as const)('orienta o administrador no cartão do mandato em %s', async preparo => {
     vi.stubEnv('VITE_FEATURE_ORGAOS_GESTAO', 'true')
     useAuthStore.setState({ user: { sub: 'admin', igreja_id: 'igreja', perfil: Perfil.ADMINISTRADOR, login: 'admin', username: 'Admin' } })

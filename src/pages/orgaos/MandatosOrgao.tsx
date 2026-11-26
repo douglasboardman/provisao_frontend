@@ -42,7 +42,10 @@ export function OrientacaoRegistroCargos({ preparo, identidade }: { preparo: Non
   </div>
 }
 
-export function MandatosOrgao({ orgao, identidade, data, conselho, cargos, podeAtribuir = false, preparoRegistro }: { podeAtribuir?: boolean; preparoRegistro?: PreparoRegistro; cargos?: VagaCargo[]; orgao: string; identidade: string; data: string; conselho: boolean }) {
+export function MandatosOrgao({ orgao, identidade, data, conselho, cargos, podeAtribuir = false, preparoRegistro, orgaoOficialAtivo }: {
+  orgao: string; identidade: string; data: string; conselho: boolean; cargos?: VagaCargo[]
+  podeAtribuir?: boolean; preparoRegistro?: PreparoRegistro; orgaoOficialAtivo?: boolean
+}) {
   const [paginas, setPaginas] = useState<string[]>([])
   const [paginasPastores, setPaginasPastores] = useState<string[]>([])
   const [mandatario, escolherMandatario] = useState<OficialResumo['pessoa'] | null>(null)
@@ -58,7 +61,10 @@ export function MandatosOrgao({ orgao, identidade, data, conselho, cargos, podeA
   const lista = useQuery({ queryKey: ['orgaos', identidade, 'mandatos', orgao, cursor], queryFn: () => orgaosApi.mandatos(orgao, cursor), staleTime: 0 })
   const pastores = useQuery({ queryKey: ['orgaos', identidade, 'vinculos', orgao, cursorPastores], queryFn: () => orgaosApi.docentesConselho(orgao, cursorPastores), enabled: conselho && mostrarPastores })
   const mostrarAtribuicao = !!cargos?.length && (podeAtribuir || preparoRegistro)
-  const podeRegistrar = lista.data?.pode_registrar && import.meta.env.VITE_FEATURE_ORGAOS_GESTAO === 'true'
+  const gestaoHabilitada = import.meta.env.VITE_FEATURE_ORGAOS_GESTAO === 'true'
+  const podeRegistrar = gestaoHabilitada && lista.data?.pode_registrar
+  const orientarRegistro = gestaoHabilitada && orgaoOficialAtivo && perfil === Perfil.ADMINISTRADOR &&
+    lista.isSuccess && !podeRegistrar
   function iniciar(titular?: OficialResumo['pessoa']) { setForm({ titular }); setRegistro(null); setMensagem('') }
   async function concluir() {
     setForm(null); setPaginas([]); setMensagem('Mandato registrado.')
@@ -67,9 +73,15 @@ export function MandatosOrgao({ orgao, identidade, data, conselho, cargos, podeA
   const prontuario = registro && <GestaoOficial voltar={() => setRegistro(null)} key={registro.oficial.id + registro.modo + (registro.periodo ?? '')} periodoInicial={registro.periodo} oficial={registro.oficial} identidade={identidade} modoInicial={registro.modo} podeConsultarDetalhe={false} />
   return <PainelLocal><section className="space-y-3"><div className="flex flex-wrap items-center justify-between gap-2">
     <h3 className="font-semibold">Mandatos de {conselho ? 'presbíteros regentes' : 'diáconos'}</h3>
-    {podeRegistrar && <Button onClick={() => iniciar()}>Registrar mandato</Button>}</div>
-    {form && podeRegistrar && <SecaoPainel titulo={form.titular ? 'Registrar reeleição' : 'Registrar mandato'} voltar={() => setForm(null)}><RegistroMandato key={form.titular?.id ?? 'novo'} orgao={orgao} identidade={identidade} titular={form.titular} concluir={concluir} />
-      </SecaoPainel>}
+    {(podeRegistrar || orientarRegistro) && <Button onClick={() => iniciar()}>Registrar mandato</Button>}</div>
+    {form && (podeRegistrar || orientarRegistro) && <SecaoPainel titulo={form.titular ? 'Registrar reeleição' : 'Registrar mandato'} voltar={() => setForm(null)}>
+      {podeRegistrar ? <RegistroMandato key={form.titular?.id ?? 'novo'} orgao={orgao} identidade={identidade} titular={form.titular} concluir={concluir} />
+        : <div className="max-w-xl space-y-3">
+          <p>O mandato de {conselho ? 'presbítero regente' : 'diácono'} deve ser registrado por uma pessoa autorizada, distinta de quem foi eleito.</p>
+          <p>Em <strong>Usuários → Atuação → Atribuições</strong>, abra a conta da pessoa que fará o registro e conceda a permissão <strong>Registrar e encerrar mandatos de oficiais</strong>. A conta precisa estar vinculada ao cadastro dessa pessoa.</p>
+          <Button asChild variant="outline"><a href="/usuarios">Abrir usuários</a></Button>
+        </div>}
+    </SecaoPainel>}
     {mensagem && <p role="status">{mensagem}</p>}
     {lista.isPending ? <p>Carregando mandatos…</p> : lista.isError ? <p role="alert">Não foi possível consultar os mandatos.</p> : !lista.data.itens.length ? <p>Nenhum mandato registrado.</p> :
       lista.data.itens.map(m => {
