@@ -20,12 +20,12 @@ export type ComparacaoConversao = { previa: string; perfil_anterior: string; out
   existentes: { acao: Servico; inicio: string; fim: string | null }[];
 }
 type AcaoPerfil = { acao: Servico; rotulo: string }
-export type PerfilAtuacao = { id: string; nome: string; requisito: string; acoes: AcaoPerfil[] }
+export type PerfilAtuacao = { id: string; nome: string; requisito: string; requisitos?: string[]; acoes: AcaoPerfil[] }
 type ContaElegivel = { id: string; nome_usuario: string; email_login: string }
 export type ConcessaoPerfil = {
   id: string; usuario_id: string; nome_usuario: string; email_login: string; inicio: string; fim: string | null; vigente: boolean
 }
-type PreviaPerfil = { previa: string; fim: string | null; itens: (AcaoPerfil & { sobreposta: boolean })[] }
+type PreviaPerfil = { previa: string; fim: string | null; requisito?: string; itens: (AcaoPerfil & { sobreposta: boolean })[] }
 export type RequisitoPerfil = { tipo: 'cargo'; id: string } | { tipo: 'oficio'; oficio: string }
 export interface AtuacaoConta {
   pessoa_id: string | null
@@ -66,8 +66,8 @@ export const autorizacaoApi = {
   perfisAtuacao: () => apiClient.get<{ pode_criar: boolean; modelos: PerfilAtuacao[] }>('autorizacao/modelos-atuacao'),
   opcoesPerfisAtuacao: () => apiClient.get<{ cargos: { id: string; nome: string }[]; oficios: { oficio: string; nome: string }[];
     catalogo: AcaoPerfil[] }>('autorizacao/modelos-atuacao/opcoes'),
-  salvarPerfilAtuacao: (nome: string, requisito: RequisitoPerfil, acoes: Servico[], fundamento: string) =>
-    apiClient.post<{ id: string; nome: string }>('autorizacao/modelos-atuacao', { nome, requisito, acoes, fundamento }),
+  salvarPerfilAtuacao: (nome: string, requisitos: RequisitoPerfil[], acoes: Servico[], fundamento: string) =>
+    apiClient.post<{ id: string; nome: string }>('autorizacao/modelos-atuacao', { nome, requisitos, acoes, fundamento }),
   concessoesPerfil: (id: string) => apiClient.get<{ contas: ContaElegivel[]; concessoes: ConcessaoPerfil[] }>(
     `autorizacao/modelos-atuacao/${id}/concessoes`),
   previaConcessaoPerfil: (id: string, usuario_id: string) =>

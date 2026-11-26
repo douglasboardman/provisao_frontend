@@ -71,11 +71,15 @@ function DetalhePerfil({ perfil }: { perfil: PerfilAtuacao }) {
   const conta = q.data?.contas.find(c => c.id === usuario)
   const previa = conta ? revisar.data : undefined
   const erro = revisar.error ?? conceder.error
+  const requisitos = perfil.requisitos ?? [perfil.requisito]
 
   return <div className="space-y-5">
     <section className="surface space-y-3">
       <h2 className="text-lg font-semibold">{perfil.nome}</h2>
-      <p className="text-sm text-muted-foreground">Exige exercício de {perfil.requisito}</p>
+      <div className="space-y-2">
+        <p className="text-sm text-muted-foreground">{requisitos.length > 1 ? 'Basta exercer um dos cargos ou mandatos abaixo.' : 'Cargo ou mandato exigido'}</p>
+        <ul className="flex flex-wrap gap-2">{requisitos.map(requisito => <li key={requisito}><Badge variant="secondary">{requisito}</Badge></li>)}</ul>
+      </div>
       <details className="rounded-lg border p-3 text-sm">
         <summary className="cursor-pointer font-medium">Permissões do perfil ({perfil.acoes.length})</summary>
         <ul className="mt-3 grid list-inside list-disc gap-2 sm:grid-cols-2">
@@ -113,6 +117,7 @@ function DetalhePerfil({ perfil }: { perfil: PerfilAtuacao }) {
             }}>{revisar.isPending ? 'Consultando…' : 'Gerar prévia'}</Button>
           </div>
           {previa && <div className="space-y-3">
+            {previa.requisito && <p className="text-sm font-medium">{previa.requisito}</p>}
             <p className="text-sm text-muted-foreground">
               {previa.fim ? `Em vigor até ${dataHora(previa.fim)}, enquanto houver exercício do mandato ou cargo.` : 'Em vigor enquanto houver exercício do mandato ou cargo.'}
             </p>
@@ -130,7 +135,7 @@ function DetalhePerfil({ perfil }: { perfil: PerfilAtuacao }) {
               <Button disabled={!fundamento.trim() || pendente}>{conceder.isPending ? 'Atribuindo…' : 'Confirmar concessão'}</Button>
             </>}
           </div>}
-        </form> : <p className="text-sm text-muted-foreground">Nenhuma conta de atuação atende ao requisito deste perfil.</p>}
+        </form> : <p className="text-sm text-muted-foreground">Nenhuma conta de atuação atende aos requisitos deste perfil.</p>}
       </section>
       <section className="surface space-y-3">
         <h2 className="font-semibold">Concessões do perfil</h2>
