@@ -48,16 +48,6 @@ const navEntries: NavEntry[] = [
   { kind: "item", path: "/configuracoes", icon: Settings, label: "Configurações", modules: ["igreja", "logs", "profissoes", "regras-relacao-enum"] },
 ]
 
-const PERFIL_LABELS: Record<Perfil, string> = {
-  [Perfil.COMUM]: "Conta comum",
-  [Perfil.ADMINISTRADOR]: "Administrador",
-  [Perfil.AUDITOR]: "Auditor",
-  [Perfil.OPERADOR]: "Operador",
-  [Perfil.SECRETARIO]: "Secretário",
-  [Perfil.TESOUREIRO]: "Tesoureiro",
-  [Perfil.GESTOR]: "Gestor",
-}
-
 function filterNav(entries: NavEntry[], podeVer: (modulo: Module) => boolean): NavEntry[] {
   const filtered: NavEntry[] = []
 
@@ -96,6 +86,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pendentes = notificacoes.data?.filter(item => !item.lido_em).length ?? 0
   const acessoInstitucional = [Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO, Perfil.AUDITOR].includes(perfil)
   const navegacao = useNavegacao()
+  const rotuloPerfil = navegacao.data?.perfis_atuacao?.join(' · ') || 'Perfil padrão'
   const podeVer = (modulo: Module) => {
     const acoes = navegacao.data?.permissoes[modulo]
     return acoes ? acoes.includes('view') || modulo === 'pessoas' && acoes.includes('create') : canAccessModule(perfil, modulo)
@@ -162,7 +153,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           </div>
           <div className="flex flex-col flex-1 min-w-0">
             <span className="text-sm font-semibold truncate font-sans">{user?.username ?? "Usuário"}</span>
-            <span className="text-xs text-purple-muted truncate font-sans">{PERFIL_LABELS[perfil]}</span>
+            <span className="line-clamp-2 break-words font-sans text-xs text-purple-muted" title={rotuloPerfil}>{rotuloPerfil}</span>
           </div></NavLink>
           <button onClick={handleLogout} className="p-1.5 rounded-md hover:bg-white/10 transition-colors" title="Sair">
             <LogOut size={16} className="text-purple-muted" />

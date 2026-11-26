@@ -1,14 +1,22 @@
 import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { X } from 'lucide-react'
-import { autorizacaoApi, type RequisitoPerfil, type Servico } from '../../api/autorizacao'
+import { autorizacaoApi, type AreaPermissaoPerfil, type RequisitoPerfil, type Servico } from '../../api/autorizacao'
 import { ApiRequestError } from '../../api/client'
+import { Abas } from '../../components/ui/abas'
 import { Badge } from '../../components/ui/badge'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { useAuthStore } from '../../stores/auth'
 
 type OpcaoRequisito = { chave: string; nome: string; requisito: RequisitoPerfil }
+
+const areas: { id: AreaPermissaoPerfil; nome: string }[] = [
+  { id: 'pessoas-membresia', nome: 'Pessoas e membresia' },
+  { id: 'financeiro', nome: 'Financeiro' },
+  { id: 'institucional', nome: 'Registros Institucionais' },
+  { id: 'administracao', nome: 'Administração' },
+]
 
 export function CriarPerfilAtuacao({ iniciais = [], criado }: {
   iniciais?: Servico[]; criado?: (id: string) => void
@@ -19,20 +27,20 @@ export function CriarPerfilAtuacao({ iniciais = [], criado }: {
   const seletor = useRef<HTMLSelectElement>(null)
   const [busca, buscar] = useState('')
   const [acoes, selecionar] = useState(iniciais)
-  const [fundamento, justificar] = useState('')
+  const [area, selecionarArea] = useState<string>(areas[0].id)
   const ator = useAuthStore(s => s.user)
   const cache = useQueryClient()
   const opcoes = useQuery({ queryKey: ['autorizacao', ator?.igreja_id, ator?.sub, 'opcoes-perfis'], queryFn: autorizacaoApi.opcoesPerfisAtuacao })
   const salvar = useMutation({
     mutationFn: (selecionadas: Servico[]) =>
-      autorizacaoApi.salvarPerfilAtuacao(nome, atribuicoes.map(a => a.requisito), selecionadas, fundamento),
+      autorizacaoApi.salvarPerfilAtuacao(nome, atribuicoes.map(a => a.requisito), selecionadas),
     onSuccess: async modelo => {
       nomear('')
       escolher('')
       definirAtribuicoes([])
       buscar('')
       selecionar([])
-      justificar('')
+      selecionarArea(areas[0].id)
       await cache.invalidateQueries({ queryKey: ['autorizacao'] })
       criado?.(modelo.id)
     },
@@ -44,9 +52,39 @@ export function CriarPerfilAtuacao({ iniciais = [], criado }: {
   const opcoesOficios: OpcaoRequisito[] = oficios.map(({ oficio, nome }) => ({ chave: 'oficio:' + oficio, nome, requisito: { tipo: 'oficio', oficio } }))
   const adicionados = new Set(atribuicoes.map(a => a.chave))
   const opcao = [...opcoesCargos, ...opcoesOficios].find(a => a.chave === escolha && !adicionados.has(a.chave))
-  const selecionadas = acoes.filter(acao => catalogo.some(s => s.acao === acao))
-  const visiveis = catalogo.filter(s => s.rotulo.toLocaleLowerCase('pt-BR').includes(busca.trim().toLocaleLowerCase('pt-BR')))
-  const pronto = nome.trim() && atribuicoes.length > 0 && selecionadas.length > 0 && fundamento.trim() && !salvar.isPending
+  const marcadas = new Set(acoes)
+  const selecionadas = catalogo.filter(s => marcadas.has(s.acao)).map(s => s.acao)
+  const filtro = busca.trim().toLocaleLowerCase('pt-BR')
+  const abas = areas.map(({ id, nome }) => {
+    const permissoes = catalogo.filter(s => s.area === id)
+    const codigos = new Set(permissoes.map(s => s.acao))
+    const todasMarcadas = permissoes.length > 0 && permissoes.every(s => marcadas.has(s.acao))
+    const parcialmenteMarcadas = !todasMarcadas && permissoes.some(s => marcadas.has(s.acao))
+    const visiveis = permissoes.filter(s => s.rotulo.toLocaleLowerCase('pt-BR').includes(filtro))
+    return {
+      id, nome, conteudo: <div className="rounded-lg border text-sm">
+        <label className="flex items-center gap-2 border-b bg-muted/40 px-3 py-2.5 font-medium">
+          <input type="checkbox" className="accent-purple" checked={todasMarcadas} disabled={!permissoes.length}
+            ref={input => { if (input) input.indeterminate = parcialmenteMarcadas }}
+            onChange={e => {
+              const marcar = e.target.checked
+              selecionar(atuais => marcar ? [...new Set([...atuais, ...codigos])] : atuais.filter(acao => !codigos.has(acao)))
+            }}/>
+          Marcar todas as permissões da área
+        </label>
+        <div className="grid gap-2 p-3 sm:grid-cols-2" role="group" aria-label={nome}>
+          {visiveis.map(s => <label key={s.acao} className="flex items-start gap-2">
+            <input className="mt-1 accent-purple" type="checkbox" checked={marcadas.has(s.acao)} onChange={e => {
+              const marcar = e.target.checked
+              selecionar(atuais => marcar ? [...atuais, s.acao] : atuais.filter(acao => acao !== s.acao))
+            }}/>{s.rotulo}
+          </label>)}
+          {!visiveis.length && <p className="text-muted-foreground">Nenhuma permissão encontrada nesta área.</p>}
+        </div>
+      </div>,
+    }
+  })
+  const pronto = nome.trim() && atribuicoes.length > 0 && selecionadas.length > 0 && !salvar.isPending
 
   return <form onSubmit={e => {
     e.preventDefault()
@@ -101,16 +139,7 @@ export function CriarPerfilAtuacao({ iniciais = [], criado }: {
         <span>Buscar permissões</span><Input type="search" value={busca} onChange={e => buscar(e.target.value)}/>
       </label>
       <p className="text-sm text-muted-foreground" role="status">{selecionadas.length} {selecionadas.length === 1 ? 'permissão selecionada' : 'permissões selecionadas'}</p>
-      <div className="grid gap-2 rounded-lg border p-3 text-sm sm:grid-cols-2" role="group" aria-label="Permissões do perfil">
-        {visiveis.map(s => <label key={s.acao} className="flex items-start gap-2">
-          <input className="mt-1 accent-purple" type="checkbox" checked={acoes.includes(s.acao)} onChange={e =>
-            selecionar(e.target.checked ? [...acoes, s.acao] : acoes.filter(acao => acao !== s.acao))}/>{s.rotulo}
-        </label>)}
-        {!visiveis.length && <p className="text-muted-foreground">Nenhuma permissão encontrada.</p>}
-      </div>
-      <label className="block space-y-1 text-sm font-medium">
-        <span>Fundamento do perfil</span><Input value={fundamento} maxLength={1000} onChange={e => justificar(e.target.value)}/>
-      </label>
+      <Abas titulo="Permissões do perfil" abas={abas} ativa={area} selecionar={selecionarArea}/>
       {salvar.data && <p className="text-sm" role="status">Perfil “{salvar.data.nome}” salvo.</p>}
       {salvar.isError && <p role="alert" className="text-sm text-destructive">
         {salvar.error instanceof ApiRequestError ? salvar.error.messages.join(' ') : 'Não foi possível salvar o perfil.'}

@@ -20,6 +20,7 @@ export type ComparacaoConversao = { previa: string; perfil_anterior: string; out
   existentes: { acao: Servico; inicio: string; fim: string | null }[];
 }
 type AcaoPerfil = { acao: Servico; rotulo: string }
+export type AreaPermissaoPerfil = 'pessoas-membresia' | 'financeiro' | 'institucional' | 'administracao'
 export type PerfilAtuacao = { id: string; nome: string; requisito: string; requisitos?: string[]; acoes: AcaoPerfil[] }
 type ContaElegivel = { id: string; nome_usuario: string; email_login: string }
 export type ConcessaoPerfil = {
@@ -45,7 +46,7 @@ export interface EventoAutorizacao {
   recurso_id: string | null; fundamento: string; dados: { acao?: string; legado?: boolean; proposta?: boolean }
 }
 export const autorizacaoApi = {
-  navegacao: () => apiClient.get<{ permissoes: PermissoesNavegacao; mandatos_legados?: boolean }>('autorizacao/navegacao'),
+  navegacao: () => apiClient.get<{ permissoes: PermissoesNavegacao; mandatos_legados?: boolean; perfis_atuacao?: string[] }>('autorizacao/navegacao'),
   liberacoes: () => apiClient.get<Liberacao[]>('autorizacao/liberacoes'),
   previaLiberacao: (acao: Servico) =>
     apiClient.get<PreviaLiberacao>(`autorizacao/liberacoes/${encodeURIComponent(acao)}/previa`),
@@ -65,9 +66,9 @@ export const autorizacaoApi = {
     apiClient.post(`autorizacao/contas/${id}/atribuicoes`, { acao, inicio, fim, fundamento }),
   perfisAtuacao: () => apiClient.get<{ pode_criar: boolean; modelos: PerfilAtuacao[] }>('autorizacao/modelos-atuacao'),
   opcoesPerfisAtuacao: () => apiClient.get<{ cargos: { id: string; nome: string }[]; oficios: { oficio: string; nome: string }[];
-    catalogo: AcaoPerfil[] }>('autorizacao/modelos-atuacao/opcoes'),
-  salvarPerfilAtuacao: (nome: string, requisitos: RequisitoPerfil[], acoes: Servico[], fundamento: string) =>
-    apiClient.post<{ id: string; nome: string }>('autorizacao/modelos-atuacao', { nome, requisitos, acoes, fundamento }),
+    catalogo: (AcaoPerfil & { area: AreaPermissaoPerfil })[] }>('autorizacao/modelos-atuacao/opcoes'),
+  salvarPerfilAtuacao: (nome: string, requisitos: RequisitoPerfil[], acoes: Servico[]) =>
+    apiClient.post<{ id: string; nome: string }>('autorizacao/modelos-atuacao', { nome, requisitos, acoes }),
   concessoesPerfil: (id: string) => apiClient.get<{ contas: ContaElegivel[]; concessoes: ConcessaoPerfil[] }>(
     `autorizacao/modelos-atuacao/${id}/concessoes`),
   previaConcessaoPerfil: (id: string, usuario_id: string) =>
