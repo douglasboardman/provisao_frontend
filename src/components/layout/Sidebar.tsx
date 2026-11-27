@@ -40,10 +40,9 @@ const navEntries: NavEntry[] = [
   { kind: "item", path: "/acoes", icon: Sprout, label: "Ações", modules: ["acoes"] },
 
   { kind: "group", label: "Administração" },
-  { kind: "item", path: "/autorizacoes-financeiras", icon: Scale, label: "Autorizações financeiras", modules: ["autorizacoes-financeiras"] },
   { kind: "item", path: "/usuarios", icon: UserCog, label: "Usuários", modules: ["usuarios", "solicitacoes-acesso"] },
   { kind: "item", path: "/perfis-atuacao", icon: ShieldCheck, label: "Perfis de acesso", modules: ["perfis-atuacao"] },
-  { kind: "item", path: "/configuracoes", icon: Settings, label: "Configurações", modules: ["igreja", "logs", "profissoes", "regras-relacao-enum"] },
+  { kind: "item", path: "/configuracoes", icon: Settings, label: "Configurações", modules: ["igreja", "logs", "profissoes", "regras-relacao-enum", "autorizacoes-financeiras"] },
 ]
 
 function filterNav(entries: NavEntry[], podeVer: (modulo: Module) => boolean): NavEntry[] {

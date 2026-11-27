@@ -113,6 +113,7 @@ test('configuração de MFA apresenta códigos de recuperação após ativação
   await page.route('http://localhost:3000/**', route => {
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
     const path = new URL(route.request().url()).pathname
+    if (path === '/autorizacao/navegacao') return route.fulfill({ headers, json: { permissoes: {} } })
     if (path === '/auth/profile') return route.fulfill({ headers, json: { sub: 'admin', igreja_id: 'igreja', perfil: 'ADMINISTRADOR', username: 'Admin', login: 'admin@example.invalid' } })
     if (path === '/auth/mfa') return route.fulfill({ headers, json: { enabled: false } })
     if (path === '/auth/mfa/setup') return route.fulfill({ headers, json: { secret: 'CHAVEDETESTE', uri: 'otpauth://totp/teste' } })
@@ -121,7 +122,7 @@ test('configuração de MFA apresenta códigos de recuperação após ativação
     return route.fulfill({ headers, json: {} })
   })
   await page.goto('/configuracoes')
-  await page.getByRole('button', { name: 'Autenticação' }).click()
+  await page.getByRole('tab', { name: 'Autenticação' }).click()
   await page.getByLabel('Confirme sua senha').fill('senha-sintetica')
   await page.getByRole('button', { name: 'Iniciar configuração' }).click()
   await expect(page.getByText('CHAVEDETESTE')).toBeVisible()
@@ -151,6 +152,7 @@ test('renovação de MFA pede confirmação de um código novo', async ({ page }
   await page.route('http://localhost:3000/**', route => {
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
     const path = new URL(route.request().url()).pathname
+    if (path === '/autorizacao/navegacao') return route.fulfill({ headers, json: { permissoes: {} } })
     if (path === '/auth/profile') return route.fulfill({ headers, json: { sub: 'admin', igreja_id: 'igreja', perfil: 'ADMINISTRADOR', username: 'Admin', login: 'admin@example.invalid' } })
     if (path === '/auth/mfa') return route.fulfill({ headers, json: { enabled: true, required: false } })
     if (path === '/auth/mfa/recovery') return route.fulfill({ headers, json: { recovery_codes: [newCode] } })
@@ -159,7 +161,7 @@ test('renovação de MFA pede confirmação de um código novo', async ({ page }
     return route.fulfill({ headers, json: {} })
   })
   await page.goto('/configuracoes')
-  await page.getByRole('button', { name: 'Autenticação' }).click()
+  await page.getByRole('tab', { name: 'Autenticação' }).click()
   await page.getByLabel('Confirme sua senha').fill('senha-sintetica')
   await page.getByLabel('Código do autenticador ou de recuperação').fill('123456')
   await page.getByRole('button', { name: 'Renovar códigos de recuperação' }).click()
@@ -176,6 +178,7 @@ test('sessão recente com último código permite preparar novo lote usando a se
   await page.route('http://localhost:3000/**', route => {
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
     const path = new URL(route.request().url()).pathname
+    if (path === '/autorizacao/navegacao') return route.fulfill({ headers, json: { permissoes: {} } })
     if (path === '/auth/profile') return route.fulfill({ headers, json: { sub: 'admin', igreja_id: 'igreja', perfil: 'ADMINISTRADOR', username: 'Admin', login: 'admin@example.invalid', mfa_recovery_recent: true } })
     if (path === '/auth/mfa') return route.fulfill({ headers, json: { enabled: true, required: true } })
     if (path === '/auth/mfa/recovery') { payload = route.request().postDataJSON(); return route.fulfill({ headers, json: { recovery_codes: ['abcdef0123456789abcdef01'] } }) }
@@ -183,7 +186,7 @@ test('sessão recente com último código permite preparar novo lote usando a se
     return route.fulfill({ headers, json: {} })
   })
   await page.goto('/configuracoes')
-  await page.getByRole('button', { name: 'Autenticação' }).click()
+  await page.getByRole('tab', { name: 'Autenticação' }).click()
   await page.getByLabel('Confirme sua senha').fill('senha-sintetica')
   await page.getByRole('button', { name: 'Renovar códigos de recuperação' }).click()
   await expect(page.getByText('abcdef0123456789abcdef01')).toBeVisible()

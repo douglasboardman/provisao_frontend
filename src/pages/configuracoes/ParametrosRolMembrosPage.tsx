@@ -90,7 +90,7 @@ function RuleCard({
   }
 
   return (
-    <div className="border border-border rounded-lg">
+    <div className="border border-border rounded-panel">
       <div className="p-4 border-b border-border bg-muted/30">
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">

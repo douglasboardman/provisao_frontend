@@ -6,8 +6,8 @@ import { ModelosContexto } from './ModelosContexto'
 import { ListaDocumentos } from './ListaDocumentos'
 import { PendenciasDocumentais, RegistrosVinculados } from './RegistrosDocumentais'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
-import { Archive, Files, FileText, CalendarDays, PencilLine, ArrowLeft, BookOpen } from 'lucide-react'
-import { WorkspaceHeader, Metric } from '../../components/shared/Workspace'
+import { Archive, Files, FileText, CalendarDays, PencilLine, ArrowLeft, BookOpen, ClipboardList, ShieldCheck, Settings } from 'lucide-react'
+import { ModificadorContexto, WorkspaceHeader, Metric } from '../../components/shared/Workspace'
 import { Metadados } from './FichaDocumento'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -17,6 +17,7 @@ import { useAuthStore } from '../../stores/auth'
 import { Perfil } from '../../types/enums'
 import { ApiRequestError } from '../../api/client'
 import { Button } from '../../components/ui/button'
+import { Abas, type Aba } from '../../components/ui/abas'
 import { Escolha } from './formulario'
 import { ReuniaoForm } from './ReuniaoForm'
 import { DocumentoForm } from './DocumentoForm'
@@ -42,34 +43,80 @@ function SecretariaConteudo({ identidade, admin }: { identidade: string; admin: 
   const local = useLocation()
   const contextoId = params.contextoId ?? busca.get('contexto')
   const documentoId = params.documentoId
-  const setContexto = (id: string) => documentoId ? navegar('/secretaria?contexto=' + encodeURIComponent(id)) : setBusca({ contexto: id, aba: busca.get('aba') ?? 'documentos' })
   const abrir = (contexto: string, id: string, versao?: string, editar = false) => navegar(`/secretaria/${encodeURIComponent(contexto)}/documentos/${encodeURIComponent(id)}${versao ? '?versao=' + encodeURIComponent(versao) : ''}`, { state: { retorno: documentoId ? local.state?.retorno : local.search, editar } })
-  const [area, setArea] = useState<'contexto' | 'atuacao' | 'pendencias' | 'admin'>('contexto')
   const abrirVersao = (item: ItemAtuacao) => abrir(item.contexto_id, item.documento_id, item.versao_id)
   const contextos = useQuery({ queryKey: ['secretaria', identidade, 'contextos'], queryFn: secretariaApi.contextos, staleTime: 0, gcTime: 0 })
   const contexto = contextos.data?.find(c => c.id === contextoId) ?? (!contextoId ? contextos.data?.[0] : undefined)
   const acessoGeral = !comum && !!contextos.data?.some(c => !c.somente_atas)
+  const abaPedida = busca.get('aba') ?? 'documentos'
+  const abasContexto = [
+    { id: 'documentos', nome: 'Documentos', icone: Files },
+    { id: 'reunioes', nome: 'Reuniões', icone: CalendarDays },
+    { id: 'modelos', nome: 'Modelos', icone: FileText },
+    { id: 'livros', nome: 'Livros', icone: BookOpen },
+  ].filter(a => a.id === 'documentos' || (!contexto?.somente_atas && (a.id !== 'livros' || livrosHabilitados())))
+  const abasExtras = [
+    ...(acessoGeral ? ['atuacao', 'pendencias'] : []),
+    ...(admin && contextos.data ? ['admin'] : []),
+  ]
+  const ativa = ((contexto && abasContexto.some(a => a.id === abaPedida)) || abasExtras.includes(abaPedida))
+    ? abaPedida : contexto ? 'documentos' : abasExtras[0]
+  const resumo = useQuery({
+    queryKey: ['secretaria', identidade, contexto?.id, 'resumo'],
+    queryFn: () => secretariaApi.resumo(contexto!.id),
+    enabled: !!contexto && !documentoId && ativa === 'documentos',
+    gcTime: 0,
+  })
   if (documentoId && contexto) return <div className="workspace"><WorkspaceHeader icon={FileText} title="Documento" description={contexto.nome} /><Button variant="outline" onClick={() => navegar('/secretaria' + (local.state?.retorno || '?contexto=' + encodeURIComponent(contexto.id)))}><ArrowLeft />Voltar ao contexto</Button><ContextoConteudo key={documentoId} documentoId={documentoId} versaoAberta={busca.get('versao') ?? undefined} identidade={identidade} contexto={contexto} admin={admin} abrir={(id, editar) => abrir(contexto.id, id, undefined, editar)} /></div>
-  return <div className="workspace"><WorkspaceHeader icon={Archive} title="Secretaria" description="Atas, reuniões e livros de cada contexto documental." />
-    {contextos.data?.length ? <div className="surface flex flex-wrap items-center gap-3"><span className="rounded-xl bg-purple-muted/55 p-3 text-purple"><Archive size={23} /></span><div className="min-w-0 flex-1"><Escolha label="Contexto documental" value={contexto?.id ?? ''} onChange={id => { setContexto(id); setArea('contexto') }} required={false}>{contextos.data.map(c => <option key={c.id} value={c.id}>{c.nome} ({c.sigla}){c.orgao?.ativo === false && ' · Inativo'}</option>)}</Escolha></div></div> : null}
+
+  const abas: Aba[] = []
+  if (contexto) {
+    for (const aba of abasContexto) abas.push({ ...aba, conteudo: <ContextoConteudo key={contexto.id}
+      identidade={identidade} contexto={contexto} admin={admin} abrir={(id, editar) => abrir(contexto.id, id, undefined, editar)} /> })
+  }
+  if (acessoGeral && contextos.data) abas.push(
+    { id: 'atuacao', nome: 'Consultar atuação', icone: ShieldCheck, conteudo: <ConsultaAtuacao contextos={contextos.data} identidade={identidade} abrir={abrirVersao} /> },
+    { id: 'pendencias', nome: 'Pendências documentais', icone: ClipboardList, conteudo: <PendenciasDocumentais identidade={identidade} /> },
+  )
+  if (admin && contextos.data) abas.push({
+    id: 'admin', nome: 'Administração da secretaria', icone: Settings,
+    conteudo: <section className="surface"><AdministracaoSecretaria identidade={identidade} contextos={contextos.data} /></section>,
+  })
+  function selecionarAba(aba: string) {
+    const parametros = new URLSearchParams(busca)
+    if (contexto) parametros.set('contexto', contexto.id)
+    parametros.set('aba', aba)
+    parametros.delete('livro')
+    setBusca(parametros)
+  }
+  function mudarContexto(id: string) {
+    const aba = ativa && abasContexto.some(a => a.id === ativa) ? ativa : 'documentos'
+    setBusca({ contexto: id, aba })
+  }
+
+  return <div className="workspace">
+    <WorkspaceHeader icon={Archive} title="Secretaria" description="Atas, reuniões e livros de cada contexto documental." />
+    {contexto && ativa === 'documentos' && <>
+      <div className="metric-grid">
+        {!contexto.somente_atas && <Metric icon={Files} label="Documentos" value={resumo.data?.documentos ?? '—'} />}
+        <Metric icon={FileText} label="Atas" value={resumo.data?.atas ?? '—'} />
+        <Metric icon={PencilLine} label="Em edição" value={resumo.data?.em_edicao ?? '—'} />
+        {!contexto.somente_atas && <Metric icon={CalendarDays} label="Reuniões" value={resumo.data?.reunioes ?? '—'} />}
+      </div>
+      {resumo.isError && <p role="alert">Indicadores indisponíveis. <button onClick={() => resumo.refetch()}>Tentar novamente</button></p>}
+    </>}
+    {!!contextos.data?.length && <ModificadorContexto icone={Archive}>
+      <Escolha label="Contexto documental" value={contexto?.id ?? ''} onChange={mudarContexto} required={false}>
+        {contextos.data.map(c => <option key={c.id} value={c.id}>{c.nome} ({c.sigla}){c.orgao?.ativo === false && ' · Inativo'}</option>)}
+      </Escolha>
+    </ModificadorContexto>}
     {contextoId && contextos.isSuccess && !contexto && <p role="alert">Contexto indisponível. Selecione outro contexto.</p>}
-    {contextos.isPending && <p>Carregando contextos…</p>}{contextos.isError && <p role="alert">Não foi possível consultar a secretaria. <Button variant="outline" onClick={() => void contextos.refetch()}>Tentar novamente</Button></p>}
-    <div className="flex flex-wrap gap-2">{acessoGeral && <Button variant="outline" onClick={() => { setArea(area === 'atuacao' ? 'contexto' : 'atuacao') }}>
-      {area === 'atuacao' ? 'Voltar aos documentos' : 'Consultar atuação'}
-    </Button>}
-    {acessoGeral && <Button variant="outline" aria-expanded={area === 'pendencias'} onClick={() => { setArea(area === 'pendencias' ? 'contexto' : 'pendencias') }}>
-      {area === 'pendencias' ? 'Voltar aos documentos' : 'Pendências documentais'}
-    </Button>}
-    {admin && contextos.data && <Button variant="outline" aria-expanded={area === 'admin'} onClick={() => setArea(area === 'admin' ? 'contexto' : 'admin')}>
-      {area === 'admin' ? 'Voltar ao contexto' : 'Administração da secretaria'}</Button>}
-    </div>
-    {acessoGeral && area === 'pendencias'  && <PendenciasDocumentais identidade={identidade} />}
-    {acessoGeral && area === 'atuacao' && contextos.data && <ConsultaAtuacao contextos={contextos.data} identidade={identidade} abrir={abrirVersao} />}
+    {contextos.isPending && <p>Carregando contextos…</p>}
+    {contextos.isError && <p role="alert">Não foi possível consultar a secretaria. <Button variant="outline" onClick={() => void contextos.refetch()}>Tentar novamente</Button></p>}
     {contextos.data?.length === 0 && (comum
       ? <p>O acesso depende da conta selecionada e de cargo em exercício no órgão. <a className="underline" href="/dashboard">Consultar minha atuação</a></p>
       : <p>Nenhum contexto preparado. Um administrador pode vinculá-lo a um órgão existente ou preparar a Assembleia Geral.</p>)}
-    {area === 'contexto' && contexto && <ContextoConteudo key={contexto.id} identidade={identidade} contexto={contexto} admin={admin} abrir={(id, editar) => abrir(contexto.id, id, undefined, editar)} />}
-    {area === 'admin' && admin && contextos.data && <section className="surface"><AdministracaoSecretaria identidade={identidade} contextos={contextos.data} /></section>}
+    {ativa && <Abas titulo="Seções da Secretaria" abas={abas} ativa={ativa} selecionar={selecionarAba} ocultarSeUnica={ativa === 'documentos'} />}
   </div>
 }
 function ContextoConteudo({ identidade, contexto, admin, documentoId, versaoAberta, abrir }: { identidade: string; contexto: ContextoSecretaria; admin: boolean; documentoId?: string; versaoAberta?: string; abrir: (id: string, editar?: boolean) => void }) {
@@ -93,7 +140,6 @@ function ContextoConteudo({ identidade, contexto, admin, documentoId, versaoAber
     else busca.delete('versao')
     definirFiltros(busca, { replace: true, state: local.state })
   }
-  const resumo = useQuery({ queryKey: ['secretaria', identidade, contexto.id, 'resumo'], queryFn: () => secretariaApi.resumo(contexto.id), enabled: !docId, gcTime: 0 })
   const modelos = useQuery({ queryKey: ['secretaria', identidade, contexto.id, 'modelos'], queryFn: () => secretariaApi.modelos(contexto.id), enabled: !contexto.somente_atas, gcTime: 0 })
   const detalhe = useQuery({ queryKey: ['secretaria', identidade, contexto.id, 'documento', docId], queryFn: () => secretariaApi.documento(docId), enabled: !!docId, gcTime: 0 })
   const acessoRevogado = detalhe.error instanceof ApiRequestError && [401, 403, 404].includes(detalhe.error.statusCode)
@@ -117,22 +163,19 @@ function ContextoConteudo({ identidade, contexto, admin, documentoId, versaoAber
   const pronto = () => { setForm(null); setModo(null) }
   const selecionar = (id: string) => { pronto(); if (id) abrir(id); else setAba('documentos') }
   const criarTermo = (termo: NovoTermo) => abrirEditor('documentos', 'novo', { livro: termo.livro.id, termo: termo.finalidade, ...(termo.modelo && { modelo: termo.modelo }), ...(termo.data && { data: termo.data }) })
-  const abas = [{ id: 'documentos', nome: 'Documentos' }, { id: 'reunioes', nome: 'Reuniões' }, { id: 'modelos', nome: 'Modelos' }, { id: 'livros', nome: 'Livros' }] as const
-  return <section className="space-y-4">{!docId && <>{aba === 'documentos' && !form && <div className="metric-grid">
-    {!contexto.somente_atas && <Metric icon={Files} label="Documentos" value={resumo.data?.documentos ?? '—'} />}<Metric icon={FileText} label="Atas" value={resumo.data?.atas ?? '—'} /><Metric icon={PencilLine} label="Em edição" value={resumo.data?.em_edicao ?? '—'} />{!contexto.somente_atas && <Metric icon={CalendarDays} label="Reuniões" value={resumo.data?.reunioes ?? '—'} />}</div>}
-    {resumo.isError && <p role="alert">Indicadores indisponíveis. <button onClick={() => resumo.refetch()}>Tentar novamente</button></p>}
-    <h2 className="text-xl font-semibold">{contexto.nome}</h2>
-    {!contexto.somente_atas && <div className="flex flex-wrap gap-2" role="tablist" aria-label="Secretaria">{abas.filter(a => a.id !== 'livros' || livrosHabilitados()).map(a => <Button role="tab" aria-selected={aba === a.id} key={a.id} variant={aba === a.id ? 'default' : 'outline'} onClick={() => { setAba(a.id); pronto() }}>{a.nome}</Button>)}</div>}
+  return <section className="space-y-4">{!docId && <>
     {[modelos, reunioes, documentos, cargos].some(q => q.isError) && <p role="alert">Não foi possível carregar todos os dados do contexto. Recarregue a página para continuar.</p>}
     {pessoas.isError && <p role="alert">Não foi possível carregar as pessoas para os formulários.</p>}
     {aba === 'modelos' && <ModelosContexto contexto={contexto} gerencia={!comum && contexto.orgao?.ativo !== false && (contexto.pode_preparar || admin)} modelos={modelos.data}/>}
     {aba === 'reunioes' && <ReunioesContexto contexto={contexto} identidade={identidade} modelos={modelos.data}/>}
     {aba === 'livros' && <LivrosContexto contexto={contexto} identidade={identidade} abrirDocumento={selecionar} novoTermo={criarTermo} />}
-    {aba === 'documentos' && !form && <div className="surface space-y-3"><div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-heading text-lg font-semibold">{contexto.somente_atas ? 'Atas do contexto' : 'Documentos do contexto'}</h3><div className="flex flex-wrap gap-2">
-      {contexto.pode_preparar && modelos.data?.some(m => m.estado !== 'EM_EDICAO' && (!m.permissoes || m.permissoes.criar || m.permissoes.preparar)) && <Button onClick={() => abrirEditor('documentos')}>{modelos.data.some(m => !m.permissoes || m.permissoes.criar) ? 'Novo documento' : 'Preparar minuta'}</Button>}
-      {!comum && contexto.pode_preparar && !!modelosConvocatorios(modelos.data ?? []).length && <Button variant="outline" onClick={() => setForm('edital')}>Criar edital</Button>}
-      {contexto.pode_aprovar && <Button variant="outline" onClick={() => setForm('ata-legada')}>Cadastrar ata legada</Button>}</div></div>
-      <ListaDocumentos contexto={contexto} identidade={identidade} modelos={modelos.data ?? []} abrir={(id, editar) => editar ? abrirEditor('documentos', id) : abrir(id)}/></div>}
+    {aba === 'documentos' && !form && <ListaDocumentos contexto={contexto} identidade={identidade} modelos={modelos.data ?? []}
+      abrir={(id, editar) => editar ? abrirEditor('documentos', id) : abrir(id)}
+      acoes={<div className="flex flex-wrap gap-2">
+        {contexto.pode_preparar && modelos.data?.some(m => m.estado !== 'EM_EDICAO' && (!m.permissoes || m.permissoes.criar || m.permissoes.preparar)) && <Button onClick={() => abrirEditor('documentos')}>{modelos.data.some(m => !m.permissoes || m.permissoes.criar) ? 'Novo documento' : 'Preparar minuta'}</Button>}
+        {!comum && contexto.pode_preparar && !!modelosConvocatorios(modelos.data ?? []).length && <Button variant="outline" onClick={() => setForm('edital')}>Criar edital</Button>}
+        {contexto.pode_aprovar && <Button variant="outline" onClick={() => setForm('ata-legada')}>Cadastrar ata legada</Button>}
+      </div>} />}
     </>}
     {form && <Button variant="outline" onClick={pronto}>Fechar formulário</Button>}
     {form === 'edital' && <ConvocacaoForm contexto={contexto} identidade={identidade} modelos={modelos.data ?? []}/>}

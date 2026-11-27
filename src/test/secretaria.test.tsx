@@ -639,7 +639,7 @@ describe('E08: resoluções e atuação', () => {
       }],
     })
     montar(Perfil.AUDITOR)
-    fireEvent.click(await screen.findByRole('button', { name: 'Consultar atuação' }))
+    fireEvent.click(await screen.findByRole('tab', { name: 'Consultar atuação' }))
     fireEvent.change(screen.getByLabelText('Pessoa'), { target: { value: 'igreja' } })
     fireEvent.click(await screen.findByRole('option', { name: 'Pessoa da igreja' }))
     fireEvent.change(screen.getByLabelText('Resultado da resolução'), { target: { value: 'REJEITADA' } })

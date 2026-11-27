@@ -9,7 +9,7 @@ import { Input } from '../../components/ui/input'
 import { useHojeIgreja } from './RelogioIgreja'
 
 const campo = 'w-full rounded-md border bg-background p-2'
-const painel = 'space-y-3 rounded-lg border p-4'
+const painel = 'space-y-3 rounded-panel border p-4'
 const nomeAto = {
   ATIVACAO_SOCIEDADE: 'Ativar sociedade',
   PARTICIPACAO_INCLUSAO: 'Registrar adesão',

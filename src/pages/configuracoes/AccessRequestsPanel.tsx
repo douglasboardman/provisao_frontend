@@ -18,7 +18,7 @@ export function AccessRequestsPanel() {
     onSuccess: result => { toast({ title: result.message }); void queryClient.invalidateQueries({ queryKey: ['solicitacoes-acesso'] }); void queryClient.invalidateQueries({ queryKey: ['usuarios'] }) },
     onError: e => toast({ title: 'Não foi possível analisar', description: e instanceof ApiRequestError ? e.messages[0] : 'Tente novamente.', variant: 'destructive' }),
   })
-  return <section className="space-y-3 rounded-lg border p-4">
+  return <section className="space-y-3 rounded-panel border p-4">
     <h3 className="font-semibold">Solicitações de acesso</h3>
     {query.isLoading && <p>Carregando solicitações...</p>}
     {query.isError && <p role="alert">{query.error instanceof ApiRequestError && query.error.statusCode === 403 ? 'Você não possui competência registrada para analisar solicitações.' : 'Não foi possível carregar as solicitações.'}</p>}

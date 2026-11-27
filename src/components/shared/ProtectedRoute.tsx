@@ -14,7 +14,7 @@ const rotas: Record<string, string[]> = {
   '/usuarios': ['usuarios', 'solicitacoes-acesso'], '/solicitacoes-acesso': ['solicitacoes-acesso'],
   '/autorizacoes-financeiras': ['autorizacoes-financeiras'],
   '/perfis-atuacao': ['perfis-atuacao'],
-  '/configuracoes': ['igreja', 'regras-relacao-enum', 'profissoes', 'logs'],
+  '/configuracoes': ['igreja', 'regras-relacao-enum', 'profissoes', 'logs', 'autorizacoes-financeiras'],
 }
 
 function RotaDaContaComum({ pathname }: { pathname: string }) {

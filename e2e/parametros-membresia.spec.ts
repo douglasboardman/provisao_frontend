@@ -17,6 +17,7 @@ test('secretário acrescenta e salva um valor nos parâmetros de membresia', asy
     const metodo = route.request().method()
     if (metodo === 'OPTIONS') return route.fulfill({ status: 204, headers })
     const path = new URL(route.request().url()).pathname
+    if (path === '/autorizacao/navegacao') return route.fulfill({ headers, json: { permissoes: {} } })
     if (path === '/auth/profile') return route.fulfill({
       headers, json: { sub: 'u', igreja_id: 'i', perfil: 'SECRETARIO', username: 'Secretário Teste', login: 'teste@example.invalid' },
     })
@@ -34,7 +35,7 @@ test('secretário acrescenta e salva um valor nos parâmetros de membresia', asy
     return route.fulfill({ headers, json: [] })
   })
   await page.goto('/configuracoes')
-  await page.getByRole('button', { name: 'Parâmetros Membresia' }).click()
+  await page.getByRole('tab', { name: 'Parâmetros Membresia' }).click()
   await page.getByRole('combobox', { name: 'Classificador', exact: true }).click()
   await page.getByRole('option', { name: 'Admissao' }).click()
   await page.getByRole('combobox', { name: 'Classificado', exact: true }).click()

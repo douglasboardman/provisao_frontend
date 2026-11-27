@@ -170,6 +170,7 @@ describe('consulta de órgãos', () => {
     useAuthStore.setState({ status: 'ready', user: { sub: 'admin', igreja_id: 'igreja', perfil: Perfil.ADMINISTRADOR, login: 'x', username: 'x' } })
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(<QueryClientProvider client={client}><OrgaosPage /></QueryClientProvider>)
+    fireEvent.click(await screen.findByRole('tab', { name: 'Administração institucional' }))
     expect(await screen.findByRole('button', { name: 'Registrar Conselho ou Junta' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Registrar competência de gestor' })).toBeTruthy()
   })

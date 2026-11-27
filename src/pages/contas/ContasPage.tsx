@@ -1,6 +1,6 @@
 import { Landmark as PageIcon } from "lucide-react"
 import { WorkspaceHeader } from "../../components/shared/Workspace"
-import { AutorizacoesFinanceiras } from '../secretaria/AutorizacoesFinanceiras'
+import { DadosFinanceiros } from '../secretaria/AutorizacoesFinanceiras'
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
@@ -182,15 +182,15 @@ export function ContasPage() {
         )}
       </WorkspaceHeader>
 
-      {isLoading ? (
-        <div className="py-16 text-center text-muted-foreground">Carregando...</div>
-      ) : !data?.length ? (
-        <EmptyState icon={KeySquare} title="Nenhuma conta" description="Nenhuma conta cadastrada" />
-      ) : (
-        <DataTable data={data} columns={columns} keyExtractor={(item) => item.id} actions={actions} />
-      )}
-
-      <AutorizacoesFinanceiras contas={data ?? []} selecao="contas" />
+      <DadosFinanceiros nome="Contas" icone={PageIcon} contas={data} selecao="contas">
+        {isLoading ? (
+          <div className="py-16 text-center text-muted-foreground">Carregando...</div>
+        ) : !data?.length ? (
+          <EmptyState icon={KeySquare} title="Nenhuma conta" description="Nenhuma conta cadastrada" />
+        ) : (
+          <DataTable data={data} columns={columns} keyExtractor={(item) => item.id} actions={actions} />
+        )}
+      </DadosFinanceiros>
 
       <Dialog open={dialogOpen} onOpenChange={(o) => !o && closeDialog()}>
         <DialogContent className="max-w-lg">

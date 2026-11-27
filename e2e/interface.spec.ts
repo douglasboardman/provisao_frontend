@@ -101,6 +101,7 @@ async function preparar(page: Page) {
     const url = new URL(route.request().url())
     const respostas: Record<string, unknown> = {
       '/auth/profile': usuario,
+      '/autorizacao/navegacao': { permissoes: { oficiais: ['view'], orgaos: ['view'] } },
       '/oficiais/meu-acesso-sensivel': {},
       '/oficiais': {
         itens: [

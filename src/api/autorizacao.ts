@@ -62,8 +62,8 @@ export const autorizacaoApi = {
   conta: (id: string) => apiClient.get<AtuacaoConta>(`autorizacao/contas/${id}`),
   escolher: (pessoa_id: string, anterior_id: string | null, conta_id: string | null) =>
     apiClient.post('autorizacao/conta-atuacao', { pessoa_id, anterior_id, conta_id }),
-  conceder: (id: string, acao: Servico, inicio: string, fim: string | null, fundamento: string) =>
-    apiClient.post(`autorizacao/contas/${id}/atribuicoes`, { acao, inicio, fim, fundamento }),
+  conceder: (id: string, acao: Servico, inicio: string, fim: string | null) =>
+    apiClient.post(`autorizacao/contas/${id}/atribuicoes`, { acao, inicio, fim }),
   perfisAtuacao: () => apiClient.get<{ pode_criar: boolean; modelos: PerfilAtuacao[] }>('autorizacao/modelos-atuacao'),
   opcoesPerfisAtuacao: () => apiClient.get<{ cargos: { id: string; nome: string }[]; oficios: { oficio: string; nome: string }[];
     catalogo: (AcaoPerfil & { area: AreaPermissaoPerfil })[] }>('autorizacao/modelos-atuacao/opcoes'),
@@ -76,7 +76,7 @@ export const autorizacaoApi = {
   concederPerfil: (id: string, usuario_id: string, previa: string) =>
     apiClient.post<{ id: string; atribuidas: number }>(`autorizacao/modelos-atuacao/${id}/concessoes`, { usuario_id, previa }),
   revogarPerfil: (id: string) => apiClient.post(`autorizacao/concessoes-modelo/${id}/revogar`, {}),
-  revogar: (id: string, fundamento: string) => apiClient.post(`autorizacao/atribuicoes/${id}/revogar`, { fundamento }),
+  revogar: (id: string) => apiClient.post(`autorizacao/atribuicoes/${id}/revogar`, {}),
   presidencia: (id: string, etapa: 'conferir' | 'encaminhar', fundamento: string) =>
     apiClient.post(`autorizacao/presidencias/${id}/${etapa}`, { fundamento }),
 }

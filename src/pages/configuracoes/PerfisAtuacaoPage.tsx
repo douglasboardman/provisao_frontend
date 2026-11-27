@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus } from 'lucide-react'
+import { Plus, ShieldCheck } from 'lucide-react'
 import { autorizacaoApi, type ConcessaoPerfil, type PerfilAtuacao } from '../../api/autorizacao'
 import { ApiRequestError } from '../../api/client'
+import { CabecalhoPainel, ModificadorContexto } from '../../components/shared/Workspace'
 import { Badge } from '../../components/ui/badge'
 import { Button } from '../../components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog'
@@ -33,16 +34,15 @@ export function PerfisAtuacaoPage() {
         {!criando && <Plus aria-hidden="true"/>}{criando ? 'Fechar formulário' : 'Novo perfil'}
       </Button>}
     </header>
-    {criando && <section className="surface">
+    {criando ? <section className="surface">
       <CriarPerfilAtuacao criado={novo => { selecionar(novo); criar(false) }}/>
-    </section>}
-    {perfil ? <>
-      <label className="block max-w-md space-y-1 text-sm font-medium">
+    </section> : perfil ? <>
+      <ModificadorContexto icone={ShieldCheck}><label className="block max-w-md space-y-1 text-sm font-medium">
         <span>Perfil</span>
         <select className="h-10 w-full rounded-md border border-input bg-card px-3" value={perfil.id} onChange={e => selecionar(e.target.value)}>
           {q.data.modelos.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
         </select>
-      </label>
+      </label></ModificadorContexto>
       <DetalhePerfil key={perfil.id} perfil={perfil}/>
     </> : <p className="text-muted-foreground">Nenhum perfil de acesso cadastrado.</p>}
   </div>
@@ -70,9 +70,9 @@ function DetalhePerfil({ perfil }: { perfil: PerfilAtuacao }) {
   const erro = revisar.error ?? conceder.error
   const requisitos = perfil.requisitos ?? [perfil.requisito]
 
-  return <div className="space-y-5">
-    <section className="surface space-y-3">
-      <h2 className="text-lg font-semibold">{perfil.nome}</h2>
+  return <section className="surface space-y-4">
+    <CabecalhoPainel icone={ShieldCheck} titulo={perfil.nome} />
+    <div className="space-y-3">
       <div className="space-y-2">
         <p className="text-sm text-muted-foreground">{requisitos.length > 1 ? 'Basta exercer um dos cargos ou mandatos abaixo.' : 'Cargo ou mandato exigido'}</p>
         <ul className="flex flex-wrap gap-2">{requisitos.map(requisito => <li key={requisito}><Badge variant="secondary">{requisito}</Badge></li>)}</ul>
@@ -83,12 +83,12 @@ function DetalhePerfil({ perfil }: { perfil: PerfilAtuacao }) {
           {perfil.acoes.map(a => <li key={a.acao}>{a.rotulo}</li>)}
         </ul>
       </details>
-    </section>
+    </div>
     {q.isPending && <p role="status">Consultando contas e concessões…</p>}
     {q.isError && <p role="alert">{mensagem(q.error, 'Não foi possível consultar as concessões.')}</p>}
-    {q.data && <>
-      <section className="surface space-y-3">
-        <h2 className="font-semibold">Atribuir perfil</h2>
+    {q.data && <div className="grid gap-4 border-t pt-4 lg:grid-cols-2">
+      <section className="min-w-0 space-y-3">
+        <h3 className="font-semibold">Atribuir perfil</h3>
         {conceder.isSuccess && <p role="status" className="text-sm">Perfil atribuído.</p>}
         {erro && <p className="text-sm text-destructive" role="alert">{mensagem(erro, 'Não foi possível registrar a concessão.')}</p>}
         {q.data.contas.length ? <form className="space-y-4" onSubmit={e => {
@@ -128,8 +128,8 @@ function DetalhePerfil({ perfil }: { perfil: PerfilAtuacao }) {
           </div>}
         </form> : <p className="text-sm text-muted-foreground">Nenhuma conta de atuação atende aos requisitos deste perfil.</p>}
       </section>
-      <section className="surface space-y-3">
-        <h2 className="font-semibold">Concessões do perfil</h2>
+      <section className="min-w-0 space-y-3">
+        <h3 className="font-semibold">Concessões do perfil</h3>
         {q.data.concessoes.length ? <ul className="divide-y rounded-lg border">
           {q.data.concessoes.map(c => <li key={c.id} className="flex flex-wrap items-center justify-between gap-3 p-3 text-sm">
             <div className="min-w-0 break-words">
@@ -143,9 +143,9 @@ function DetalhePerfil({ perfil }: { perfil: PerfilAtuacao }) {
           </li>)}
         </ul> : <p className="text-sm text-muted-foreground">Nenhuma concessão registrada.</p>}
       </section>
-    </>}
+    </div>}
     {revogar && <RevogarPerfil concessao={revogar} fechar={() => definirRevogacao(null)}/>}
-  </div>
+  </section>
 }
 
 function RevogarPerfil({ concessao, fechar }: { concessao: ConcessaoPerfil; fechar: () => void }) {

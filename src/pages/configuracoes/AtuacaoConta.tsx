@@ -39,17 +39,17 @@ export function MinhaContaComum() {
 
 export function AcessosDaConta({ usuario }: { usuario: Usuario }) {
   const [aba, selecionar] = useState('atuacao')
-  const [fundamento, justificar] = useState(''), [acao, escolher] = useState<Servico>('')
+  const [acao, escolher] = useState<Servico>('')
   const [inicio, iniciar] = useState(''), [fim, terminar] = useState('')
   const ator = useAuthStore(s => s.user)
   const cache = useQueryClient()
   const chave = ['autorizacao', ator?.igreja_id, ator?.sub, usuario.id]
   const q = useQuery({ queryKey: chave, queryFn: () => autorizacaoApi.conta(usuario.id), gcTime: 0 })
   const alterar = useMutation({ mutationFn: (executar: () => Promise<unknown>) => executar(),
-    onSuccess: async () => { justificar(''); await cache.invalidateQueries({ queryKey: ['autorizacao'] }) },
+    onSuccess: () => cache.invalidateQueries({ queryKey: ['autorizacao'] }),
     onError: () => { void q.refetch() } })
   if (!q.data) return <p className="px-4 py-4 text-sm sm:px-6" role="status">{q.isError ? 'Não foi possível consultar a conta.' : 'Consultando atribuições…'}</p>
-  const dados = q.data, pronto = fundamento.trim().length > 0 && !alterar.isPending
+  const dados = q.data, pendente = alterar.isPending
   const elegivel = !!dados.pessoa_id && usuario.ativo && ![Perfil.ADMINISTRADOR, Perfil.AUDITOR].includes(usuario.perfil)
   const executar = (fn: () => Promise<unknown>) => alterar.mutate(fn)
   const catalogo = dados.catalogo ?? Object.entries(servicos).filter(([s]) =>
@@ -69,7 +69,7 @@ export function AcessosDaConta({ usuario }: { usuario: Usuario }) {
           <p className="text-sm text-muted-foreground">{dados.conta_atuacao ? 'Conta selecionada para atuação institucional.' :
             dados.selecionada_id ? 'A atuação institucional usa outra conta desta pessoa.' : 'Esta conta não está selecionada para atuação institucional.'}</p>
         </div>
-        {elegivel && <Button variant="outline" disabled={alterar.isPending} onClick={() => executar(() =>
+        {elegivel && <Button variant="outline" disabled={pendente} onClick={() => executar(() =>
           autorizacaoApi.escolher(dados.pessoa_id!, dados.selecionada_id ?? null, dados.conta_atuacao ? null : usuario.id))}>
           {dados.conta_atuacao ? 'Retirar conta de atuação' : dados.selecionada_id ? 'Trocar a atuação para esta conta' : 'Selecionar como conta de atuação'}
         </Button>}
@@ -83,9 +83,9 @@ export function AcessosDaConta({ usuario }: { usuario: Usuario }) {
         </summary>
         <form className="space-y-3 border-t p-3" onSubmit={e => {
           e.preventDefault()
-          if (!pronto || !selecionado) return
+          if (pendente || !selecionado) return
           executar(() => autorizacaoApi.conceder(usuario.id, selecionado, inicio ? new Date(inicio).toISOString() : new Date().toISOString(),
-            fim ? new Date(fim).toISOString() : null, fundamento))
+            fim ? new Date(fim).toISOString() : null))
         }}>
           <label className="block space-y-1 text-sm font-medium">
             <span>Serviço</span>
@@ -103,7 +103,7 @@ export function AcessosDaConta({ usuario }: { usuario: Usuario }) {
               <Input type="datetime-local" value={fim} onChange={e => terminar(e.target.value)}/>
             </label>
           </div>
-          <Button disabled={!pronto}>Registrar atribuição</Button>
+          <Button disabled={pendente}>Registrar atribuição</Button>
         </form>
       </details>}
       <section className="space-y-2">
@@ -117,8 +117,8 @@ export function AcessosDaConta({ usuario }: { usuario: Usuario }) {
             </div>
             {r.concessao_modelo_id ?
               <Link className="text-xs font-medium text-purple hover:underline" to="/perfis-atuacao">Concedida por perfil</Link> :
-              <Button variant="outline" size="sm" disabled={!pronto} aria-label={'Revogar ' + rotulo}
-                onClick={() => executar(() => autorizacaoApi.revogar(r.id, fundamento))}>Revogar</Button>}
+              <Button variant="outline" size="sm" disabled={pendente} aria-label={'Revogar ' + rotulo}
+                onClick={() => executar(() => autorizacaoApi.revogar(r.id))}>Revogar</Button>}
           </li>
         })}</ul> : <p className="text-sm text-muted-foreground">Nenhuma atribuição registrada para esta conta.</p>}
         {!dados.pessoa_id && <p className="text-sm">Vincule a pessoa para atribuir serviços ou converter o perfil.</p>}
@@ -137,15 +137,10 @@ export function AcessosDaConta({ usuario }: { usuario: Usuario }) {
   if (dados.pode_converter && dados.catalogo) abas.push({ id: 'conversao', nome: 'Conversão', manter: true,
     conteudo: <ConverterConta id={usuario.id} catalogo={dados.catalogo} competencias={dados.competencias ?? []}/> })
   const ativa = abas.some(a => a.id === aba) ? aba : 'atuacao'
-  const pedeFundamento = ativa === 'atribuicoes' && (podeConceder || dados.atribuicoes.length > 0)
 
   return <>
     <Abas titulo="Atuação da conta" abas={abas} ativa={ativa} selecionar={selecionar} rolagemInterna/>
-    {(pedeFundamento || alterar.isError || alterar.isSuccess) && <div className="shrink-0 space-y-2 border-t bg-card px-4 py-3 text-sm sm:px-6">
-      {pedeFundamento && <label className="block space-y-1 font-medium">
-        <span>Fundamento da alteração</span>
-        <Input value={fundamento} maxLength={1000} onChange={e => justificar(e.target.value)}/>
-      </label>}
+    {(alterar.isError || alterar.isSuccess) && <div className="shrink-0 space-y-2 border-t bg-card px-4 py-3 text-sm sm:px-6">
       {alterar.isError && <p className="text-destructive" role="alert">{alterar.error instanceof ApiRequestError ? alterar.error.messages[0] : 'Não foi possível registrar a alteração.'}</p>}
       {alterar.isSuccess && <p role="status">Alteração registrada.</p>}
     </div>}

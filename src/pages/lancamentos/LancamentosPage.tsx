@@ -198,9 +198,9 @@ export function LancamentosPage() {
         )}
       </WorkspaceHeader>
 
-      <div className="flex gap-3 flex-wrap">
+      <section aria-label="Filtros de lançamentos" className="surface flex flex-wrap gap-3">
         <Select value={filters.tipo ?? "all"} onValueChange={(v) => setFilters((f) => ({ ...f, tipo: v === "all" ? undefined : v, page: 1 }))}>
-          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Tipo" /></SelectTrigger>
+          <SelectTrigger aria-label="Tipo de lançamento" className="w-[160px]"><SelectValue placeholder="Tipo" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
             <SelectItem value="RECEITA">Receitas</SelectItem>
@@ -208,13 +208,13 @@ export function LancamentosPage() {
           </SelectContent>
         </Select>
         <Select value={filters.conta_id ?? "all"} onValueChange={(v) => setFilters((f) => ({ ...f, conta_id: v === "all" ? undefined : v, page: 1 }))}>
-          <SelectTrigger className="w-[200px]"><SelectValue placeholder="Conta" /></SelectTrigger>
+          <SelectTrigger aria-label="Conta bancária ou caixa" className="w-[200px]"><SelectValue placeholder="Conta" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas as contas</SelectItem>
             {contas?.map((c) => <SelectItem key={c.id} value={c.id}>{c.descricao}</SelectItem>)}
           </SelectContent>
         </Select>
-      </div>
+      </section>
 
       {isLoading ? (
         <div className="py-16 text-center text-muted-foreground">Carregando...</div>

@@ -1,4 +1,4 @@
-import { WorkspaceHeader } from '../../components/shared/Workspace'
+import { CabecalhoPainel, WorkspaceHeader } from '../../components/shared/Workspace'
 import { useQuery } from "@tanstack/react-query"
 import { LayoutDashboard, Users, ArrowRightLeft, FileSpreadsheet, KeySquare, TrendingUp, TrendingDown } from "lucide-react"
 import { pessoasApi } from "../../api/pessoas"
@@ -55,14 +55,14 @@ export function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-card rounded-2xl border border-border p-6">
+        <div className="surface">
           <div className="flex items-center gap-2 mb-4">
             <TrendingUp size={20} className="text-receita" />
             <h3 className="font-heading font-semibold">Receitas (página atual)</h3>
           </div>
           <p className="text-3xl font-heading font-bold text-receita">{fmt(totalReceitas)}</p>
         </div>
-        <div className="bg-card rounded-2xl border border-border p-6">
+        <div className="surface">
           <div className="flex items-center gap-2 mb-4">
             <TrendingDown size={20} className="text-despesa" />
             <h3 className="font-heading font-semibold">Despesas (página atual)</h3>
@@ -72,8 +72,8 @@ export function DashboardPage() {
       </div>
 
       {recents.length > 0 && (
-        <div className="bg-card rounded-2xl border border-border p-6">
-          <h3 className="font-heading font-semibold mb-4">Últimos Lançamentos</h3>
+        <div className="surface">
+          <div className="mb-4"><CabecalhoPainel icone={ArrowRightLeft} titulo="Últimos Lançamentos" /></div>
           <div className="space-y-3">
             {recents.slice(0, 5).map((l) => (
               <div key={l.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">

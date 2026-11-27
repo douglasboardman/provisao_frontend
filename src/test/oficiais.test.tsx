@@ -15,6 +15,7 @@ vi.mock('../api/oficiais', () => ({ oficiaisApi: {
   listar: vi.fn(async () => ({ itens: [{ id: 'id-1', tipo: 'DIACONO', ativo: true, pessoa: { id: 'p1', nome_completo: 'Pessoa Teste' } }], proximo_cursor: null })),
   exercicio: vi.fn(async (_id: string, data: string) => ({ situacao: 'EM_EXERCICIO', data_referencia: data })),
   alertas: vi.fn(async () => []),
+  vigentes: vi.fn(async () => []),
 } }))
 
 describe('consulta de oficiais', () => {
@@ -23,16 +24,19 @@ describe('consulta de oficiais', () => {
   it('mostra oficial e consulta exercício sem afirmar competência', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(<QueryClientProvider client={client}><OficiaisPage /></QueryClientProvider>)
+    expect(screen.getByRole('heading', { name: 'Mandatos vigentes' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Ofícios registrados' }))
     expect(await screen.findByText('Pessoa Teste')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Consultar exercício' }))
     expect(screen.queryByRole('heading', { name: 'Ofícios registrados' })).toBeNull()
-    expect(screen.getByRole('heading', { name: 'Mandatos vigentes' })).toBeTruthy()
+    expect(screen.queryByRole('heading', { name: 'Mandatos vigentes' })).toBeNull()
     expect(await screen.findByText(/Em exercício em/)).toBeTruthy()
     expect(screen.getByText(/não substitui a verificação de competência/)).toBeTruthy()
   })
   it('registra um ofício sem atribuir ordenação ou mandato', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(<QueryClientProvider client={client}><OficiaisPage /></QueryClientProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'Ofícios registrados' }))
     fireEvent.click(screen.getByRole('button', { name: 'Registrar ofício' }))
     fireEvent.change(screen.getByLabelText('Pessoa'), { target: { value: 'Teste' } })
     fireEvent.click(await screen.findByRole('option', { name: 'Pessoa Teste' }))
@@ -43,6 +47,7 @@ describe('consulta de oficiais', () => {
   it('registra um segundo tipo de ofício como inativo e permite inativar o cadastro atual', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(<QueryClientProvider client={client}><OficiaisPage /></QueryClientProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'Ofícios registrados' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Inativar cadastro' }))
     await vi.waitFor(() => expect(oficiaisApi.alterarSituacao).toHaveBeenCalledWith({ id: 'id-1', ativo: false }, expect.anything()))
     fireEvent.click(screen.getByRole('button', { name: 'Registrar ofício' }))

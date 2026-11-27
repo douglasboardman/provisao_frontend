@@ -25,6 +25,26 @@ it.each([
   fireEvent.click(botao)
   await waitFor(() => expect(trocar).toHaveBeenCalledWith('p', selecionada, ativa ? null : 'nova'))
 })
+it('concede e revoga uma atribuição individual sem pedir fundamento', async () => {
+  vi.spyOn(autorizacaoApi, 'conta').mockResolvedValue({
+    ...dados,
+    catalogo: [{ acao: 'PESSOAS_CADASTRAR', rotulo: 'Cadastrar pessoas' }],
+    atribuicoes: [{ id: 'atribuicao', acao: 'PESSOAS_CONSULTAR', inicio: '2026-01-01T00:00:00.000Z', fim: null }],
+  })
+  const conceder = vi.spyOn(autorizacaoApi, 'conceder').mockResolvedValue({})
+  const revogar = vi.spyOn(autorizacaoApi, 'revogar').mockResolvedValue({})
+  montar(<AcessosDaConta usuario={{ id: 'conta', ativo: true, perfil: Perfil.COMUM } as Usuario}/>)
+  fireEvent.click(await screen.findByRole('tab', { name: 'Atribuições' }))
+  fireEvent.click(screen.getByText('Nova atribuição'))
+  expect(screen.queryByLabelText('Fundamento da alteração')).toBeNull()
+  const registrar = screen.getByRole('button', { name: 'Registrar atribuição' }) as HTMLButtonElement
+  expect(registrar.disabled).toBe(false)
+  fireEvent.click(registrar)
+  await screen.findByText('Alteração registrada.')
+  expect(conceder).toHaveBeenCalledWith('conta', 'PESSOAS_CADASTRAR', expect.any(String), null)
+  fireEvent.click(screen.getByRole('button', { name: 'Revogar Consultar o cadastro de pessoas' }))
+  await waitFor(() => expect(revogar).toHaveBeenCalledWith('atribuicao'))
+})
 it('apresenta as atribuições em avaliação da própria conta sem habilitar módulos', async () => {
   vi.spyOn(autorizacaoApi, 'me').mockResolvedValue({ ...dados, servicos_propostos: [{ acao: 'AUDITORIA_CONSULTAR', permite: true }] })
   montar(<MinhaContaComum/>)

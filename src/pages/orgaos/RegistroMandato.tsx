@@ -44,7 +44,7 @@ export function RegistroMandato({ orgao, identidade, titular, concluir }: { orga
     previa.mutate({ ...dados, idempotencia: chave.obter(dados) })
   }
   const erro = previa.error ?? salvar.error
-  return <form className="space-y-3 rounded-xl border p-4" onSubmit={conferir}>
+  return <form className="space-y-3 rounded-panel border p-4" onSubmit={conferir}>
     <fieldset disabled={previa.isPending || !!previa.data} className="max-w-2xl space-y-3">
       <legend className="font-semibold">{titular ? 'Reeleição de ' + titular.nome_completo : 'Novo mandato'}</legend>
       <SeletorAta label="Ata da Assembleia que elegeu a pessoa" valor={eleicao ? descreverAta(eleicao) : ''} chave={[identidade, orgao, 'eleicao']}

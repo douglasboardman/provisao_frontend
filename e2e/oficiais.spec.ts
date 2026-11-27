@@ -33,7 +33,7 @@ for (const largura of [320, 1280]) test(`registra indicação e mandato com sele
     return route.fulfill({ headers, json: [] })
   })
   await page.goto('/oficiais')
-  await page.getByRole('button', { name: 'Processo eleitoral' }).click()
+  await page.getByRole('tab', { name: 'Processo eleitoral' }).click()
   await page.getByRole('button', { name: 'Registrar indicação' }).click()
   await page.getByRole('button', { name: 'Selecionar', exact: true }).click()
   const modal = page.getByRole('dialog')
@@ -94,6 +94,7 @@ test('consulta oficiais e exercício com a funcionalidade habilitada', async ({ 
     return route.fulfill({ headers, json: [] })
   })
   await page.goto('/oficiais')
+  await page.getByRole('button', { name: 'Ofícios registrados' }).click()
   await expect(page.getByText('Pessoa Sintética')).toBeVisible()
   await page.getByRole('button', { name: 'Consultar exercício' }).click()
   await expect(page.getByText(/Em exercício em/)).toBeVisible()
@@ -132,6 +133,7 @@ test('auditor com concessão consulta histórico restrito sem acesso de escrita'
   await page.route('http://localhost:3000/**', route => {
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
     const url = new URL(route.request().url())
+    if (url.pathname === '/autorizacao/navegacao') return route.fulfill({ headers, json: { permissoes: {} } })
     if (url.pathname === '/auth/profile') return route.fulfill({ headers, json: { sub: 'aud', igreja_id: 'i', perfil: 'AUDITOR', username: 'Auditor', login: 'a@example.invalid' } })
     if (url.pathname === '/oficiais') return route.fulfill({ headers, json: { itens: [{ id, tipo: 'DIACONO', pessoa: { id: 'p', nome_completo: 'Pessoa Restrita' } }], proximo_cursor: null } })
     if (url.pathname === '/oficiais/meu-acesso-sensivel') return route.fulfill({ headers, json: { pode_consultar: true, pode_registrar: false } })
@@ -152,6 +154,7 @@ test('administrador concede acesso específico a outro usuário', async ({ page 
   await page.route('http://localhost:3000/**', route => {
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
     const path = new URL(route.request().url()).pathname
+    if (path === '/autorizacao/navegacao') return route.fulfill({ headers, json: { permissoes: {} } })
     if (path === '/auth/profile') return route.fulfill({ headers, json: { sub: 'admin', igreja_id: 'i', perfil: 'ADMINISTRADOR', username: 'Admin', login: 'a@example.invalid' } })
     if (path === '/oficiais') return route.fulfill({ headers, json: { itens: [], proximo_cursor: null } })
     if (path === '/oficiais/alertas') return route.fulfill({ headers, json: [] })
@@ -162,7 +165,7 @@ test('administrador concede acesso específico a outro usuário', async ({ page 
     return route.fulfill({ headers, json: [] })
   })
   await page.goto('/oficiais')
-  await page.getByRole('button', { name: 'Permissões', exact: true }).click()
+  await page.getByRole('tab', { name: 'Permissões', exact: true }).click()
   await page.getByRole('button', { name: 'Gerir acessos a eventos restritos' }).click()
   await page.getByRole('combobox', { name: 'Usuário' }).fill('Secretário')
   await page.getByRole('option', { name: /Secretário/ }).click()
@@ -181,6 +184,7 @@ test('correção de data exige prévia e confirmação explícita', async ({ pag
   await page.route('http://localhost:3000/**', route => {
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
     const url = new URL(route.request().url())
+    if (url.pathname === '/autorizacao/navegacao') return route.fulfill({ headers, json: { permissoes: {} } })
     if (url.pathname === '/auth/profile') return route.fulfill({ headers, json: { sub: 'u', igreja_id: 'i', perfil: 'SECRETARIO', username: 'Secretário', login: 's@example.invalid' } })
     if (url.pathname === '/oficiais') return route.fulfill({ headers, json: { itens: [{ id, tipo: 'DIACONO', pessoa: { id: 'p', nome_completo: 'Pessoa Teste' } }], proximo_cursor: null } })
     if (url.pathname === '/oficiais/meu-acesso-sensivel') return route.fulfill({ headers, json: { pode_consultar: true, pode_registrar: true } })
@@ -191,6 +195,7 @@ test('correção de data exige prévia e confirmação explícita', async ({ pag
     return route.fulfill({ headers, json: [] })
   })
   await page.goto('/oficiais')
+  await page.getByRole('button', { name: 'Ofícios registrados' }).click()
   await page.getByRole('button', { name: 'Eventos restritos' }).click()
   await page.getByRole('button', { name: 'Conferir correção de data de membresia' }).click()
   await page.getByLabel('Evento de membresia').selectOption('evento')
@@ -214,6 +219,7 @@ test('referência pastoral usa código exibido uma vez e confirmação local', a
   await page.route('http://localhost:3000/**', route => {
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
     const url = new URL(route.request().url()), path = url.pathname
+    if (path === '/autorizacao/navegacao') return route.fulfill({ headers, json: { permissoes: {} } })
     if (path === '/auth/profile') return route.fulfill({ headers, json: { sub: 'u', igreja_id: 'i', perfil: 'SECRETARIO', username: 'Secretário', login: 's@example.invalid' } })
     if (path === '/igrejas') return route.fulfill({ headers, json: [{ id: 'i', nome: 'Igreja A' }, { id: 'j', nome: 'Igreja B' }] })
     if (path === '/oficiais') return route.fulfill({ headers, json: { itens: [{ id, tipo: 'PRESBITERO_DOCENTE', pessoa: { id: 'p', nome_completo: 'Docente Sintético' } }], proximo_cursor: null } })
@@ -226,6 +232,7 @@ test('referência pastoral usa código exibido uma vez e confirmação local', a
     return route.fulfill({ headers, json: [] })
   })
   await page.goto('/oficiais')
+  await page.getByRole('button', { name: 'Ofícios registrados' }).click()
   await page.getByRole('button', { name: 'Gerir registros' }).click()
   await page.getByRole('button', { name: 'Referência entre igrejas' }).click()
   const convite = page.locator('form').filter({ has: page.getByRole('heading', { name: 'Criar código para outra igreja' }) })
@@ -253,6 +260,7 @@ test('avisos internos exigem configuração e destinatário escolhido', async ({
   await page.route('http://localhost:3000/**', route => {
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
     const path = new URL(route.request().url()).pathname, method = route.request().method()
+    if (path === '/autorizacao/navegacao') return route.fulfill({ headers, json: { permissoes: { oficiais: ['view'] } } })
     if (path === '/auth/profile') return route.fulfill({ headers, json: { sub: 'admin', igreja_id: 'i', perfil: 'ADMINISTRADOR', username: 'Admin', login: 'a@example.invalid' } })
     if (path === '/oficiais') return route.fulfill({ headers, json: { itens: [], proximo_cursor: null } })
     if (path === '/oficiais/alertas' || path === '/oficiais/acessos-sensiveis') return route.fulfill({ headers, json: [] })
@@ -266,7 +274,7 @@ test('avisos internos exigem configuração e destinatário escolhido', async ({
     return route.fulfill({ headers, json: [] })
   })
   await page.goto('/oficiais')
-  await page.getByRole('button', { name: 'Avisos e prazos' }).click()
+  await page.getByRole('tab', { name: 'Avisos e prazos' }).click()
   await expect(page.getByText(/Pessoa Sintética — término/)).toBeVisible()
   await expect(page.getByLabel('1 aviso não lido')).toBeVisible()
   await page.getByRole('button', { name: 'Marcar como lido' }).click()
@@ -295,6 +303,7 @@ test('ordenação do mesmo dia exige sequência explícita e prévia', async ({ 
   await page.route('http://localhost:3000/**', route => {
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
     const path = new URL(route.request().url()).pathname
+    if (path === '/autorizacao/navegacao') return route.fulfill({ headers, json: { permissoes: {} } })
     if (path === '/auth/profile') return route.fulfill({ headers, json: { sub: 'u', igreja_id: 'i', perfil: 'SECRETARIO', username: 'Secretário', login: 's@example.invalid' } })
     if (path === '/oficiais') return route.fulfill({ headers, json: { itens: [{ id, tipo: 'DIACONO', pessoa: { id: 'p', nome_completo: 'Pessoa Teste' } }], proximo_cursor: null } })
     if (path === '/oficiais/meu-acesso-sensivel') return route.fulfill({ headers, json: { pode_consultar: true, pode_registrar: true } })
@@ -305,6 +314,7 @@ test('ordenação do mesmo dia exige sequência explícita e prévia', async ({ 
     return route.fulfill({ headers, json: [] })
   })
   await page.goto('/oficiais')
+  await page.getByRole('button', { name: 'Ofícios registrados' }).click()
   await page.getByRole('button', { name: 'Eventos restritos' }).click()
   await page.getByRole('button', { name: 'Conferir ordem de atos no mesmo dia' }).click()
   await page.getByLabel('Data com atos a ordenar').selectOption('2024-01-01')
@@ -326,6 +336,7 @@ test('rol não aplica evento futuro e sinaliza atos simultâneos sem ordem', asy
   await page.route('http://localhost:3000/**', route => {
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
     const path = new URL(route.request().url()).pathname
+    if (path === '/autorizacao/navegacao') return route.fulfill({ headers, json: { permissoes: {} } })
     if (path === '/auth/profile') return route.fulfill({ headers, json: { sub: 'u', igreja_id: 'i', perfil: 'SECRETARIO', username: 'Secretário', login: 's@example.invalid' } })
     if (path === '/pessoas') return route.fulfill({ headers, json: [{ id: 'a', nome_completo: 'Alice Futura', data_nascimento: '1990-01-01', sexo: 'FEMININO' }, { id: 'b', nome_completo: 'Bruno Ambíguo', data_nascimento: '1990-01-01', sexo: 'MASCULINO' }] })
     if (path === '/eventos-membresia') return route.fulfill({ headers, json: [
@@ -349,6 +360,7 @@ test('decisão formal autoriza apenas prévia eleitoral e mantém sinalização 
   await page.route('http://localhost:3000/**', route => {
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
     const path = new URL(route.request().url()).pathname, method = route.request().method()
+    if (path === '/autorizacao/navegacao') return route.fulfill({ headers, json: { permissoes: {} } })
     if (path === '/auth/profile') return route.fulfill({ headers, json: { sub: 'u', igreja_id: 'i', perfil: 'SECRETARIO', username: 'Secretário', login: 's@example.invalid' } })
     if (path === '/oficiais') return route.fulfill({ headers, json: { itens: [{ id, tipo: 'DIACONO', pessoa: { id: 'p', nome_completo: 'Pessoa Teste' } }], proximo_cursor: null } })
     if (path === '/oficiais/meu-acesso-sensivel') return route.fulfill({ headers, json: { pode_consultar: true, pode_registrar: true } })
@@ -359,6 +371,7 @@ test('decisão formal autoriza apenas prévia eleitoral e mantém sinalização 
     return route.fulfill({ headers, json: [] })
   })
   await page.goto('/oficiais')
+  await page.getByRole('button', { name: 'Ofícios registrados' }).click()
   await page.getByRole('button', { name: 'Eventos restritos' }).click()
   await page.getByRole('button', { name: 'Conferir correção de data de membresia' }).click()
   await page.getByLabel('Evento de membresia').selectOption('evento')

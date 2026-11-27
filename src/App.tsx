@@ -1,4 +1,3 @@
-import { AutorizacoesFinanceiras } from './pages/secretaria/AutorizacoesFinanceiras'
 import { FormularioSenha } from './pages/perfil/FormularioSenha'
 import { MinhaContaComum } from './pages/configuracoes/AtuacaoConta'
 import { lazy, Suspense } from 'react'
@@ -129,7 +128,7 @@ function App() {
           {/* Administração */}
           <Route path="acoes" element={<AcoesPage />} />
           <Route path="solicitacoes-acesso" element={<Navigate to="/usuarios?aba=solicitacoes" replace />} />
-          <Route path="autorizacoes-financeiras" element={<AutorizacoesFinanceiras />} />
+          <Route path="autorizacoes-financeiras" element={<Navigate to="/configuracoes?aba=autorizacoes-financeiras" replace />} />
           <Route path="usuarios" element={<UsuariosPage />} />
           <Route path="perfis-atuacao" element={<PerfisAtuacaoPage />} />
           <Route path="configuracoes" element={<ConfiguracoesPage />} />

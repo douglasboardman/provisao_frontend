@@ -1,8 +1,6 @@
-import { BookUser as PageIcon } from "lucide-react"
+import { BookUser as PageIcon, ScrollText, FilterX } from "lucide-react"
 import { WorkspaceHeader } from "../../components/shared/Workspace"
 import { useState, useMemo } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { ScrollText, FilterX } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { Label } from "../../components/ui/label"
@@ -12,17 +10,16 @@ import {
 import { DataTable, type Column } from "../../components/shared/DataTable"
 import { EmptyState } from "../../components/shared/EmptyState"
 import { ErrorState } from "../../components/shared/ErrorState"
-import { pessoasApi } from "../../api/pessoas"
-import { eventosMembresiaApi } from "../../api/eventos-membresia"
 import { Sexo, MembresiaRol } from "../../types/enums"
 import { MOTIVACAO_LABELS } from "../../lib/membresia-labels"
-import { dataCivilLocal, formatarDataCivil } from "../../lib/membresia-temporal"
+import { formatarDataCivil } from "../../lib/membresia-temporal"
 import { useEnumRelations } from "../../hooks/use-enum-relations"
 
 import { CampoBusca } from "../../components/shared/CampoBusca"
 import { correspondeBusca, correspondeCpf, normalizarBusca } from "../../lib/busca"
-import { useAuthStore } from "../../stores/auth"
-import { CATEGORY_ORDER, CATEGORY_LABELS, CATEGORY_COLORS, INDETERMINADO, NAO_ARROLADO, montarRol, resumirRol, type MemberView } from "./dados-rol"
+import { CATEGORY_ORDER, CATEGORY_LABELS, CATEGORY_COLORS, INDETERMINADO, NAO_ARROLADO, type MemberView } from "./dados-rol"
+
+import { useDadosRol } from "./useDadosRol"
 
 type Filters = {
   busca: string
@@ -46,13 +43,18 @@ const initialFilters: Filters = {
   tempoMax: "",
 }
 
-export function RolMembrosPage({ dentroDaArea = false }: { dentroDaArea?: boolean }) {
+export function RolMembrosPage() {
+  const dados = useDadosRol()
+  return <div className="workspace">
+    <WorkspaceHeader icon={PageIcon} title="Rol de Membros" description="Composição na data civil deste dispositivo. Eventos futuros não alteram o rol atual." />
+    <IndicadoresRol dados={dados} />
+    <ListagemRol dados={dados} />
+  </div>
+}
+
+export function ListagemRol({ dados }: { dados: ReturnType<typeof useDadosRol> }) {
+  const { hoje, pessoas, members, isLoading, errorPessoas, errPessoas, refetchPessoas, errorEventos, errEventos, refetchEventos } = dados
   const [filters, setFilters] = useState<Filters>(initialFilters)
-  const identidade = useAuthStore(s => `${s.user?.igreja_id}:${s.user?.sub}`)
-
-  const { data: pessoas, isLoading: loadingPessoas, isError: errorPessoas, error: errPessoas, refetch: refetchPessoas } = useQuery({ queryKey: ["pessoas", identidade], queryFn: pessoasApi.list })
-  const { data: eventos, isLoading: loadingEventos, isError: errorEventos, error: errEventos, refetch: refetchEventos } = useQuery({ queryKey: ["eventos-membresia", identidade], queryFn: eventosMembresiaApi.list })
-
   const { getFilter } = useEnumRelations("membresia")
 
   const admMotivacoes = useMemo(() => {
@@ -60,12 +62,6 @@ export function RolMembrosPage({ dentroDaArea = false }: { dentroDaArea?: boolea
     return allowed.map((k) => [k, MOTIVACAO_LABELS[k as keyof typeof MOTIVACAO_LABELS] ?? k] as const)
   }, [getFilter])
 
-  const isLoading = loadingPessoas || loadingEventos
-
-  // Sem fuso da igreja cadastrado, a referência é a data civil deste dispositivo.
-  const hoje = dataCivilLocal(new Date())
-  const members = useMemo(() => montarRol(pessoas ?? [], eventos ?? [], hoje), [pessoas, eventos, hoje])
-  const summary = useMemo(() => resumirRol(members), [members])
   const termo = normalizarBusca(filters.busca)
 
   const filtered = useMemo(() => {
@@ -93,8 +89,6 @@ export function RolMembrosPage({ dentroDaArea = false }: { dentroDaArea?: boolea
     setFilters((f) => ({ ...f, roles: { ...f.roles, [key]: checked } }))
   }
 
-  const totalMembers = members.length
-
   const ROL_BADGE_COLORS: Record<string, string> = {
     [MembresiaRol.COMUNGANTES]: "bg-[#6C4CAF]/10 text-[#6C4CAF] border-[#6C4CAF]/20",
     [MembresiaRol.NAO_COMUNGANTES]: "bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/20",
@@ -121,11 +115,8 @@ export function RolMembrosPage({ dentroDaArea = false }: { dentroDaArea?: boolea
   ]
 
   return (
-    <div className={dentroDaArea ? "space-y-5" : "workspace"}>
-      {dentroDaArea
-        ? <p className="text-sm text-muted-foreground">Composição em {formatarDataCivil(hoje)}, pela data deste dispositivo.</p>
-        : <WorkspaceHeader icon={PageIcon} title="Rol de Membros" description="Composição na data civil deste dispositivo. Eventos futuros não alteram o rol atual." />}
-
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">Composição em {formatarDataCivil(hoje)}, pela data deste dispositivo.</p>
       {isLoading ? (
         <div className="py-16 text-center text-muted-foreground">Carregando...</div>
       ) : errorPessoas ? (
@@ -136,53 +127,7 @@ export function RolMembrosPage({ dentroDaArea = false }: { dentroDaArea?: boolea
         <EmptyState icon={ScrollText} title="Nenhuma pessoa" description="Nenhuma pessoa cadastrada" />
       ) : (
         <>
-          {/* Summary cards */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {summary.map((s) => (
-              <div
-                key={s.key}
-                className="rounded-lg border bg-card p-4 border-l-4"
-                style={{ borderLeftColor: s.color }}
-              >
-                <div className="text-2xl font-bold">{s.count}</div>
-                <div className="text-sm text-muted-foreground">{s.label}</div>
-                {totalMembers > 0 && (
-                  <div className="text-xs text-muted-foreground mt-1">{s.percent.toFixed(1)}%</div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Composition bar */}
-          <div className="space-y-2">
-            <div className="h-3 rounded-full overflow-hidden flex bg-muted">
-              {summary
-                .filter((s) => s.count > 0)
-                .map((s) => (
-                  <div
-                    key={s.key}
-                    className="h-full transition-all duration-300"
-                    style={{ width: `${s.percent}%`, backgroundColor: s.color }}
-                    title={`${s.label}: ${s.count} (${s.percent.toFixed(1)}%)`}
-                  />
-                ))}
-            </div>
-            <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-              {summary
-                .filter((s) => s.count > 0)
-                .map((s) => (
-                  <div key={s.key} className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.color }} />
-                    {s.label}
-                  </div>
-                ))}
-            </div>
-          </div>
-
-          {/* Filters + Table */}
-          <div className="grid items-start gap-5 lg:grid-cols-[16rem_minmax(0,1fr)]">
-            {/* Filters sidebar */}
-            <aside className="rounded-lg border bg-card p-4 space-y-5 lg:sticky lg:top-4">
+          <section aria-label="Filtros do rol" className="surface space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Filtros</h3>
                 {hasActiveFilters && (
@@ -193,10 +138,11 @@ export function RolMembrosPage({ dentroDaArea = false }: { dentroDaArea?: boolea
                 )}
               </div>
 
-              {/* Rol */}
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold text-muted-foreground">Rol</Label>
-                <div className="space-y-1.5">
+              <CampoBusca rotulo="Buscar no rol" placeholder="Nome, CPF ou família" valor={filters.busca}
+                mudar={busca => setFilters(f => ({ ...f, busca }))} />
+              <fieldset className="space-y-2">
+                <legend className="text-xs font-semibold text-muted-foreground">Rol</legend>
+                <div className="flex flex-wrap gap-x-4 gap-y-2">
                   {CATEGORY_ORDER.map((key) => (
                     <label key={key} className="flex items-center gap-2 text-sm cursor-pointer">
                       <input
@@ -210,103 +156,140 @@ export function RolMembrosPage({ dentroDaArea = false }: { dentroDaArea?: boolea
                     </label>
                   ))}
                 </div>
-              </div>
+              </fieldset>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {/* Idade */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-muted-foreground">Idade</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <Input
+                      type="number"
+                      placeholder="Mín"
+                      aria-label="Idade mínima"
+                      min={0}
+                      value={filters.idadeMin}
+                      onChange={(e) => setFilters((f) => ({ ...f, idadeMin: e.target.value }))}
+                      className="h-8 text-sm"
+                    />
+                    <Input
+                      type="number"
+                      placeholder="Máx"
+                      aria-label="Idade máxima"
+                      min={0}
+                      value={filters.idadeMax}
+                      onChange={(e) => setFilters((f) => ({ ...f, idadeMax: e.target.value }))}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                </div>
 
-              {/* Idade */}
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold text-muted-foreground">Idade</Label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <Input
-                    type="number"
-                    placeholder="Mín"
-                    aria-label="Idade mínima"
-                    min={0}
-                    value={filters.idadeMin}
-                    onChange={(e) => setFilters((f) => ({ ...f, idadeMin: e.target.value }))}
-                    className="h-8 text-sm"
-                  />
-                  <Input
-                    type="number"
-                    placeholder="Máx"
-                    aria-label="Idade máxima"
-                    min={0}
-                    value={filters.idadeMax}
-                    onChange={(e) => setFilters((f) => ({ ...f, idadeMax: e.target.value }))}
-                    className="h-8 text-sm"
-                  />
+                {/* Sexo */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-muted-foreground">Sexo</Label>
+                  <Select value={filters.sexo || "all"} onValueChange={(v) => setFilters((f) => ({ ...f, sexo: v === "all" ? "" : v }))}>
+                    <SelectTrigger aria-label="Sexo" className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value={Sexo.MASCULINO}>Masculino</SelectItem>
+                      <SelectItem value={Sexo.FEMININO}>Feminino</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Forma de Admissão */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-muted-foreground">Forma de Admissão</Label>
+                  <Select value={filters.admissao || "all"} onValueChange={(v) => setFilters((f) => ({ ...f, admissao: v === "all" ? "" : v }))}>
+                    <SelectTrigger aria-label="Forma de admissão" className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      {admMotivacoes.map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Tempo no Rol */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-muted-foreground">Tempo no Rol (meses)</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <Input
+                      type="number"
+                      placeholder="Mín"
+                      aria-label="Tempo mínimo no rol em meses"
+                      min={0}
+                      value={filters.tempoMin}
+                      onChange={(e) => setFilters((f) => ({ ...f, tempoMin: e.target.value }))}
+                      className="h-8 text-sm"
+                    />
+                    <Input
+                      type="number"
+                      placeholder="Máx"
+                      aria-label="Tempo máximo no rol em meses"
+                      min={0}
+                      value={filters.tempoMax}
+                      onChange={(e) => setFilters((f) => ({ ...f, tempoMax: e.target.value }))}
+                      className="h-8 text-sm"
+                    />
+                  </div>
                 </div>
               </div>
-
-              {/* Sexo */}
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold text-muted-foreground">Sexo</Label>
-                <Select value={filters.sexo || "all"} onValueChange={(v) => setFilters((f) => ({ ...f, sexo: v === "all" ? "" : v }))}>
-                  <SelectTrigger aria-label="Sexo" className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value={Sexo.MASCULINO}>Masculino</SelectItem>
-                    <SelectItem value={Sexo.FEMININO}>Feminino</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Forma de Admissão */}
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold text-muted-foreground">Forma de Admissão</Label>
-                <Select value={filters.admissao || "all"} onValueChange={(v) => setFilters((f) => ({ ...f, admissao: v === "all" ? "" : v }))}>
-                  <SelectTrigger aria-label="Forma de admissão" className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {admMotivacoes.map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Tempo no Rol */}
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold text-muted-foreground">Tempo no Rol (meses)</Label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <Input
-                    type="number"
-                    placeholder="Mín"
-                    aria-label="Tempo mínimo no rol em meses"
-                    min={0}
-                    value={filters.tempoMin}
-                    onChange={(e) => setFilters((f) => ({ ...f, tempoMin: e.target.value }))}
-                    className="h-8 text-sm"
-                  />
-                  <Input
-                    type="number"
-                    placeholder="Máx"
-                    aria-label="Tempo máximo no rol em meses"
-                    min={0}
-                    value={filters.tempoMax}
-                    onChange={(e) => setFilters((f) => ({ ...f, tempoMax: e.target.value }))}
-                    className="h-8 text-sm"
-                  />
-                </div>
-              </div>
-
               {filtered.length !== members.length && (
                 <div className="text-xs text-muted-foreground pt-2 border-t">
                   Exibindo {filtered.length} de {members.length} pessoas
                 </div>
               )}
-            </aside>
-
-            {/* Table */}
-            <div className="min-w-0 space-y-4">
-              <div className="surface">
-                <CampoBusca rotulo="Buscar no rol" placeholder="Nome, CPF ou família" valor={filters.busca}
-                  mudar={busca => setFilters(f => ({ ...f, busca }))} />
-              </div>
-              {filtered.length ? <DataTable data={filtered} columns={columns} keyExtractor={m => m.id}
-                pageResetKey={JSON.stringify(filters)} /> :
-                <EmptyState icon={ScrollText} title="Nenhuma pessoa encontrada" description="Altere a busca ou os filtros." />}
-            </div>
-          </div>
+          </section>
+          {filtered.length ? <DataTable data={filtered} columns={columns} keyExtractor={m => m.id}
+            pageResetKey={JSON.stringify(filters)} /> :
+            <EmptyState icon={ScrollText} title="Nenhuma pessoa encontrada" description="Altere a busca ou os filtros." />}
         </>
       )}
     </div>
   )
+}
+
+export function IndicadoresRol({ dados }: { dados: ReturnType<typeof useDadosRol> }) {
+  const { summary, members, isLoading, errorPessoas, errorEventos } = dados
+  const totalMembers = members.length
+  if (isLoading || errorPessoas || errorEventos || !totalMembers) return null
+  return <div className="space-y-3" aria-label="Indicadores do rol">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 2xl:grid-cols-6">
+      {summary.map((s) => (
+        <div
+          key={s.key}
+          className="rounded-panel border bg-card p-4 border-l-4"
+          style={{ borderLeftColor: s.color }}
+        >
+          <div className="text-2xl font-bold">{s.count}</div>
+          <div className="text-sm text-muted-foreground">{s.label}</div>
+          <div className="text-xs text-muted-foreground mt-1">{s.percent.toFixed(1)}%</div>
+        </div>
+      ))}
+    </div>
+
+    <div className="space-y-2">
+      <div className="h-3 rounded-full overflow-hidden flex bg-muted">
+        {summary
+          .filter((s) => s.count > 0)
+          .map((s) => (
+            <div
+              key={s.key}
+              className="h-full transition-all duration-300"
+              style={{ width: `${s.percent}%`, backgroundColor: s.color }}
+              title={`${s.label}: ${s.count} (${s.percent.toFixed(1)}%)`}
+            />
+          ))}
+      </div>
+      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+        {summary
+          .filter((s) => s.count > 0)
+          .map((s) => (
+            <div key={s.key} className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.color }} />
+              {s.label}
+            </div>
+          ))}
+      </div>
+    </div>
+  </div>
 }

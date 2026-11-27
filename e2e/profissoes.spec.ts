@@ -16,6 +16,7 @@ test('secretário edita o catálogo em Configurações e seleciona ou remove a p
     const metodo = route.request().method()
     if (metodo === 'OPTIONS') return route.fulfill({ status: 204, headers })
     const path = new URL(route.request().url()).pathname
+    if (path === '/autorizacao/navegacao') return route.fulfill({ headers, json: { permissoes: {} } })
     if (path === '/auth/profile') return route.fulfill({
       headers, json: { sub: 'u', igreja_id: 'i', perfil: 'SECRETARIO', username: 'Pessoa Teste', login: 'teste@example.invalid' },
     })
@@ -44,7 +45,7 @@ test('secretário edita o catálogo em Configurações e seleciona ou remove a p
   })
 
   await page.goto('/configuracoes')
-  await page.getByRole('button', { name: 'Profissões', exact: true }).click()
+  await page.getByRole('tab', { name: 'Profissões', exact: true }).click()
   await expect(page.getByRole('cell', { name: 'Do lar', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Nova profissão' }).click()
   await page.getByLabel('Nome da profissão').fill('Técnica de som')

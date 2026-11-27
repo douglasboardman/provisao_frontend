@@ -21,7 +21,7 @@ export function AccessAuthoritiesPanel({ usuarios }: { usuarios: Usuario[] }) {
     onError: e => toast({ title: 'Não foi possível atualizar', description: e instanceof ApiRequestError ? e.messages[0] : 'Tente novamente.', variant: 'destructive' }),
   })
   const candidates = usuarios.filter(u => u.perfil === Perfil.GESTOR && u.ativo && u.pessoa_id && !query.data?.some(a => a.usuario_id === u.id))
-  return <section className="space-y-3 rounded-lg border p-4">
+  return <section className="space-y-3 rounded-panel border p-4">
     <h3 className="font-semibold">Competência para aprovar acessos</h3>
     <p className="text-sm text-muted-foreground">Registre apenas gestores cuja identidade e autoridade foram conferidas. O perfil, por si só, não concede essa competência.</p>
     {query.isError && <p role="alert">Não foi possível carregar as competências.</p>}

@@ -5,14 +5,13 @@ import { ProvimentoCargo } from './ProvimentoCargo'
 import { MandatosOrgao, OrientacaoVinculoParaRegistro } from './MandatosOrgao'
 import { Badge } from '../../components/ui/badge'
 import { Network, Landmark, UsersRound, Layers, CircleCheck, ArrowRight, BriefcaseBusiness, History, Settings } from 'lucide-react'
-import { WorkspaceHeader, Metric } from '../../components/shared/Workspace'
+import { CabecalhoPainel, DataReferencia, WorkspaceHeader, Metric } from '../../components/shared/Workspace'
 import { ManutencaoOrgao } from './ManutencaoOrgao'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { orgaosApi, type OrgaoResumo, type OcupacaoAtual, type VagaCargo } from '../../api/orgaos'
 import { Button } from '../../components/ui/button'
-import { Input } from '../../components/ui/input'
-import { Label } from '../../components/ui/label'
+import { Abas } from '../../components/ui/abas'
 import { useAuthStore } from '../../stores/auth'
 import { Perfil } from '../../types/enums'
 import { InstituirOrgao } from './InstituirOrgao'
@@ -44,6 +43,7 @@ export function OrgaosPage() {
   const gestaoHabilitada = import.meta.env.VITE_FEATURE_ORGAOS_GESTAO === 'true'
   const identidade = useAuthStore(s => `${s.user?.igreja_id ?? ''}:${s.user?.sub ?? ''}`)
   const perfil = useAuthStore(s => s.user?.perfil)
+  const [area, setArea] = useState('estrutura')
   const [dataSelecionada, setData] = useState<string | null>(null)
   const [secao, setSecao] = useState<string | null>(null)
   const [inativos, setInativos] = useState(false)
@@ -96,26 +96,23 @@ export function OrgaosPage() {
   if (relogio.isPending) return <main className="p-6">Consultando a data da igreja...</main>
   if (relogio.isError || !relogio.data) return <main className="p-6"><p role="alert">Não foi possível conferir a data usada nos atos.</p></main>
   if (!relogio.data.data_operacional) return <main className="space-y-4 p-6"><p role="alert">O fuso cadastrado é inválido; corrija-o antes de registrar atos.</p>{gestaoHabilitada && perfil === Perfil.ADMINISTRADOR && <ConfiguracaoFuso identidade={identidade} />}</main>
-  return <RelogioIgreja dia={relogio.data.data_operacional}><div className="workspace">
-    <WorkspaceHeader icon={Network} title="Estrutura da igreja" description="Estrutura institucional, composição e histórico de ocupações." />
-    <div className="metric-grid">
-      <Metric icon={Landmark} label="Órgãos Oficiais" value={lista.data?.resumo?.oficiais ?? '—'} />
-      <Metric icon={UsersRound} label="Sociedades Internas" value={lista.data?.resumo?.sociedades ?? '—'} />
-      <Metric icon={Layers} label="Un. Ministeriais" value={lista.data?.resumo?.unidades ?? '—'} />
-      <Metric icon={CircleCheck} label="Mandatos Vigentes" value={lista.data?.resumo?.mandatos_vigentes ?? '—'} />
-    </div>
-    <p className="text-sm text-muted-foreground">Data adotada para atos: {exibirData(relogio.data.data_operacional)} ({relogio.data.fuso_iana ?? 'UTC, sem fuso cadastrado'}).</p>
-    <div className="max-w-xs space-y-2"><Label htmlFor="data-orgaos">Data de referência</Label><Input id="data-orgaos" type="date" value={data} onChange={e => { setData(e.target.value); limparHistoricos() }} /></div>
-    <section className="surface"><Painel className="space-y-4"><h2 className="text-lg font-semibold">Órgãos cadastrados</h2>
+  const estrutura = <div className="space-y-4">
+    <DataReferencia id="data-orgaos" data={data} mudar={valor => { setData(valor); limparHistoricos() }}>
+      <p className="pb-2 text-muted-foreground">Data adotada para atos: {exibirData(relogio.data.data_operacional)} ({relogio.data.fuso_iana ?? 'UTC, sem fuso cadastrado'}).</p>
+    </DataReferencia>
+    {!selecionado && <section aria-label="Filtros de órgãos" className="surface flex flex-wrap items-end gap-4">
+      <label className="block w-full max-w-sm text-sm font-medium">Filtrar por tipo<select className="mt-1 block w-full rounded-lg border bg-background p-2" value={filtro} onChange={e => filtrar(e.target.value)}><option value="">Todos os tipos</option>{Object.entries(tipos).map(([v,n]) => <option key={v} value={v}>{n}</option>)}</select></label>
+      <label className="flex items-center gap-2 pb-2 text-sm"><input type="checkbox" checked={inativos} onChange={e => setInativos(e.target.checked)} />Incluir sociedades inativas</label>
+    </section>}
+    <section className="surface"><Painel className="space-y-4">
+      <CabecalhoPainel icone={Landmark} titulo="Órgãos cadastrados" />
       {lista.isPending && <p>Carregando órgãos...</p>}
       {lista.isError && <p role="alert">Não foi possível consultar os órgãos.</p>}
       {lista.data?.itens.length === 0 && <p>Nenhum órgão cadastrado.</p>}
-      <label className="block max-w-sm text-sm font-medium">Filtrar por tipo<select className="mt-1 block w-full rounded-lg border bg-white p-2" value={filtro} onChange={e => filtrar(e.target.value)}><option value="">Todos os tipos</option>{Object.entries(tipos).map(([v,n]) => <option key={v} value={v}>{n}</option>)}</select></label>
-      <label className="flex items-center gap-2"><input type="checkbox" checked={inativos} onChange={e => setInativos(e.target.checked)} />Incluir sociedades inativas</label>
       {(['Órgãos oficiais', 'Sociedades internas', 'Ministérios'] as const).map(grupo => {
         const itens = lista.data?.itens.filter(o => (!filtro || o.tipo === filtro) && (inativos || o.tipo !== 'SOCIEDADE_INTERNA' || o.ativo) &&
           (o.tipo === 'SOCIEDADE_INTERNA' ? 'Sociedades internas' : o.tipo === 'UNIDADE_MINISTERIAL' ? 'Ministérios' : 'Órgãos oficiais') === grupo)
-        return itens?.length ? <section key={grupo}><h3 className="mb-2 font-medium">{grupo}</h3><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{itens.map(o => <article key={o.id} className="flex min-w-0 flex-col items-start gap-3 rounded-xl border p-4"><div className="flex w-full items-center justify-between"><span className="rounded-lg bg-purple-muted/60 p-2 text-purple">{o.tipo === 'UNIDADE_MINISTERIAL' ? <Layers size={20} /> : <Landmark size={20} />}</span><Badge variant={o.ativo ? 'success' : 'outline'}>{o.ativo ? 'Cadastro ativo' : 'Cadastro inativo'}</Badge></div><div className="flex-1"><p className="font-semibold">{o.nome}{o.sigla ? ` (${o.sigla})` : ''}</p><p className="text-sm text-muted-foreground">{tipos[o.tipo]} · {constituicoes[o.constituicao]}</p>{o.integrantes !== undefined && <p className="text-sm">{o.integrantes} {o.integrantes === 1 ? 'integrante' : 'integrantes'} · {o.vagas} {o.vagas === 1 ? 'cargo vago' : 'cargos vagos'}</p>}</div><Button type="button" variant="outline" onClick={() => { setSelecionado(o.id); limparHistoricos() }}>Consultar<ArrowRight /></Button></article>)}</div></section> : null
+        return itens?.length ? <section key={grupo}><h3 className="mb-2 font-medium">{grupo}</h3><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{itens.map(o => <article key={o.id} className="flex min-w-0 flex-col items-start gap-3 rounded-panel border p-4"><div className="flex w-full items-center justify-between"><span className="rounded-lg bg-purple-muted/60 p-2 text-purple">{o.tipo === 'UNIDADE_MINISTERIAL' ? <Layers size={20} /> : <Landmark size={20} />}</span><Badge variant={o.ativo ? 'success' : 'outline'}>{o.ativo ? 'Cadastro ativo' : 'Cadastro inativo'}</Badge></div><div className="flex-1"><p className="font-semibold">{o.nome}{o.sigla ? ` (${o.sigla})` : ''}</p><p className="text-sm text-muted-foreground">{tipos[o.tipo]} · {constituicoes[o.constituicao]}</p>{o.integrantes !== undefined && <p className="text-sm">{o.integrantes} {o.integrantes === 1 ? 'integrante' : 'integrantes'} · {o.vagas} {o.vagas === 1 ? 'cargo vago' : 'cargos vagos'}</p>}</div><Button type="button" variant="outline" onClick={() => { setSelecionado(o.id); limparHistoricos() }}>Consultar<ArrowRight /></Button></article>)}</div></section> : null
       })}
       {lista.data?.pode_gerir_sociedades && !inativos && lista.data.itens.some(o => o.tipo === 'SOCIEDADE_INTERNA' && !o.ativo) &&
         <Button variant="outline" onClick={() => { filtrar('SOCIEDADE_INTERNA'); setInativos(true) }}>Ver sociedades para ativar</Button>}
@@ -219,7 +216,9 @@ export function OrgaosPage() {
     {gestaoHabilitada && lista.data?.pode_gerir_sociedades && <CriarMinisterio identidade={identidade} aoCriar={id => {
       setData(null); setSelecionado(id); limparHistoricos()
     }} />}
-    {gestaoHabilitada && perfil && [Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO].includes(perfil) && <section className="surface"><Painel><h2 className="text-lg font-semibold">Administração institucional</h2>
+  </div>
+  const administracao = gestaoHabilitada && perfil && [Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO].includes(perfil)
+    ? <section className="surface"><Painel><CabecalhoPainel icone={Settings} titulo="Administração institucional" />
       <div className="flex flex-wrap items-start gap-2">
         <InstituirOrgao perfil={perfil} identidade={identidade} />
         {perfil === Perfil.ADMINISTRADOR && <>
@@ -229,6 +228,19 @@ export function OrgaosPage() {
         </>}
         <PreviaImpactosMembresia identidade={identidade} />
       </div>
-    </Painel></section>}
+    </Painel></section> : null
+  return <RelogioIgreja dia={relogio.data.data_operacional}><div className="workspace">
+    <WorkspaceHeader icon={Network} title="Estrutura da igreja" description="Estrutura institucional, composição e histórico de ocupações." />
+    <div className="metric-grid">
+      <Metric icon={Landmark} label="Órgãos Oficiais" value={lista.data?.resumo?.oficiais ?? '—'} />
+      <Metric icon={UsersRound} label="Sociedades Internas" value={lista.data?.resumo?.sociedades ?? '—'} />
+      <Metric icon={Layers} label="Un. Ministeriais" value={lista.data?.resumo?.unidades ?? '—'} />
+      <Metric icon={CircleCheck} label="Mandatos Vigentes" value={lista.data?.resumo?.mandatos_vigentes ?? '—'} />
+    </div>
+    <Abas titulo="Seções da estrutura da igreja" ativa={area === 'administracao' && administracao ? area : 'estrutura'} selecionar={setArea} ocultarSeUnica
+      abas={[
+        { id: 'estrutura', nome: 'Órgãos cadastrados', icone: Network, conteudo: estrutura },
+        ...(administracao ? [{ id: 'administracao', nome: 'Administração institucional', icone: Settings, conteudo: administracao }] : []),
+      ]} />
   </div></RelogioIgreja>
 }

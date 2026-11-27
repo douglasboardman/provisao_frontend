@@ -1,10 +1,15 @@
+import { useQuery } from '@tanstack/react-query'
+import { acoesApi } from '../../api/acoes'
+import { contasApi } from '../../api/contas'
 import { useNavegacao } from '../../hooks/use-navegacao'
 import { BibliotecaCampos } from '../secretaria/BibliotecaCampos'
 import { useRecurso } from '../../lib/recursos'
 import { Settings as PageIcon } from "lucide-react"
 import { WorkspaceHeader } from "../../components/shared/Workspace"
-import { useState } from "react"
-import { Briefcase, Building2, FileText, SlidersHorizontal, ShieldCheck } from "lucide-react"
+import { Briefcase, Building2, FileText, Scale, SlidersHorizontal, ShieldCheck } from "lucide-react"
+import { Navigate, useSearchParams } from "react-router"
+import { Abas } from "../../components/ui/abas"
+import { AutorizacoesFinanceiras } from "../secretaria/AutorizacoesFinanceiras"
 import { useAuthStore } from "../../stores/auth"
 import { canAccessModule } from "../../lib/permissions"
 import { MfaPage } from "./MfaPage"
@@ -31,53 +36,42 @@ const TABS: Tab[] = [
   { key: "parametros-membresia", label: "Parâmetros Membresia", icon: SlidersHorizontal, module: "regras-relacao-enum", component: ParametrosRolMembrosPage },
   { key: "profissoes", label: "Profissões", icon: Briefcase, module: "profissoes", component: ProfissoesPage },
   { key: "campos", label: "Campos da Secretaria", icon: FileText, module: "secretaria", component: BibliotecaCampos },
+  { key: "autorizacoes-financeiras", label: "Autorizações financeiras", icon: Scale, module: "autorizacoes-financeiras", component: AutorizacoesNasConfiguracoes },
   { key: "logs", label: "Logs", icon: FileText, module: "logs", component: LogsPage },
 ]
+
+function AutorizacoesNasConfiguracoes() {
+  const user = useAuthStore(s => s.user)
+  const { data: navegacao } = useNavegacao()
+  const podeConsultar = (modulo: 'contas' | 'acoes') => !!user
+    && (navegacao?.permissoes[modulo]?.includes('view') ?? canAccessModule(user.perfil, modulo))
+  const contas = useQuery({ queryKey: ['contas', user?.igreja_id, user?.sub, 'autorizacoes'], queryFn: contasApi.list, enabled: podeConsultar('contas') })
+  const projetos = useQuery({ queryKey: ['acoes', user?.igreja_id, user?.sub, 'autorizacoes'], queryFn: acoesApi.list, enabled: podeConsultar('acoes') })
+  return <AutorizacoesFinanceiras contas={contas.data} projetos={projetos.data} />
+}
 
 export function ConfiguracoesPage() {
   const user = useAuthStore((s) => s.user)
   const secretaria = useRecurso('secretaria')
   const navegacao = useNavegacao()
+  const [params, selecionar] = useSearchParams()
   const visibleTabs = TABS.filter((t) => {
     if (!user) return false
     if (t.key === 'liberacoes') return user.perfil === 'ADMINISTRADOR'
     if (t.key === 'campos' && (!secretaria || !['ADMINISTRADOR', 'SECRETARIO'].includes(user.perfil))) return false
+    if (t.key === 'autorizacoes-financeiras' && (!secretaria || user.perfil === 'OPERADOR')) return false
     return navegacao.data?.permissoes[t.module]?.includes('view') ?? canAccessModule(user.perfil, t.module)
   })
-  const [activeKey, setActiveKey] = useState(visibleTabs[0]?.key ?? "igreja")
-
-  const activeTab = visibleTabs.find((t) => t.key === activeKey) ?? visibleTabs[0]
-  if (!activeTab) return null
-
-  const ActiveComponent = activeTab.component
+  const activeTab = visibleTabs.find((t) => t.key === params.get('aba')) ?? visibleTabs[0]
+  if (!activeTab) return navegacao.isPending ? <p role="status">Consultando acessos…</p> : <Navigate to="/dashboard" replace />
 
   return (
     <div className="workspace">
       <WorkspaceHeader icon={PageIcon} title="Configurações" description="Configurações da igreja e logs do sistema" />
 
-      {visibleTabs.length > 1 && (
-        <div className="flex gap-1 border-b border-border overflow-x-auto">
-          {visibleTabs.map((tab) => {
-            const Icon = tab.icon
-            return (
-              <button
-                key={tab.key}
-                onClick={() => setActiveKey(tab.key)}
-                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                  activeKey === tab.key
-                    ? "border-purple text-purple"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <Icon size={16} />
-                {tab.label}
-              </button>
-            )
-          })}
-        </div>
-      )}
-
-      <ActiveComponent />
+      <Abas titulo="Seções de configurações" ativa={activeTab.key} ocultarSeUnica
+        abas={visibleTabs.map(({ key, label, icon, component: Component }) => ({ id: key, nome: label, icone: icon, conteudo: <Component /> }))}
+        selecionar={aba => selecionar({ aba })} />
     </div>
   )
 }

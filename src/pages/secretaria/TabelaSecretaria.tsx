@@ -7,7 +7,7 @@ export function TabelaSecretaria({ nome, colunas, principais, children }: {
 }) {
   const [detalhada, detalhar] = useState(false)
   const id = useId()
-  return <div className="group min-w-0 max-w-full overflow-hidden rounded-xl border bg-card" data-detalhada={detalhada}>
+  return <div className="group min-w-0 max-w-full overflow-hidden rounded-panel border bg-card" data-detalhada={detalhada}>
     {principais && <div className="border-b px-3 py-1 text-right md:hidden">
       <button type="button" aria-controls={id} aria-expanded={detalhada} onClick={() => detalhar(!detalhada)}
         className="min-h-9 text-sm font-medium text-purple underline-offset-4 hover:underline">

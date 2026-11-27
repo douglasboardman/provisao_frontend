@@ -12,7 +12,7 @@ interface Summary {
 export function EmailQueuePanel() {
   const query = useQuery({ queryKey: ['indicadores-fila'], queryFn: () => apiClient.get<Summary>('usuarios/indicadores-fila'), refetchInterval: 60_000 })
   const summary = query.data
-  return <section className="space-y-3 rounded-lg border p-4">
+  return <section className="space-y-3 rounded-panel border p-4">
     <h3 className="font-semibold">Envio de e-mails</h3>
     {query.isLoading && <p>Carregando indicadores...</p>}
     {query.isError && <p role="alert">Não foi possível consultar a fila de e-mails.</p>}

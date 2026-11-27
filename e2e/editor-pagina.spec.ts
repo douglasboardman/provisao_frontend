@@ -12,41 +12,52 @@ test('edita a página do modelo, pagina o corpo, reabre e conserva o texto após
   let edicao: VersaoInput | undefined
   const erros: string[] = []
   page.on('pageerror', e => erros.push(e.message))
-  await page.route('**/secretaria/**', async route => {
+  const headers = {
+    'Access-Control-Allow-Origin': 'http://127.0.0.1:4179',
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Allow-Headers': 'content-type,x-provisao-request',
+    'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
+  }
+  await page.route('http://localhost:3000/**', route => route.request().method() === 'OPTIONS'
+    ? route.fulfill({ headers, status: 204 })
+    : route.fulfill({ headers, json: [] }))
+  await page.route('http://localhost:3000/secretaria/**', async route => {
     const req = route.request()
     if (req.isNavigationRequest()) return route.continue()
     const path = new URL(req.url()).pathname
-    if (req.method() === 'OPTIONS') return route.fulfill({ status: 204 })
+    if (req.method() === 'OPTIONS') return route.fulfill({ headers, status: 204 })
     if (['POST', 'PATCH'].includes(req.method()) && path.includes('modelos')) {
-      if (falhar) return route.fulfill({ status: 409, json: { message: 'Revisão desatualizada.' } })
+      if (falhar) return route.fulfill({ headers, status: 409, json: { message: 'Revisão desatualizada.' } })
       salvo = req.postDataJSON().configuracao
       publicado = path.endsWith('/publicar') || req.postDataJSON().publicar === true
-      return route.fulfill({ json: { id: 'modelo', revisao: ++revisao, estado: publicado ? 'PUBLICADO' : 'EM_EDICAO' } })
+      return route.fulfill({ headers, json: { id: 'modelo', revisao: ++revisao, estado: publicado ? 'PUBLICADO' : 'EM_EDICAO' } })
     }
     if (req.method() === 'POST' && path.endsWith('/documentos')) {
       comandos.push(req.postDataJSON().idempotencia)
       edicao ??= req.postDataJSON().versao
       if (offline) { offline = false; return route.abort('internetdisconnected') }
-      return route.fulfill({ json: { id: 'documento', revisao: 1 } })
+      return route.fulfill({ headers, json: { id: 'documento', revisao: 1 } })
     }
-    if (path.endsWith('/documentos/consulta')) return route.fulfill({ json: { itens: edicao && new URL(req.url()).searchParams.get('visao') === 'andamento' ? [{
+    if (path.endsWith('/papeis-modelo')) return route.fulfill({ headers, json: [{ id: 'secretario', codigo: 'SECRETARIO', nome: 'Secretário' }] })
+    if (path.endsWith('/documentos/consulta')) return route.fulfill({ headers, json: { itens: edicao && new URL(req.url()).searchParams.get('visao') === 'andamento' ? [{
       id: 'documento', estado: 'EM_EDICAO', tipo: 'OUTRO', versao_atual: 1, numero: null, modelo_nome: 'Ofício', versoes: [{ ...edicao, numero: 1 }],
     }] : [], tem_proxima: false } })
     if (req.method() === 'PATCH' && path.endsWith('/documentos/documento')) {
       edicao = req.postDataJSON().versao
-      return route.fulfill({ json: { id: 'documento', revisao: 2 } })
+      return route.fulfill({ headers, json: { id: 'documento', revisao: 2 } })
     }
-    if (path.endsWith('/documentos/documento') && edicao) return route.fulfill({ json: {
+    if (path.endsWith('/documentos/documento') && edicao) return route.fulfill({ headers, json: {
       id: 'documento', contexto_id: ctx.id, versao_atual: 1, revisao: 1, estado: 'EM_EDICAO', tipo: 'OUTRO',
       versoes: [{ ...edicao, id: 'vd1', numero: 1, deliberacoes: [], arrolados: [], anexos: [], resolucoes: [] }],
     } })
-    return route.fulfill({ json: path.endsWith('/contextos') ? [ctx] : path.endsWith('/modelos') && salvo
+    return route.fulfill({ headers, json: path.endsWith('/contextos') ? [ctx] : path.endsWith('/modelos') && salvo
       ? [{ id: 'modelo', nome: 'Ofício', revisao, estado: publicado ? 'PUBLICADO' : 'EM_EDICAO',
         rascunho: publicado ? null : { nome: 'Ofício', tipo: 'OUTRO', finalidade: 'OFICIO', configuracao: salvo },
         versoes: publicado ? [{ id: 'v1', numero: 1, tipo: 'OUTRO', finalidade: 'OFICIO', configuracao: salvo }] : [] }] : [] })
   })
-  await page.route('**/auth/profile', route => route.fulfill({ json: { sub: 's', igreja_id: 'i', perfil: 'SECRETARIO', username: 'Secretário' } }))
-  await page.route('**/pessoas', route => route.fulfill({ json: [] }))
+  await page.route('**/auth/profile', route => route.fulfill({ headers, json: { sub: 's', igreja_id: 'i', perfil: 'SECRETARIO', username: 'Secretário' } }))
+  await page.route('**/autorizacao/navegacao', route => route.fulfill({ headers, json: { permissoes: {} } }))
+  await page.route('**/pessoas', route => route.fulfill({ headers, json: [] }))
   await page.goto('/secretaria?contexto=assembleia&aba=modelos')
   await page.getByRole('button', { name: 'Novo modelo' }).click()
   await page.getByLabel('Nome do modelo').fill('Ofício')
@@ -96,6 +107,9 @@ test('edita a página do modelo, pagina o corpo, reabre e conserva o texto após
   await expect(page.getByRole('alert')).toContainText('Revisão desatualizada')
   await expect(body).toContainText('Linha 60')
   falhar = false
+  await page.locator('summary').filter({ hasText: /^Regras$/ }).click()
+  await page.getByRole('group', { name: 'Quem pode criar este documento?' }).getByRole('checkbox', { name: 'Secretário' }).check()
+  await page.getByRole('group', { name: 'Vínculo com reunião' }).getByRole('radio', { name: 'Não se aplica' }).check()
   await page.getByRole('button', { name: 'Publicar modelo' }).click()
   await page.getByRole('tab', { name: 'Documentos', exact: true }).click()
   await page.getByRole('button', { name: 'Novo documento' }).click()

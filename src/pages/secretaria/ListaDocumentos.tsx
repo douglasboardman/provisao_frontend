@@ -1,7 +1,8 @@
-import { useRef } from 'react'
+import { useRef, type ReactNode } from 'react'
+import { Files } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router'
-import { dataCivil } from '../../components/shared/Workspace'
+import { AlternarConteudo, CabecalhoPainel, dataCivil } from '../../components/shared/Workspace'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { estadosDocumento, numeroDocumento, secretariaApi, type ContextoSecretaria, type ModeloDocumento } from '../../api/secretaria'
@@ -12,8 +13,8 @@ const visoes = { expedidos: 'Expedidos', andamento: 'Em andamento', todos: 'Todo
 const situacoes = { ...estadosDocumento, ENCAMINHADO: 'Encaminhado' }
 const chaves = ['busca', 'modelo', 'de', 'ate', 'estado'] as const
 
-export function ListaDocumentos({ contexto, identidade, modelos, abrir }: {
-  contexto: ContextoSecretaria; identidade: string; modelos: ModeloDocumento[]; abrir: (id: string, editar?: boolean) => void
+export function ListaDocumentos({ contexto, identidade, modelos, abrir, acoes }: {
+  contexto: ContextoSecretaria; identidade: string; modelos: ModeloDocumento[]; abrir: (id: string, editar?: boolean) => void; acoes?: ReactNode
 }) {
   const [url, navegar] = useSearchParams()
   const abrirEditor = useAbrirEditor(contexto.id)
@@ -44,33 +45,37 @@ export function ListaDocumentos({ contexto, identidade, modelos, abrir }: {
   }
   const estados = visao === 'todos' ? Object.keys(situacoes) : visao === 'andamento' ? ['EM_EDICAO', 'ENCAMINHADO', 'APROVADO'] : ['EXPEDIDO']
   return <>
-    <div className="flex flex-wrap gap-2" role="group" aria-label="Visão dos documentos">{Object.entries(visoes).map(([id, nome]) =>
-      <Button key={id} aria-pressed={id === visao} variant={id === visao ? 'default' : 'outline'} onClick={() => alterar({ visao: id, estado: '' })}>{nome}</Button>)}</div>
-    <form className="grid items-end gap-3 md:grid-cols-3" onSubmit={e => {
+    <form className="surface grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-3 min-[85rem]:grid-cols-[minmax(10rem,1.5fr)_minmax(10rem,1fr)_minmax(10.5rem,1fr)_repeat(2,minmax(8.75rem,1fr))_auto]" aria-label="Filtros de documentos" onSubmit={e => {
       e.preventDefault()
       const dados = new FormData(e.currentTarget)
       alterar(Object.fromEntries(chaves.map(k => [k, String(dados.get(k) ?? '').trim()])))
     }}>
       <label className="grid gap-1 text-sm">Número ou assunto<Input key={url.get('busca')} name="busca" maxLength={255} defaultValue={url.get('busca') ?? ''}/></label>
-      {!contexto.somente_atas && <label className="grid gap-1 text-sm">Modelo<select className="h-10 rounded border px-2" key={String(!!modelos.length) + url.get('modelo')} name="modelo" defaultValue={url.get('modelo') ?? ''}><option value="">Todos os modelos</option>{modelos.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}</select></label>}
-      <label className="grid gap-1 text-sm">Situação<select className="h-10 rounded border px-2" key={visao + url.get('estado')} name="estado" defaultValue={url.get('estado') ?? ''}><option value="">Todas as situações</option>{estados.map(k => <option key={k} value={k}>{situacoes[k as keyof typeof situacoes]}</option>)}</select></label>
-      <label className="grid gap-1 text-sm">Data inicial<Input type="date" key={url.get('de')} name="de" defaultValue={url.get('de') ?? ''}/></label>
-      <label className="grid gap-1 text-sm">Data final<Input type="date" key={url.get('ate')} name="ate" defaultValue={url.get('ate') ?? ''}/></label>
+      {!contexto.somente_atas && <label className="grid gap-1 text-sm">Modelo<select className="h-10 min-w-0 rounded-lg border border-input bg-card px-2" key={String(!!modelos.length) + url.get('modelo')} name="modelo" defaultValue={url.get('modelo') ?? ''}><option value="">Todos os modelos</option>{modelos.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}</select></label>}
+      <label className="grid gap-1 text-sm">Situação<select className="h-10 min-w-0 rounded-lg border border-input bg-card px-2" key={visao + url.get('estado')} name="estado" defaultValue={url.get('estado') ?? ''}><option value="">Todas as situações</option>{estados.map(k => <option key={k} value={k}>{situacoes[k as keyof typeof situacoes]}</option>)}</select></label>
+      <label className="grid gap-1 text-sm">Data inicial<Input type="date" className="min-w-0" key={url.get('de')} name="de" defaultValue={url.get('de') ?? ''}/></label>
+      <label className="grid gap-1 text-sm">Data final<Input type="date" className="min-w-0" key={url.get('ate')} name="ate" defaultValue={url.get('ate') ?? ''}/></label>
       <Button type="submit" variant="outline">Pesquisar</Button>
     </form>
-    {consulta.isPending && <p role="status">Consultando documentos…</p>}
-    {consulta.error && <p role="alert">{consulta.error.message} <Button variant="outline" onClick={() => void consulta.refetch()}>Tentar novamente</Button></p>}
-    {consulta.data?.itens.length === 0 && <p>Nenhum documento encontrado.</p>}
-    {!!consulta.data?.itens.length && <div className="overflow-x-auto rounded-xl border bg-white"><table className="record-table"><thead><tr>{['Número','Data','Tipo','Modelo','Assunto','Situação','Ações'].map(t => <th key={t} scope="col" aria-sort={t === 'Data' ? 'descending' : undefined}>{t}</th>)}</tr></thead><tbody>
-      {consulta.data.itens.map(d => <tr key={d.id}><td data-label="Número">{numeroDocumento(d)}</td><td data-label="Data">{dataCivil(d.versoes[0]?.data_documento)}</td>
-        <td data-label="Tipo">{d.tipo === 'ATA' ? 'Ata' : 'Outro'}</td><td data-label="Modelo">{d.modelo_nome ?? '—'}</td>
-        <td data-label="Assunto">{d.versoes[0]?.assunto} {d.restrito && <small>Restrito</small>}</td><td data-label="Situação">{d.estado === 'EM_EDICAO' && d.encaminhado_em ? situacoes.ENCAMINHADO : estadosDocumento[d.estado]}</td>
-        <td data-label="Ações"><div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={e => { origem.current = e.currentTarget; mostrarFicha(d.id) }}>Visualizar ficha</Button>
-          <Button size="sm" variant="outline" onClick={() => abrir(d.id)}>Abrir documento</Button>
-          {contexto.pode_preparar && d.estado === 'EM_EDICAO' && <Button size="sm" onClick={() => abrir(d.id, true)}>Retomar edição</Button>}</div></td></tr>)}
-    </tbody></table></div>}
-    {ficha && <FichaDocumento id={ficha} contexto={contexto} abrirPrevia={contexto.somente_atas ? undefined : versao => abrirEditor('documentos', ficha, { versao })} identidade={identidade} fechar={() => mostrarFicha('')} origem={origem.current}/>}
-    <div className="flex items-center gap-2"><Button variant="outline" disabled={!pagina} onClick={() => alterar({ pagina: String(pagina - 1) })}>Anterior</Button>
-      <span>Página {pagina + 1}</span><Button variant="outline" disabled={!consulta.data?.tem_proxima} onClick={() => alterar({ pagina: String(pagina + 1) })}>Próxima</Button></div>
+    <AlternarConteudo titulo="Visão dos documentos" ativa={visao}
+      selecionar={id => alterar({ visao: id, estado: '' })}
+      opcoes={Object.entries(visoes).map(([id, nome]) => ({ id, nome }))} />
+    <section className="surface space-y-4">
+      <CabecalhoPainel icone={Files} titulo={contexto.somente_atas ? 'Atas do contexto' : 'Documentos do contexto'}>{acoes}</CabecalhoPainel>
+      {consulta.isPending && <p role="status">Consultando documentos…</p>}
+      {consulta.error && <p role="alert">{consulta.error.message} <Button variant="outline" onClick={() => void consulta.refetch()}>Tentar novamente</Button></p>}
+      {consulta.data?.itens.length === 0 && <p>Nenhum documento encontrado.</p>}
+      {!!consulta.data?.itens.length && <div className="overflow-x-auto rounded-panel border bg-white"><table className="record-table"><thead><tr>{['Número','Data','Tipo','Modelo','Assunto','Situação','Ações'].map(t => <th key={t} scope="col" aria-sort={t === 'Data' ? 'descending' : undefined}>{t}</th>)}</tr></thead><tbody>
+        {consulta.data.itens.map(d => <tr key={d.id}><td data-label="Número">{numeroDocumento(d)}</td><td data-label="Data">{dataCivil(d.versoes[0]?.data_documento)}</td>
+          <td data-label="Tipo">{d.tipo === 'ATA' ? 'Ata' : 'Outro'}</td><td data-label="Modelo">{d.modelo_nome ?? '—'}</td>
+          <td data-label="Assunto">{d.versoes[0]?.assunto} {d.restrito && <small>Restrito</small>}</td><td data-label="Situação">{d.estado === 'EM_EDICAO' && d.encaminhado_em ? situacoes.ENCAMINHADO : estadosDocumento[d.estado]}</td>
+          <td data-label="Ações"><div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={e => { origem.current = e.currentTarget; mostrarFicha(d.id) }}>Visualizar ficha</Button>
+            <Button size="sm" variant="outline" onClick={() => abrir(d.id)}>Abrir documento</Button>
+            {contexto.pode_preparar && d.estado === 'EM_EDICAO' && <Button size="sm" onClick={() => abrir(d.id, true)}>Retomar edição</Button>}</div></td></tr>)}
+      </tbody></table></div>}
+      {ficha && <FichaDocumento id={ficha} contexto={contexto} abrirPrevia={contexto.somente_atas ? undefined : versao => abrirEditor('documentos', ficha, { versao })} identidade={identidade} fechar={() => mostrarFicha('')} origem={origem.current}/>}
+      <div className="flex items-center gap-2"><Button variant="outline" disabled={!pagina} onClick={() => alterar({ pagina: String(pagina - 1) })}>Anterior</Button>
+        <span>Página {pagina + 1}</span><Button variant="outline" disabled={!consulta.data?.tem_proxima} onClick={() => alterar({ pagina: String(pagina + 1) })}>Próxima</Button></div>
+    </section>
   </>
 }

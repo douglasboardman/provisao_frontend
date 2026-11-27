@@ -1,7 +1,7 @@
 import { SeletorPessoa } from '../../components/shared/SeletorPessoa'
 import { Sprout as PageIcon } from "lucide-react"
 import { WorkspaceHeader } from "../../components/shared/Workspace"
-import { AutorizacoesFinanceiras } from '../secretaria/AutorizacoesFinanceiras'
+import { DadosFinanceiros } from '../secretaria/AutorizacoesFinanceiras'
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
@@ -166,15 +166,15 @@ export function AcoesPage() {
         )}
       </WorkspaceHeader>
 
-      {isLoading ? (
-        <div className="py-16 text-center text-muted-foreground">Carregando...</div>
-      ) : !data?.length ? (
-        <EmptyState icon={FileSpreadsheet} title="Nenhuma ação" description="Nenhuma ação cadastrada" />
-      ) : (
-        <DataTable data={data} columns={columns} keyExtractor={(item) => item.id} actions={actions} />
-      )}
-
-      <AutorizacoesFinanceiras projetos={data ?? []} selecao="projetos" />
+      <DadosFinanceiros nome="Ações" icone={PageIcon} projetos={data} selecao="projetos">
+        {isLoading ? (
+          <div className="py-16 text-center text-muted-foreground">Carregando...</div>
+        ) : !data?.length ? (
+          <EmptyState icon={FileSpreadsheet} title="Nenhuma ação" description="Nenhuma ação cadastrada" />
+        ) : (
+          <DataTable data={data} columns={columns} keyExtractor={(item) => item.id} actions={actions} />
+        )}
+      </DadosFinanceiros>
 
       <Dialog open={dialogOpen} onOpenChange={(o) => !o && closeDialog()}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
