@@ -162,15 +162,8 @@ async function preparar(page: Page) {
         contexto,
         { ...contexto, id: 'conselho', nome: 'Conselho de exemplo', sigla: 'CO' },
       ],
-      '/secretaria/contextos/assembleia/resumo': {
-        documentos: 31,
-        atas: 30,
-        em_edicao: 1,
-        reunioes: 12,
-      },
-      '/secretaria/contextos/conselho/resumo': { documentos: 0, atas: 0, em_edicao: 0, reunioes: 0 },
       '/secretaria/documentos': url.searchParams.get('contexto') === 'assembleia' ? [documento] : [],
-      '/secretaria/documentos/consulta': { itens: url.searchParams.get('contexto') === 'assembleia' && url.searchParams.get('visao') === 'andamento' ? [documento] : [], tem_proxima: false },
+      '/secretaria/documentos/consulta': { itens: url.searchParams.get('contexto') === 'assembleia' && url.searchParams.get('tipo') === 'ATA' && !url.searchParams.get('estado') ? [documento] : [], tem_proxima: false },
       '/secretaria/documentos/ata': documento,
       '/secretaria/reunioes/r': {
         dados: { pauta: 'Revisão do calendário', data: '2026-02-09', local: 'Salão' },
@@ -246,8 +239,21 @@ for (const largura of [320, 390, 768, 1440]) {
     await page.getByLabel('Contexto documental').selectOption('conselho')
     await expect(page.getByText('Nenhum documento encontrado.')).toBeVisible()
     await page.getByLabel('Contexto documental').selectOption('assembleia')
-    await page.getByRole('button', { name: 'Em andamento', exact: true }).click()
+    await expect(page.getByRole('button', { name: 'Atas', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('table', { name: 'Atas do contexto' })).toBeVisible()
+    await page.getByRole('button', { name: 'Outros documentos', exact: true }).click()
+    await expect(page).toHaveURL(/tipo=OUTRO/)
+    await expect(page.getByText('Nenhum documento encontrado.')).toBeVisible()
+    await page.getByRole('button', { name: 'Atas', exact: true }).click()
+    await expect(page.getByRole('table', { name: 'Atas do contexto' })).toBeVisible()
+    await page.getByLabel('Situação').selectOption('EXPEDIDO')
+    await page.getByRole('button', { name: 'Pesquisar' }).click()
+    await expect(page).toHaveURL(/estado=EXPEDIDO/)
+    await expect(page.getByText('Nenhum documento encontrado.')).toBeVisible()
+    await page.getByLabel('Situação').selectOption('andamento')
+    await page.getByRole('button', { name: 'Pesquisar' }).click()
     const ficha = page.getByRole('button', { name: 'Visualizar ficha' })
+    await expect(ficha).toBeVisible()
     await capturar(page, 'secretaria')
     await ficha.click()
     await expect(page.getByRole('dialog')).toContainText('Revisão do calendário')

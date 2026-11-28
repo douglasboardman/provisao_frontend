@@ -39,9 +39,13 @@ test('edita a página do modelo, pagina o corpo, reabre e conserva o texto após
       return route.fulfill({ headers, json: { id: 'documento', revisao: 1 } })
     }
     if (path.endsWith('/papeis-modelo')) return route.fulfill({ headers, json: [{ id: 'secretario', codigo: 'SECRETARIO', nome: 'Secretário' }] })
-    if (path.endsWith('/documentos/consulta')) return route.fulfill({ headers, json: { itens: edicao && new URL(req.url()).searchParams.get('visao') === 'andamento' ? [{
-      id: 'documento', estado: 'EM_EDICAO', tipo: 'OUTRO', versao_atual: 1, numero: null, modelo_nome: 'Ofício', versoes: [{ ...edicao, numero: 1 }],
-    }] : [], tem_proxima: false } })
+    if (path.endsWith('/documentos/consulta')) {
+      const filtros = new URL(req.url()).searchParams
+      const itens = edicao && filtros.get('tipo') === 'OUTRO' && filtros.get('visao') === 'andamento' ? [{
+        id: 'documento', estado: 'EM_EDICAO', tipo: 'OUTRO', versao_atual: 1, numero: null, modelo_nome: 'Ofício', versoes: [{ ...edicao, numero: 1 }],
+      }] : []
+      return route.fulfill({ headers, json: { itens, tem_proxima: false } })
+    }
     if (req.method() === 'PATCH' && path.endsWith('/documentos/documento')) {
       edicao = req.postDataJSON().versao
       return route.fulfill({ headers, json: { id: 'documento', revisao: 2 } })
@@ -112,6 +116,7 @@ test('edita a página do modelo, pagina o corpo, reabre e conserva o texto após
   await page.getByRole('group', { name: 'Vínculo com reunião' }).getByRole('radio', { name: 'Não se aplica' }).check()
   await page.getByRole('button', { name: 'Publicar modelo' }).click()
   await page.getByRole('tab', { name: 'Documentos', exact: true }).click()
+  await page.getByRole('button', { name: 'Outros documentos', exact: true }).click()
   await page.getByRole('button', { name: 'Novo documento' }).click()
   await page.getByLabel('Modelo e versão').selectOption('v1')
   await expect(body).toHaveCount(0)
@@ -132,7 +137,8 @@ test('edita a página do modelo, pagina o corpo, reabre e conserva o texto após
   await page.getByRole('button', { name: 'Prévia', exact: true }).click()
   await expect(page.getByRole('region', { name: 'Corpo', exact: true })).toHaveText('Texto preservado')
   await page.getByRole('button', { name: 'Voltar à Secretaria' }).click()
-  await page.getByRole('button', { name: 'Em andamento', exact: true }).click()
+  await page.getByLabel('Situação').selectOption('andamento')
+  await page.getByRole('button', { name: 'Pesquisar' }).click()
   await page.getByRole('button', { name: 'Retomar edição' }).click()
   await expect(body).toHaveText('Texto preservado')
   await body.fill('Primeira segunda terceira')

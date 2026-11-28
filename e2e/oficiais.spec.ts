@@ -1,72 +1,24 @@
 import { test, expect } from '@playwright/test'
 
-for (const largura of [320, 1280]) test(`registra indicação e mandato com seleção de ata em ${largura}px`, async ({ page }) => {
-  test.skip(process.env.VITE_FEATURE_GOVERNANCA !== 'true' || process.env.VITE_FEATURE_SECRETARIA !== 'true', 'O fluxo usa governança e secretaria.')
+for (const largura of [320, 1280]) test(`Oficiais direciona o cadastro de mandato para a ficha do órgão em ${largura}px`, async ({ page }) => {
+  test.skip(process.env.VITE_FEATURE_GOVERNANCA !== 'true', 'A página exige a chave de governança na compilação.')
   await page.setViewportSize({ width: largura, height: 800 })
-  const headers = { 'Access-Control-Allow-Origin': 'http://127.0.0.1:4179', 'Access-Control-Allow-Credentials': 'true', 'Access-Control-Allow-Headers': 'content-type,x-provisao-request', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' }
-  let indicacao: unknown
-  let mandato: unknown
+  const headers = { 'Access-Control-Allow-Origin': 'http://127.0.0.1:4179', 'Access-Control-Allow-Credentials': 'true', 'Access-Control-Allow-Headers': 'content-type,x-provisao-request', 'Access-Control-Allow-Methods': 'GET, OPTIONS' }
   await page.route('http://localhost:3000/**', route => {
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
     const url = new URL(route.request().url())
-    if (url.pathname === '/autorizacao/navegacao') return route.fulfill({ headers, json: { permissoes: {} } })
-    if (url.pathname === '/auth/profile') return route.fulfill({ headers, json: { sub: 'u', igreja_id: 'i', perfil: 'GESTOR', username: 'Gestor', login: 'g@example.invalid' } })
+    if (url.pathname === '/auth/profile') return route.fulfill({ headers, json: { sub: 'u', igreja_id: 'i', perfil: 'ADMINISTRADOR', username: 'Secretário', login: 's@example.invalid' } })
+    if (url.pathname === '/autorizacao/navegacao') return route.fulfill({ headers, json: { permissoes: { orgaos: ['view'] } } })
     if (url.pathname === '/oficiais') return route.fulfill({ headers, json: { itens: [], proximo_cursor: null } })
-    if (url.pathname === '/oficiais/indicacoes/selecao-atas') {
-      const conselho = url.searchParams.get('tipo') === 'CONSELHO'
-      const segunda = url.searchParams.get('pagina') === '1'
-      const filtrada = url.searchParams.get('assunto') === 'Eleições'
-      return route.fulfill({ headers, json: { contextos: [{ id: 'ctx', nome: conselho ? 'Conselho' : 'Assembleia' }], tem_proxima: conselho && !segunda && !filtrada, itens: [{ pauta: 'Pauta eleitoral', resolucoes: [], arrolados: ['Pessoa Sintética'], versao: 1, numero_formatado: '10', versao_id: conselho ? 'con' : 'ass', numero: '10', data: conselho ? '2026-08-01' : '2026-09-01', assunto: segunda ? 'Ata anterior' : 'Eleições' }] } })
-    }
-    if (url.pathname === '/oficiais/indicacoes/candidatos') return route.fulfill({ headers, json: [{ id: 'p', nome_completo: 'Pessoa Sintética' }] })
-    if (url.pathname === '/oficiais/indicacoes' && route.request().method() === 'POST') {
-      indicacao = route.request().postDataJSON()
-      return route.fulfill({ headers, status: 201, json: { id: 'ind' } })
-    }
-    if (url.pathname === '/oficiais/indicacoes/mandatos') {
-      mandato = route.request().postDataJSON()
-      return route.fulfill({ headers, status: 201, json: { id: 'mandato', oficial_id: 'o' } })
-    }
-    if (url.pathname === '/oficiais/indicacoes' && url.searchParams.get('assembleia') === 'ass' && indicacao && !mandato) {
-      return route.fulfill({ headers, json: [{ id: 'ind', oficio: 'DIACONO', data_assembleia: '2026-09-01', pessoa: { nome_completo: 'Pessoa Sintética' } }] })
-    }
     return route.fulfill({ headers, json: [] })
   })
   await page.goto('/oficiais')
-  await page.getByRole('tab', { name: 'Processo eleitoral' }).click()
-  await page.getByRole('button', { name: 'Registrar indicação' }).click()
-  await page.getByRole('button', { name: 'Selecionar', exact: true }).click()
-  const modal = page.getByRole('dialog')
-  await modal.getByRole('button', { name: 'Próxima' }).click()
-  await expect(modal.getByText('Ata anterior')).toBeVisible()
-  await modal.getByLabel('Título ou assunto').fill('Eleições')
-  await modal.getByRole('button', { name: 'Filtrar' }).click()
-  await expect(modal.getByText('Página 1')).toBeVisible()
-  await expect(modal.getByRole('button', { name: 'Próxima' })).toBeDisabled()
-  await page.getByRole('button', { name: 'Detalhes' }).click()
-  await expect(page.getByText('Pauta eleitoral')).toBeVisible()
-  expect(await modal.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true)
-  await page.getByRole('dialog').getByRole('button', { name: 'Selecionar', exact: true }).click()
-  await page.getByLabel('Membro indicado').fill('Sintética')
-  await expect(page.getByRole('option', { name: /Sintética/ })).toBeVisible()
-  await page.getByLabel('Membro indicado').press('ArrowDown')
-  await page.getByLabel('Membro indicado').press('Enter')
-  await page.getByLabel('Data da assembleia de eleição').fill('2026-09-01')
-  await page.getByRole('button', { name: 'Salvar indicação' }).click()
-  await expect.poll(() => indicacao).toEqual({ pessoa_id: 'p', oficio: 'DIACONO', ata_conselho_versao_id: 'con', data_assembleia: '2026-09-01' })
-  await expect(page.getByText('Indicação registrada.')).toBeVisible()
-  await page.getByRole('button', { name: 'Voltar', exact: true }).click()
-  await page.getByRole('button', { name: 'Aproveitar indicação histórica' }).click()
-  await page.getByRole('button', { name: 'Selecionar', exact: true }).click()
-  await page.getByRole('button', { name: 'Detalhes' }).click()
-  await expect(page.getByText('Pauta eleitoral')).toBeVisible()
-  await page.getByRole('dialog').getByRole('button', { name: 'Selecionar', exact: true }).click()
-  await page.getByLabel('Indicação para esta eleição').fill('Sintética')
-  await page.getByRole('option', { name: /Sintética/ }).click()
-  await page.getByLabel('Data da posse').fill('2026-09-08')
-  await page.getByRole('button', { name: 'Salvar mandato' }).click()
-  await expect.poll(() => mandato).toEqual({ indicacao_id: 'ind', ata_assembleia_versao_id: 'ass', data_posse: '2026-09-08' })
-  await expect(page.getByText('Mandato registrado e ofício ativo.')).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Quadro de oficiais' })).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Avisos e prazos' })).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Permissões' })).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Processo eleitoral' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Ofícios registrados' }).click()
+  await expect(page.getByRole('link', { name: 'Registrar mandato na ficha do órgão' })).toHaveAttribute('href', '/orgaos')
 })
 
 test('consulta oficiais e exercício com a funcionalidade habilitada', async ({ page }) => {
@@ -331,25 +283,168 @@ test('ordenação do mesmo dia exige sequência explícita e prévia', async ({ 
   await expect.poll(() => aplicado).toMatchObject({ data_evento: '2024-01-01', itens: [{ evento_id: 'evento-1', ordem: 1 }, { evento_id: 'evento-2', ordem: 2 }], hash_previa: hash, justificativa: 'Livro conferido', autoridade: 'Conselho', evidencia: 'Livro', ciente: true, idempotencia: expect.any(String) })
 })
 
-test('rol não aplica evento futuro e sinaliza atos simultâneos sem ordem', async ({ page }) => {
+test('rol inclui apenas históricos documentados com sequência conhecida', async ({ page }) => {
   const headers = { 'Access-Control-Allow-Origin': 'http://127.0.0.1:4179', 'Access-Control-Allow-Credentials': 'true', 'Access-Control-Allow-Headers': 'content-type,x-provisao-request', 'Access-Control-Allow-Methods': 'GET, OPTIONS' }
   await page.route('http://localhost:3000/**', route => {
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
     const path = new URL(route.request().url()).pathname
     if (path === '/autorizacao/navegacao') return route.fulfill({ headers, json: { permissoes: {} } })
     if (path === '/auth/profile') return route.fulfill({ headers, json: { sub: 'u', igreja_id: 'i', perfil: 'SECRETARIO', username: 'Secretário', login: 's@example.invalid' } })
-    if (path === '/pessoas') return route.fulfill({ headers, json: [{ id: 'a', nome_completo: 'Alice Futura', data_nascimento: '1990-01-01', sexo: 'FEMININO' }, { id: 'b', nome_completo: 'Bruno Ambíguo', data_nascimento: '1990-01-01', sexo: 'MASCULINO' }] })
+    if (path === '/pessoas') return route.fulfill({ headers, json: [
+      { id: 'a', nome_completo: 'Alice Futura', data_nascimento: '1990-01-01', sexo: 'FEMININO',
+        grupo_familiar_id: 'g', grupos_familiares: { id: 'g', nome_familia: 'Futura' } },
+      { id: 'b', nome_completo: 'Bruno Ambíguo', data_nascimento: '1990-01-01', sexo: 'MASCULINO' },
+      { id: 'c', nome_completo: 'Carla Sem Ata', data_nascimento: '1990-01-01', sexo: 'FEMININO' },
+      { id: 'd', nome_completo: 'Daniel Sem Arrolamento', data_nascimento: '1990-01-01', sexo: 'MASCULINO' },
+    ] })
     if (path === '/eventos-membresia') return route.fulfill({ headers, json: [
-      { id: 'f', pessoa_id: 'a', tipo_evento: 'DEMISSAO', rol: 'EXCLUIDOS', motivacao_evento: 'EXCLUSAO_A_PEDIDO', data_evento: '2099-01-01', ordem_dia: null },
-      { id: 'a', pessoa_id: 'a', tipo_evento: 'ADMISSAO', rol: 'COMUNGANTES', motivacao_evento: 'PROFISSAO_DE_FE', data_evento: '2020-01-01', ordem_dia: null },
-      { id: 'b1', pessoa_id: 'b', tipo_evento: 'ADMISSAO', rol: 'COMUNGANTES', motivacao_evento: 'PROFISSAO_DE_FE', data_evento: '2020-01-01', ordem_dia: null },
-      { id: 'b2', pessoa_id: 'b', tipo_evento: 'DEMISSAO', rol: 'EXCLUIDOS', motivacao_evento: 'EXCLUSAO_A_PEDIDO', data_evento: '2020-01-01', ordem_dia: null },
+      { id: 'f', pessoa_id: 'a', tipo_evento: 'DEMISSAO', rol: 'EXCLUIDOS', motivacao_evento: 'EXCLUSAO_A_PEDIDO', data_evento: '2099-01-01', ordem_dia: null, documentado: false },
+      { id: 'a', pessoa_id: 'a', tipo_evento: 'ADMISSAO', rol: 'COMUNGANTES', motivacao_evento: 'PROFISSAO_DE_FE', data_evento: '2020-01-01', ordem_dia: null, documentado: true },
+      { id: 'b1', pessoa_id: 'b', tipo_evento: 'ADMISSAO', rol: 'COMUNGANTES', motivacao_evento: 'PROFISSAO_DE_FE', data_evento: '2020-01-01', ordem_dia: null, documentado: true },
+      { id: 'b2', pessoa_id: 'b', tipo_evento: 'DEMISSAO', rol: 'EXCLUIDOS', motivacao_evento: 'EXCLUSAO_A_PEDIDO', data_evento: '2020-01-01', ordem_dia: null, documentado: true },
+      { id: 'c', pessoa_id: 'c', tipo_evento: 'ADMISSAO', rol: 'COMUNGANTES', motivacao_evento: 'PROFISSAO_DE_FE', data_evento: '2020-01-01', ordem_dia: null, documentado: false },
     ] })
     return route.fulfill({ headers, json: [] })
   })
   await page.goto('/rol-membros')
   await expect(page.getByRole('row').filter({ hasText: 'Alice Futura' })).toContainText('Comungantes')
-  await expect(page.getByRole('row').filter({ hasText: 'Bruno Ambíguo' })).toContainText('Histórico indeterminado')
+  await expect(page.getByRole('row', { name: /Alice Futura/ }).getByRole('cell', { name: 'Profissão de Fé', exact: true })).toBeVisible()
+  await expect(page.getByRole('row').filter({ hasText: 'Bruno Ambíguo' })).toHaveCount(0)
+  await expect(page.getByRole('row').filter({ hasText: 'Carla Sem Ata' })).toHaveCount(0)
+  await expect(page.getByText('Histórico indeterminado', { exact: true })).toHaveCount(0)
+  await expect(page.getByRole('alert')).toContainText('Cadastros fora do rol até a conferência da documentação ou da ordem dos atos (2)')
+
+  await test.step('considera pessoas não arroladas apenas nos indicadores', async () => {
+    const controle = page.getByRole('switch', { name: 'Considerar Não Arrolados' })
+    const indicadores = page.getByRole('region', { name: 'Indicadores do rol' })
+    const linhaDaniel = page.getByRole('row').filter({ hasText: 'Daniel Sem Arrolamento' })
+    await expect(controle).not.toBeChecked()
+    await expect(page.getByText(/^Composição em .+pela data deste dispositivo/)).toHaveCount(0)
+    await expect(indicadores.getByText('Não Arrolados', { exact: true })).toHaveCount(0)
+    await expect(indicadores.getByText('100.0%', { exact: true })).toBeVisible()
+    await expect(indicadores.getByTitle('Comungantes: 1 (100.0%)')).toBeVisible()
+    await expect(linhaDaniel).toBeVisible()
+    const abas = await page.getByRole('tablist', { name: 'Seções do Rol de Membros' }).boundingBox()
+    const label = await page.getByText('Considerar Não Arrolados', { exact: true }).boundingBox()
+    expect(Math.abs(abas!.y + abas!.height / 2 - label!.y - label!.height / 2)).toBeLessThan(2)
+    expect(label!.x).toBeGreaterThan(abas!.x + abas!.width)
+
+    await controle.press('Space')
+    await expect(controle).toBeChecked()
+    await expect(indicadores.getByText('Não Arrolados', { exact: true })).toHaveCount(2)
+    await expect(indicadores.getByText('50.0%', { exact: true })).toHaveCount(2)
+    await expect(indicadores.getByTitle('Não Arrolados: 1 (50.0%)')).toBeVisible()
+    await expect(indicadores.getByTitle('Comungantes: 1 (50.0%)')).toHaveAttribute('style', /width: 50%/)
+    await controle.press('Space')
+    await expect(indicadores.getByTitle('Não Arrolados: 1 (50.0%)')).toHaveCount(0)
+    await expect(linhaDaniel).toBeVisible()
+  })
+
+  await test.step('abre a listagem do rol pelo badge e por endereço direto', async () => {
+    const badge = page.getByRole('link', { name: 'Não Arrolados', exact: true })
+    await expect(badge).toHaveCSS('box-shadow', 'none')
+    await badge.hover()
+    await expect(badge).toHaveCSS('box-shadow', /inset/)
+    await expect(badge).toHaveCSS('cursor', 'pointer')
+    await expect(badge).toHaveCSS('text-decoration-line', 'none')
+    await badge.click()
+    await expect(page).toHaveURL(/\/rol-membros\/nao-arrolados$/)
+    await expect(page.getByRole('heading', { name: 'Rol de Membros', level: 1 })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Não Arrolados', level: 2 })).toBeVisible()
+    await expect(page.getByRole('table')).toContainText('Daniel Sem Arrolamento')
+    await expect(page.getByRole('row', { name: /Daniel Sem Arrolamento/ }).getByRole('cell').nth(2)).toHaveText('—')
+    await expect(page.getByRole('table')).not.toContainText('Alice Futura')
+    await expect(page.getByRole('tablist')).toHaveCount(0)
+    await page.getByRole('link', { name: 'Voltar à listagem' }).click()
+    await page.getByRole('link', { name: 'Comungantes', exact: true }).click()
+    await expect(page).toHaveURL(/\/rol-membros\/comungantes$/)
+    await page.reload()
+    await expect(page.getByRole('heading', { name: 'Comungantes', level: 2 })).toBeVisible()
+    await expect(page.getByRole('table')).toContainText('Alice Futura')
+    await expect(page.getByRole('table')).not.toContainText('Daniel Sem Arrolamento')
+  })
+
+  await test.step('aplica o mesmo contorno ao badge que abre a família', async () => {
+    await page.goto('/pessoas')
+    const badge = page.getByRole('button', { name: 'Futura', exact: true })
+    await expect(badge).toHaveCSS('box-shadow', 'none')
+    await badge.hover()
+    await expect(badge).toHaveCSS('box-shadow', /inset/)
+    await expect(badge).toHaveCSS('cursor', 'pointer')
+    await expect(badge).toHaveCSS('text-decoration-line', 'none')
+    await badge.press('Enter')
+    await expect(page.getByRole('dialog', { name: 'Família Futura' })).toContainText('Alice Futura')
+  })
+})
+
+test('subpáginas do rol filtram por nome, idade, modalidade e tempo', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-11-27T15:00:00Z'))
+  const headers = { 'Access-Control-Allow-Origin': 'http://127.0.0.1:4179', 'Access-Control-Allow-Credentials': 'true', 'Access-Control-Allow-Headers': 'content-type,x-provisao-request', 'Access-Control-Allow-Methods': 'GET, OPTIONS' }
+  await page.route('http://localhost:3000/**', route => {
+    if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
+    const path = new URL(route.request().url()).pathname
+    if (path === '/autorizacao/navegacao') return route.fulfill({ headers, json: { permissoes: {} } })
+    if (path === '/auth/profile') return route.fulfill({ headers, json: { sub: 'u', igreja_id: 'i', perfil: 'SECRETARIO', username: 'Secretário', login: 's@example.invalid' } })
+    if (path === '/pessoas') return route.fulfill({ headers, json: [
+      { id: 'a', nome_completo: 'Érica Almeida', data_nascimento: '1980-05-10', sexo: 'FEMININO' },
+      { id: 'b', nome_completo: 'Bruna Oliveira', data_nascimento: '2000-05-10', sexo: 'FEMININO' },
+      { id: 'c', nome_completo: 'Cecília Santos', data_nascimento: '1970-05-10', sexo: 'FEMININO' },
+      { id: 'd', nome_completo: 'Dora Alves', data_nascimento: '1985-05-10', sexo: 'FEMININO' },
+    ] })
+    if (path === '/eventos-membresia') return route.fulfill({ headers, json: [
+      { id: 'a1', pessoa_id: 'a', tipo_evento: 'ADMISSAO', rol: 'COMUNGANTES', motivacao_evento: 'PROFISSAO_DE_FE', data_evento: '2010-01-10', documentado: true },
+      { id: 'a2', pessoa_id: 'a', tipo_evento: 'DEMISSAO', rol: 'EXCLUIDOS', motivacao_evento: 'EXCLUSAO_A_PEDIDO', data_evento: '2012-01-10', documentado: true },
+      { id: 'b1', pessoa_id: 'b', tipo_evento: 'ADMISSAO', rol: 'COMUNGANTES', motivacao_evento: 'CARTA_DE_TRANSFERENCIA_RECEBIDA', data_evento: '2022-01-10', documentado: true },
+      { id: 'b2', pessoa_id: 'b', tipo_evento: 'DEMISSAO', rol: 'EXCLUIDOS', motivacao_evento: 'EXCLUSAO_POR_DISCIPLINA', data_evento: '2024-01-10', documentado: true },
+      { id: 'c1', pessoa_id: 'c', tipo_evento: 'DEMISSAO', rol: 'EXCLUIDOS', motivacao_evento: 'EXCLUSAO_POR_DISCIPLINA', data_evento: '2020-01-10', documentado: true },
+      { id: 'c2', pessoa_id: 'c', tipo_evento: 'ADMISSAO', rol: 'COMUNGANTES', motivacao_evento: 'RESTAURACAO', data_evento: '2022-01-10', documentado: true },
+      { id: 'd2', pessoa_id: 'd', tipo_evento: 'MUDANCA_DE_ROL', rol: 'ROL_SEPARADO', motivacao_evento: 'PARADEIRO_IGNORADO', data_evento: '2024-01-10', ordem_dia: 2, documentado: true },
+      { id: 'd1', pessoa_id: 'd', tipo_evento: 'ADMISSAO', rol: 'COMUNGANTES', motivacao_evento: 'PROFISSAO_DE_FE', data_evento: '2024-01-10', ordem_dia: 1, documentado: true },
+    ] })
+    return route.fulfill({ headers, json: [] })
+  })
+
+  await page.goto('/rol-membros')
+  const coluna = page.getByRole('columnheader', { name: 'Mod. admissão/demissão', exact: true })
+  const erica = page.getByRole('row', { name: /Érica Almeida/ })
+  const bruna = page.getByRole('row', { name: /Bruna Oliveira/ })
+  await expect(coluna).toBeVisible()
+  await expect(erica.getByRole('cell', { name: 'Exclusão a Pedido' })).toBeVisible()
+  await erica.getByRole('link', { name: 'Excluídos' }).click()
+  await expect(coluna).toBeVisible()
+  await expect(erica.getByRole('cell', { name: 'Exclusão a Pedido' })).toBeVisible()
+  await expect(bruna.getByRole('cell', { name: 'Exclusão por Disciplina' })).toBeVisible()
+  const limpar = page.getByRole('button', { name: 'Limpar filtros' })
+  await page.getByRole('searchbox', { name: 'Buscar por nome' }).fill('erica almeida')
+  await expect(erica).toBeVisible()
+  await expect(bruna).toHaveCount(0)
+  await limpar.click()
+  await page.getByRole('spinbutton', { name: 'Idade máxima' }).fill('30')
+  await expect(bruna).toBeVisible()
+  await expect(erica).toHaveCount(0)
+  await limpar.click()
+  await page.getByRole('spinbutton', { name: 'Tempo máximo no rol em meses' }).fill('60')
+  await expect(bruna).toBeVisible()
+  await expect(erica).toHaveCount(0)
+  await limpar.click()
+  await page.getByRole('combobox', { name: 'Modalidade de admissão' }).click()
+  await page.getByRole('option', { name: 'Profissão de Fé', exact: true }).click()
+  await expect(erica).toBeVisible()
+  await expect(bruna).toHaveCount(0)
+  await limpar.click()
+  await page.getByRole('combobox', { name: 'Modalidade de demissão' }).click()
+  await page.getByRole('option', { name: 'Exclusão por Disciplina' }).click()
+  await expect(bruna).toBeVisible()
+  await expect(erica).toHaveCount(0)
+  await page.getByRole('spinbutton', { name: 'Idade mínima' }).fill('40')
+  await expect(page.getByText('Nenhuma pessoa corresponde à busca e aos filtros.')).toBeVisible()
+
+  await page.goto('/rol-membros/comungantes')
+  await expect(page.getByRole('row', { name: /Cecília Santos/ }).getByRole('cell', { name: 'Restauração' })).toBeVisible()
+  await expect(page.getByRole('combobox', { name: 'Modalidade de demissão' })).toBeDisabled()
+
+  await page.goto('/rol-membros/rol-separado')
+  await expect(page.getByRole('row', { name: /Dora Alves/ }).getByRole('cell', { name: 'Paradeiro Ignorado' })).toBeVisible()
 })
 
 test('decisão formal autoriza apenas prévia eleitoral e mantém sinalização de revisão', async ({ page }) => {
