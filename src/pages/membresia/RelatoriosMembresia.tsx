@@ -10,7 +10,7 @@ import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { MOTIVACAO_LABELS, ROL_LABELS, TIPO_LABELS } from '../../lib/membresia-labels'
-import { dataCivilLocal, formatarDataCivil } from '../../lib/membresia-temporal'
+import { agruparAtosPorPessoa, atosQueExigemConferencia, dataCivilLocal, formatarDataCivil } from '../../lib/membresia-temporal'
 import { useAuthStore } from '../../stores/auth'
 import { MembresiaRol } from '../../types/enums'
 import { CATEGORY_LABELS, CATEGORY_ORDER, montarRol, resumirRol } from './dados-rol'
@@ -45,6 +45,7 @@ type Relatorio = {
   emitido: string
   filtro?: string
   total: number
+  aviso?: string
   linhas: { id: string; celulas: string[] }[]
 }
 
@@ -87,11 +88,13 @@ export function RelatoriosMembresia({ podeConsultarPessoas }: { podeConsultarPes
 
     if (modelo === 'movimentacoes') {
       if (!inicio || !fim) return
-      const linhas = eventos.data
-        .filter(ev => {
-          const data = ev.data_evento.slice(0, 10)
-          return data >= inicio && data <= fim && (tipo === 'todos' || tipo === ev.tipo_evento)
-        })
+      const emConferencia = new Set([...agruparAtosPorPessoa(eventos.data).values()]
+        .flatMap(atosQueExigemConferencia).map(e => e.id))
+      const selecao = eventos.data.filter(ev => {
+        const data = ev.data_evento.slice(0, 10)
+        return data >= inicio && data <= fim && (tipo === 'todos' || tipo === ev.tipo_evento)
+      })
+      const linhas = selecao.filter(ev => !emConferencia.has(ev.id))
         .map(ev => ({
           id: ev.id,
           celulas: [formatarDataCivil(ev.data_evento), ev.pessoas?.nome_completo ?? 'Pessoa indisponível',
@@ -102,18 +105,20 @@ export function RelatoriosMembresia({ podeConsultarPessoas }: { podeConsultarPes
         referencia: `${formatarDataCivil(inicio)} a ${formatarDataCivil(fim)}`,
         filtro: tipo === 'todos' ? 'Todos os tipos de evento' : TIPO_LABELS[tipo as keyof typeof TIPO_LABELS],
         total: linhas.length,
+        aviso: selecao.length > linhas.length ? `Movimentações fora do relatório até conferência (${selecao.length - linhas.length}).` : undefined,
         linhas,
       })
       return
     }
 
     if (!pessoas.data || !podeConsultarPessoas) return
-    const rol = montarRol(pessoas.data, eventos.data, hoje)
+    const { members: rol, pendencias } = montarRol(pessoas.data, eventos.data, hoje)
+    const aviso = pendencias > 0 ? `Cadastros fora do rol até conferência (${pendencias}).` : undefined
     if (modelo === 'resumo') {
       const linhas = resumirRol(rol).map(item => ({
         id: item.key, celulas: [item.label, totalPt.format(item.count), `${percentual.format(item.percent)}%`],
       }))
-      setPrevia({ ...dados, total: rol.length, linhas })
+      setPrevia({ ...dados, total: rol.length, aviso, linhas })
       return
     }
 
@@ -125,7 +130,7 @@ export function RelatoriosMembresia({ podeConsultarPessoas }: { podeConsultarPes
       .map(p => ({ id: p.id, celulas: [p.nome, p.rolLabel, p.admissaoLabel] }))
     const filtro = situacao === 'ativos' ? 'Comungantes e não comungantes'
       : situacao === 'todas' ? 'Todas as situações no rol' : CATEGORY_LABELS[situacao]
-    setPrevia({ ...dados, filtro, total: linhas.length, linhas })
+    setPrevia({ ...dados, filtro, total: linhas.length, aviso, linhas })
   }
 
   return <section className="relatorios-membresia space-y-5" aria-label="Relatórios de membresia">
@@ -206,6 +211,7 @@ export function RelatoriosMembresia({ podeConsultarPessoas }: { podeConsultarPes
         <div><dt>{previa.modelo === 'movimentacoes' ? 'Total de eventos' : 'Total de pessoas'}</dt><dd>{totalPt.format(previa.total)}</dd></div>
         {previa.filtro && <div><dt>Seleção</dt><dd>{previa.filtro}</dd></div>}
       </dl>
+      {previa.aviso && <p className="px-4 text-sm">{previa.aviso}</p>}
       <div className="relatorio-membresia-tabela" data-modelo={previa.modelo}>
         {previa.linhas.length ? <table aria-label={modelos[previa.modelo].titulo}>
           <thead><tr>{modelos[previa.modelo].colunas.map(coluna => <th key={coluna} scope="col">{coluna}</th>)}</tr></thead>

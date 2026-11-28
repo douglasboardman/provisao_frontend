@@ -211,7 +211,6 @@ function Presencas({ s, salvar, mudou }: Props) {
   const [q, quorum] = useState({
     universo: s.universo,
     minimo: s.minimo,
-    conferir: s.conferir,
     competencia: s.competencia,
     fundamento: s.fundamento,
   })
@@ -312,18 +311,18 @@ function Presencas({ s, salvar, mudou }: Props) {
           />
           <Campo
             label="Competência da assembleia"
-            required={q.conferir}
+            required={false}
             value={q.competencia}
             onChange={(v) => quorum({ ...q, competencia: v })}
           />
           <Campo
             label="Fundamento do quórum"
-            required={q.conferir}
+            required={false}
             value={q.fundamento}
             onChange={(v) => quorum({ ...q, fundamento: v })}
           />
         </div>
-        <Check label="Conferi o quórum" checked={q.conferir} onChange={(v) => quorum({ ...q, conferir: v })} />
+
         {!s.encerrada && !s.encaminhada && <Button>Salvar presenças e arrolados</Button>}
       </fieldset>
     </form>
@@ -527,6 +526,8 @@ function Redator({ s, salvar, mudou }: Props) {
 }
 
 function Decisao({ s, salvar, ler }: Omit<Props, 'mudou'> & { ler: () => void }) {
+  const [local, definirLocal] = useState(s.local)
+  const [presentes, definirPresentes] = useState('')
   const [agora, usarAgora] = useState(true)
   const [fim, definir] = useState(''),
     [resultado, escolher] = useState('APROVADA'),
@@ -539,12 +540,14 @@ function Decisao({ s, salvar, ler }: Omit<Props, 'mudou'> & { ler: () => void })
           className="space-y-3"
           onSubmit={(e) => {
             e.preventDefault()
-            void salvar('leitura', { fim: s.fim ?? (agora ? new Date() : new Date(fim)).toISOString() })
+            void salvar('leitura', { local,presentes:Number(presentes),fim: s.fim ?? (agora ? new Date() : new Date(fim)).toISOString() })
           }}
         >
           <p>
             Ao preparar a leitura, o sistema registra o encerramento e fixa o texto que a assembleia vai deliberar.
           </p>
+          <Campo label="Local efetivo da assembleia" value={local} onChange={definirLocal}/>
+          <Campo label="Total de presentes na lista de presença" type="number" value={presentes} onChange={definirPresentes}/>
           {!s.fim && (
             <>
               <Check label="Usar o horário atual como encerramento" checked={agora} onChange={usarAgora} />

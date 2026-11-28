@@ -13,6 +13,7 @@ import { ROL_LABELS, TIPO_LABELS, TIPO_BADGE_VARIANT, calcAge } from "../../lib/
 import { usePermissions } from "../../hooks/use-permissions"
 import { useAuthStore } from "../../stores/auth"
 import { ErrorState } from "./ErrorState"
+import { agruparAtosPorPessoa, atosQueExigemConferencia, dataCivilLocal, eventoMembresiaVigente } from "../../lib/membresia-temporal"
 
 interface FamiliaViewDialogProps {
   grupo: { id: string; nome_familia: string } | null
@@ -30,14 +31,21 @@ export function FamiliaViewDialog({ grupo, onClose, onBack, onEditPessoa, onView
   const { data: eventos, isSuccess: eventosConsultados } = useQuery({ queryKey: ["eventos-membresia", identidade], queryFn: eventosMembresiaApi.list, enabled: !!grupo && cadastro.canView && membresia.canView })
   const pessoas = pessoasQuery.data
 
-  const lastEventMap = useMemo(() => {
+  const hoje = dataCivilLocal(new Date())
+  const { lastEventMap, pendencias } = useMemo(() => {
     const map = new Map<string, EventoMembresia>()
-    if (!eventos) return map
-    for (const ev of eventos) {
-      if (!map.has(ev.pessoa_id)) map.set(ev.pessoa_id, ev)
+    const pendencias = new Set<string>()
+    for (const [pessoa, grupo] of agruparAtosPorPessoa(eventos ?? [])) {
+      const atos = grupo.filter(e => e.data_evento.slice(0, 10) <= hoje)
+      if (atosQueExigemConferencia(atos).length) {
+        pendencias.add(pessoa)
+        continue
+      }
+      const vigente = eventoMembresiaVigente(atos, hoje)
+      if (vigente.situacao === 'DEFINIDO') map.set(pessoa, vigente.evento)
     }
-    return map
-  }, [eventos])
+    return { lastEventMap: map, pendencias }
+  }, [eventos, hoje])
 
   const membros = useMemo(() => {
     if (!grupo || !pessoas) return []
@@ -84,14 +92,14 @@ export function FamiliaViewDialog({ grupo, onClose, onBack, onEditPessoa, onView
                             <Badge variant={TIPO_BADGE_VARIANT[lastEvent.tipo_evento]}>{TIPO_LABELS[lastEvent.tipo_evento]}</Badge>
                             <Badge variant="outline">{ROL_LABELS[lastEvent.rol]}</Badge>
                           </>
-                        ) : <span className="text-sm text-muted-foreground">Sem registro de membresia</span>}
+                        ) : <span className="text-sm text-muted-foreground">{pendencias.has(pessoa.id) ? 'Histórico a conferir' : 'Sem registro de membresia'}</span>}
                       </div>}
                     </div>
                     <div className="flex gap-1 shrink-0">
                       {cadastro.canEdit && <Button variant="ghost" size="icon" className="h-8 w-8" title="Editar pessoa" onClick={() => onEditPessoa(pessoa.id)}>
                         <Pencil size={14} />
                       </Button>}
-                      {membresia.canView && lastEvent && (
+                      {membresia.canView && (lastEvent || pendencias.has(pessoa.id)) && (
                         <Button variant="ghost" size="icon" className="h-8 w-8" title="Histórico de membresia" onClick={() => onViewHistorico(pessoa.id)}>
                           <History size={14} />
                         </Button>

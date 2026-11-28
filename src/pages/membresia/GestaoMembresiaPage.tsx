@@ -49,10 +49,14 @@ import {
   TIPO_BADGE_VARIANT,
   MOTIVACAO_LABELS,
 } from "../../lib/membresia-labels";
-import { eventoMembresiaVigente, formatarDataCivil } from "../../lib/membresia-temporal";
+import { agruparAtosPorPessoa, atosQueExigemConferencia, eventoMembresiaVigente, formatarDataCivil } from "../../lib/membresia-temporal";
 import { useEnumRelations } from "../../hooks/use-enum-relations";
 import { CampoBusca } from "../../components/shared/CampoBusca";
 import { correspondeBusca, normalizarBusca } from "../../lib/busca";
+
+import { ReferenciaDocumentalMembresia } from "../../components/shared/ReferenciaDocumentalMembresia";
+
+const referenciaDocumentalSchema = z.string().trim().min(1, "Identifique o documento que comprova a movimentação.").max(1000);
 
 const admissaoSchema = z.object({
   pessoa_id: z.string().min(1, "Pessoa é obrigatória"),
@@ -61,6 +65,7 @@ const admissaoSchema = z.object({
   data_evento: z.string().min(1, "Data é obrigatória"),
   ordem_dia: z.string().regex(/^[1-9][0-9]{0,3}$/, "Informe uma ordem de 1 a 9999").or(z.literal("")),
   igreja_origem: z.string().optional().or(z.literal("")),
+  referencia_documental: referenciaDocumentalSchema,
   observacoes: z.string().optional().or(z.literal("")),
 });
 
@@ -70,6 +75,7 @@ const demissaoSchema = z.object({
   data_evento: z.string().min(1, "Data é obrigatória"),
   ordem_dia: z.string().regex(/^[1-9][0-9]{0,3}$/, "Informe uma ordem de 1 a 9999").or(z.literal("")),
   igreja_destino: z.string().optional().or(z.literal("")),
+  referencia_documental: referenciaDocumentalSchema,
   observacoes: z.string().optional().or(z.literal("")),
 });
 
@@ -79,6 +85,7 @@ const mudancaRolSchema = z.object({
   motivacao_evento: z.string().min(1, "Motivação é obrigatória"),
   data_evento: z.string().min(1, "Data é obrigatória"),
   ordem_dia: z.string().regex(/^[1-9][0-9]{0,3}$/, "Informe uma ordem de 1 a 9999").or(z.literal("")),
+  referencia_documental: referenciaDocumentalSchema,
   observacoes: z.string().optional().or(z.literal("")),
 });
 
@@ -106,17 +113,18 @@ export function GestaoMembresiaPage() {
     enabled: canCreate && podeConsultarPessoas,
   });
 
-  const { lastEventMap, ambiguos } = useMemo(() => {
-    const grupos = new Map<string, EventoMembresia[]>();
-    for (const ev of data ?? []) { const grupo = grupos.get(ev.pessoa_id) ?? []; grupo.push(ev); grupos.set(ev.pessoa_id, grupo); }
+  const { lastEventMap, pendencias } = useMemo(() => {
     const mapa = new Map<string, EventoMembresia>();
     const pendentes = new Set<string>();
-    for (const [pessoaId, grupo] of grupos) {
+    for (const [pessoaId, grupo] of agruparAtosPorPessoa(data ?? [])) {
+      if (atosQueExigemConferencia(grupo).length) {
+        pendentes.add(pessoaId);
+        continue;
+      }
       const resultado = eventoMembresiaVigente(grupo, '9999-12-31');
       if (resultado.situacao === 'DEFINIDO') mapa.set(pessoaId, resultado.evento);
-      else if (resultado.situacao === 'AMBIGUO') pendentes.add(pessoaId);
     }
-    return { lastEventMap: mapa, ambiguos: pendentes };
+    return { lastEventMap: mapa, pendencias: pendentes };
   }, [data]);
 
   const termo = normalizarBusca(busca);
@@ -131,9 +139,9 @@ export function GestaoMembresiaPage() {
     if (!pessoas) return [];
     return pessoas.filter((p) => {
       const last = lastEventMap.get(p.id);
-      return !ambiguos.has(p.id) && (!last || last.tipo_evento === TipoEvento.DEMISSAO);
+      return !pendencias.has(p.id) && (!last || last.tipo_evento === TipoEvento.DEMISSAO);
     });
-  }, [pessoas, lastEventMap, ambiguos]);
+  }, [pessoas, lastEventMap, pendencias]);
 
   const pessoasAtivas = useMemo(() => {
     if (!pessoas) return [];
@@ -156,6 +164,7 @@ export function GestaoMembresiaPage() {
       data_evento: "",
       ordem_dia: "",
       igreja_origem: "",
+      referencia_documental: "",
       observacoes: "",
     },
   });
@@ -167,6 +176,7 @@ export function GestaoMembresiaPage() {
       data_evento: "",
       ordem_dia: "",
       igreja_destino: "",
+      referencia_documental: "",
       observacoes: "",
     },
   });
@@ -178,6 +188,7 @@ export function GestaoMembresiaPage() {
       motivacao_evento: "",
       data_evento: "",
       ordem_dia: "",
+      referencia_documental: "",
       observacoes: "",
     },
   });
@@ -427,7 +438,7 @@ export function GestaoMembresiaPage() {
         </div>
         {(busca || tipo !== "todos") && <Button variant="ghost" onClick={() => { setBusca(""); setTipo("todos"); }}>Limpar filtros</Button>}
       </div>
-      {ambiguos.size > 0 && <p role="alert">{ambiguos.size} histórico(s) têm atos recentes no mesmo dia sem ordem confirmada e foram excluídos das ações até a conferência.</p>}
+      {pendencias.size > 0 && <p role="alert">Confira a documentação ou a ordem dos atos no histórico antes de registrar novas movimentações ({pendencias.size}).</p>}
       {isLoading ? (
         <div className="py-16 text-center text-muted-foreground">
           Carregando...
@@ -561,6 +572,7 @@ export function GestaoMembresiaPage() {
               <Input id="adm_ordem" type="number" min="1" max="9999" {...admForm.register("ordem_dia")} />
               {admForm.formState.errors.ordem_dia && <p className="text-xs text-destructive">{admForm.formState.errors.ordem_dia.message}</p>}
             </div>
+            <ReferenciaDocumentalMembresia id="adm_fonte" campo={admForm.register("referencia_documental")} erro={admForm.formState.errors.referencia_documental?.message} />
             <div className="space-y-2">
               <Label htmlFor="adm_obs">Observações</Label>
               <Textarea
@@ -648,6 +660,7 @@ export function GestaoMembresiaPage() {
               <Input id="dem_ordem" type="number" min="1" max="9999" {...demForm.register("ordem_dia")} />
               {demForm.formState.errors.ordem_dia && <p className="text-xs text-destructive">{demForm.formState.errors.ordem_dia.message}</p>}
             </div>
+            <ReferenciaDocumentalMembresia id="dem_fonte" campo={demForm.register("referencia_documental")} erro={demForm.formState.errors.referencia_documental?.message} />
             <div className="space-y-2">
               <Label htmlFor="dem_obs">Observações</Label>
               <Textarea
@@ -757,6 +770,7 @@ export function GestaoMembresiaPage() {
               <Input id="mud_ordem" type="number" min="1" max="9999" {...mudForm.register("ordem_dia")} />
               {mudForm.formState.errors.ordem_dia && <p className="text-xs text-destructive">{mudForm.formState.errors.ordem_dia.message}</p>}
             </div>
+            <ReferenciaDocumentalMembresia id="mud_fonte" campo={mudForm.register("referencia_documental")} erro={mudForm.formState.errors.referencia_documental?.message} />
             <div className="space-y-2">
               <Label htmlFor="mud_obs">Observações</Label>
               <Textarea

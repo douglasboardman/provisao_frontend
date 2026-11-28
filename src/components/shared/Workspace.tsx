@@ -15,18 +15,15 @@ export function AlternarConteudo<T extends string>({ titulo, opcoes, ativa, sele
   </div>
 }
 
-export function DataReferencia({ id, data, mudar, children }: {
+export function DataReferencia({ id, data, mudar }: {
   id: string
   data: string
   mudar: (data: string) => void
-  children?: ReactNode
 }) {
-  return <div className="flex flex-wrap items-end gap-3 text-sm">
-    <label htmlFor={id} className="grid gap-1.5 font-medium">Data de referência
-      <Input id={id} type="date" value={data} className="w-auto bg-card" onChange={e => mudar(e.target.value)} />
-    </label>
-    {children}
-  </div>
+  return <label htmlFor={id} className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5 text-sm font-medium">
+    Data de referência
+    <Input id={id} type="date" value={data} className="w-auto bg-card" onChange={e => mudar(e.target.value)} />
+  </label>
 }
 
 export function CabecalhoPainel({ icone: Icone, titulo, children }: {
@@ -58,7 +55,7 @@ export function WorkspaceHeader({
 }: {
   icon: LucideIcon
   title: string
-  description: string
+  description?: string
   children?: ReactNode
 }) {
   return (
@@ -69,7 +66,7 @@ export function WorkspaceHeader({
         </span>
         <div>
           <h1>{title}</h1>
-          <p>{description}</p>
+          {description && <p>{description}</p>}
         </div>
       </div>
       {children}

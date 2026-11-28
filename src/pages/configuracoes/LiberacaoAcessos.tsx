@@ -5,7 +5,7 @@ import { ApiRequestError } from '../../api/client'
 import { Button } from '../../components/ui/button'
 import { useAuthStore } from '../../stores/auth'
 
-const estados = { LEGADO: 'Perfis existentes', ATRIBUICAO: 'Por atribuição', PAUSADO: 'Suspensa' }
+const estados = { ATRIBUICAO: 'Por atribuição', PAUSADO: 'Suspensa' }
 
 function mensagem(erro: unknown) {
   return erro instanceof ApiRequestError ? erro.messages.join(' ') : 'Não foi possível concluir a operação.'
@@ -65,7 +65,7 @@ function Operacao({ liberacao }: { liberacao: Liberacao }) {
       <textarea value={fundamento} maxLength={1000} rows={2} onChange={e => setFundamento(e.target.value)}
         className="block w-full rounded border bg-background p-2" />
     </label>}
-    {liberacao.estado === 'LEGADO' && liberacao.permite_pausar &&
+    {liberacao.permite_pausar &&
       <p className="text-sm text-muted-foreground">Após a suspensão, a retomada exige uma nova prévia e atribuições vigentes.</p>}
     <div className="flex flex-wrap gap-2">
       {liberacao.estado !== 'ATRIBUICAO' && <Button type="button" disabled={!pronto || !comparacao}

@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { Link } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { autorizacaoApi, servicos, type Servico, type AtuacaoConta, type ComparacaoConversao } from '../../api/autorizacao'
+import { autorizacaoApi, servicos, type Servico, type AtuacaoConta } from '../../api/autorizacao'
 import { ApiRequestError } from '../../api/client'
 import { Button } from '../../components/ui/button'
 import { Abas, type Aba } from '../../components/ui/abas'
@@ -52,9 +52,7 @@ export function AcessosDaConta({ usuario }: { usuario: Usuario }) {
   const dados = q.data, pendente = alterar.isPending
   const elegivel = !!dados.pessoa_id && usuario.ativo && ![Perfil.ADMINISTRADOR, Perfil.AUDITOR].includes(usuario.perfil)
   const executar = (fn: () => Promise<unknown>) => alterar.mutate(fn)
-  const catalogo = dados.catalogo ?? Object.entries(servicos).filter(([s]) =>
-    (usuario.perfil !== Perfil.AUDITOR || s === 'AUDITORIA_CONSULTAR') &&
-    (s !== 'PRESIDENCIA_CONFERIR' || usuario.perfil === Perfil.ADMINISTRADOR)).map(([acao, rotulo]) => ({ acao, rotulo }))
+  const catalogo = dados.catalogo ?? []
   const rotulos = new Map(catalogo.map(s => [s.acao, s.rotulo]))
   for (const s of dados.servicos_propostos) {
     if (s.rotulo) rotulos.set(s.acao, s.rotulo)
@@ -121,7 +119,7 @@ export function AcessosDaConta({ usuario }: { usuario: Usuario }) {
                 onClick={() => executar(() => autorizacaoApi.revogar(r.id))}>Revogar</Button>}
           </li>
         })}</ul> : <p className="text-sm text-muted-foreground">Nenhuma atribuição registrada para esta conta.</p>}
-        {!dados.pessoa_id && <p className="text-sm">Vincule a pessoa para atribuir serviços ou converter o perfil.</p>}
+        {!dados.pessoa_id && <p className="text-sm">Vincule a pessoa para atribuir serviços .</p>}
       </section>
     </div> },
   ]
@@ -134,8 +132,6 @@ export function AcessosDaConta({ usuario }: { usuario: Usuario }) {
       <CriarPerfilAtuacao iniciais={dados.servicos_propostos.filter(s => s.permite &&
         dados.atribuicoes.some(r => r.acao === s.acao && !r.concessao_modelo_id)).map(s => s.acao)}/>
     </div> })
-  if (dados.pode_converter && dados.catalogo) abas.push({ id: 'conversao', nome: 'Conversão', manter: true,
-    conteudo: <ConverterConta id={usuario.id} catalogo={dados.catalogo} competencias={dados.competencias ?? []}/> })
   const ativa = abas.some(a => a.id === aba) ? aba : 'atuacao'
 
   return <>
@@ -169,7 +165,6 @@ export function HistoricoAcessos({ usuarios }: { usuarios: Usuario[] }) {
       <>{!q.data.itens.length && <p>Nenhuma decisão registrada.</p>}{q.data.itens.map(e => <article key={e.id} className="rounded border p-2">
         <p className="font-semibold">{e.dados.acao ?? e.acao} · {new Date(e.instante).toLocaleString()}</p>
         <p>Operador {nomes.get(e.operador_id) ?? e.operador_id}{e.destinatario_id && ' · Conta avaliada ' + (nomes.get(e.destinatario_id) ?? e.destinatario_id)}</p>
-        {e.acao === 'DIVERGENCIA' && <p>Política atual {e.dados.legado ? 'permite' : 'recusa'} · Proposta {e.dados.proposta ? 'permite' : 'recusa'}</p>}
         <p>{e.fundamento}</p>{e.recurso_id && <small>Recurso {e.recurso_id}</small>}</article>)}
         {cursor && <Button variant="outline" onClick={() => paginar(undefined)}>Mais recentes</Button>}
         {q.data.proximo_cursor && <Button variant="outline" onClick={() => paginar(q.data.proximo_cursor!)}>Mais antigos</Button>}</>}</div>
@@ -182,63 +177,4 @@ function nomeServico(acao: Servico) {
 
 function dataHora(instante: string) {
   return new Date(instante).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
-}
-
-function ConverterConta({ id, catalogo, competencias }: {
-  id: string; catalogo: NonNullable<AtuacaoConta['catalogo']>; competencias: NonNullable<AtuacaoConta['competencias']>
-}) {
-  const [acoes, escolher] = useState<Servico[]>([])
-  const [contextuais, escolherContextuais] = useState<string[]>([])
-  const [fundamento, justificar] = useState('')
-  const [previa, definirPrevia] = useState<ComparacaoConversao | null>(null)
-  const cache = useQueryClient()
-  const revisar = useMutation({ mutationFn: () => autorizacaoApi.previaConversao(id, acoes, contextuais), onSuccess: definirPrevia })
-  const converter = useMutation({
-    mutationFn: () => autorizacaoApi.converter(id, acoes, contextuais, previa!.previa, fundamento),
-    onSuccess: () => {
-      void cache.invalidateQueries({ queryKey: ['autorizacao'] })
-      void cache.invalidateQueries({ queryKey: ['usuarios'] })
-    },
-  })
-  const erro = revisar.error ?? converter.error
-  return <section className="space-y-4">
-    <h3 className="font-semibold">Converter perfil legado em conta comum</h3>
-    <p>Escolha as operações que a conta deve exercer. A prévia compara as rotas. A conversão encerra as sessões ativas e preserva a seleção de atuação já registrada.</p>
-    <div className="grid gap-2 rounded-lg border p-3 text-sm sm:grid-cols-2">
-      {catalogo.filter(s => s.acao !== 'PRESIDENCIA_CONFERIR').map(s => <label key={s.acao} className="flex items-start gap-2">
-        <input type="checkbox" checked={acoes.includes(s.acao)} onChange={e => {
-          escolher(e.target.checked ? [...acoes, s.acao] : acoes.filter(acao => acao !== s.acao))
-          definirPrevia(null)
-        }} />{s.rotulo}
-      </label>)}
-    </div>
-    {competencias.length > 0 && <fieldset className="space-y-2">
-      <legend>Competências da Secretaria a conservar</legend>
-      {competencias.map(c => <label key={c.id} className="flex items-start gap-2">
-        <input type="checkbox" checked={contextuais.includes(c.id)} onChange={e => {
-          escolherContextuais(e.target.checked ? [...contextuais, c.id] : contextuais.filter(id => id !== c.id))
-          definirPrevia(null)
-        }} />
-        <span>{c.contexto.nome} · {[
-          c.pode_aprovar && 'aprovar', c.pode_deliberar && 'registrar deliberação',
-          c.pode_consultar_restritos && 'consultar acervo restrito', c.pode_instalar_mesa && 'instalar mesa',
-        ].filter(Boolean).join(', ')}</span>
-      </label>)}
-    </fieldset>}
-    <Button type="button" variant="outline" disabled={revisar.isPending || converter.isPending} onClick={() => revisar.mutate()}>Gerar prévia</Button>
-    {previa && <div className="space-y-3">
-      {previa.outra_conta && <p>Há outra conta vinculada à mesma pessoa. Confira qual login deve representar a atuação.</p>}
-      <p>{previa.rotas.filter(r => r.antes && !r.depois).length} rotas deixam de estar disponíveis · {previa.rotas.filter(r => !r.antes && r.depois).length} rotas passam a estar disponíveis</p>
-      <details><summary>Comparação por rota</summary><ul className="max-h-48 space-y-1 overflow-auto text-sm">
-        {previa.rotas.map(r => <li key={r.rota}>{r.rota} · {r.antes && r.depois ? 'Mantida' : r.depois ? 'Incluída' : 'Retirada'}</li>)}
-      </ul></details>
-      {!!previa.rotas_legadas?.length && <details>
-        <summary>Rotas do perfil que exigem revisão contextual</summary>
-        <ul className="max-h-48 space-y-1 overflow-auto text-sm">{previa.rotas_legadas.map(rota => <li key={rota}>{rota}</li>)}</ul>
-      </details>}
-      <label className="block">Fundamento da conversão<Input value={fundamento} maxLength={1000} onChange={e => justificar(e.target.value)} /></label>
-      <Button type="button" disabled={!fundamento.trim() || converter.isPending} onClick={() => converter.mutate()}>Confirmar conversão</Button>
-    </div>}
-    {erro && <p role="alert">{erro instanceof ApiRequestError ? erro.messages.join(' ') : 'Não foi possível registrar a conversão.'}</p>}
-  </section>
 }

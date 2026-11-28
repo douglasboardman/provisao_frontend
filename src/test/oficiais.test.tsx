@@ -1,3 +1,4 @@
+vi.mock('../hooks/use-navegacao', () => ({ useNavegacao: () => ({ data: { permissoes: {oficiais:['view','create','edit']} }, isPending: false }) }))
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { cleanup, render, screen, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -20,11 +21,14 @@ vi.mock('../api/oficiais', () => ({ oficiaisApi: {
 
 describe('consulta de oficiais', () => {
   afterEach(cleanup)
-  beforeEach(() => useAuthStore.setState({ status: 'ready', user: { sub: 'user-1', igreja_id: 'church-1', perfil: Perfil.SECRETARIO, login: 'x', username: 'x' } }))
+  beforeEach(() => useAuthStore.setState({ status: 'ready', user: { sub: 'user-1', igreja_id: 'church-1', perfil: Perfil.COMUM, login: 'x', username: 'x' } }))
   it('mostra oficial e consulta exercício sem afirmar competência', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(<QueryClientProvider client={client}><OficiaisPage /></QueryClientProvider>)
+    expect(screen.getByRole('heading', { name: 'Oficiais e Pastores' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Mandatos vigentes' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('tab', { name: 'Diáconos' }))
+    await vi.waitFor(() => expect(oficiaisApi.listar).toHaveBeenCalledWith(undefined, 'DIACONO'))
     fireEvent.click(screen.getByRole('button', { name: 'Ofícios registrados' }))
     expect(await screen.findByText('Pessoa Teste')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Consultar exercício' }))

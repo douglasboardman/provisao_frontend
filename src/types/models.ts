@@ -88,6 +88,8 @@ export interface EventoMembresia {
   ordem_dia?: number | null
   igreja_origem: string | null
   igreja_destino: string | null
+  referencia_documental?: string | null
+  documentado?: boolean
   observacoes: string | null
   created_at: string
   updated_at: string

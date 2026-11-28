@@ -1,3 +1,4 @@
+import { usePermissions } from '../../hooks/use-permissions'
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../../stores/auth'
@@ -8,10 +9,11 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../../com
 import { Campo, Check, Escolha, useComando } from './formulario'
 
 export function useBiblioteca() {
+  const permissoes = usePermissions('campos-secretaria')
   const user = useAuthStore(s => s.user)
   const chave = ['secretaria', 'biblioteca', user?.igreja_id, user?.sub]
   const consulta = useQuery({ queryKey: chave, queryFn: secretariaApi.camposBiblioteca, enabled: !!user })
-  return { ...consulta, chave, gerencia: user?.perfil === 'SECRETARIO' || user?.perfil === 'ADMINISTRADOR' }
+  return { ...consulta, chave, gerencia: permissoes.canEdit }
 }
 
 export function CadastroCampo({ campo, nome = '', concluir, cancelar }: { campo?: CampoIgreja; nome?: string; concluir: (c: CampoIgreja) => void; cancelar: () => void }) {

@@ -4,7 +4,7 @@ import { pessoasApi } from "../../api/pessoas"
 import { eventosMembresiaApi } from "../../api/eventos-membresia"
 import { dataCivilLocal } from "../../lib/membresia-temporal"
 import { useAuthStore } from "../../stores/auth"
-import { montarRol, resumirRol } from "./dados-rol"
+import { montarRol } from "./dados-rol"
 
 export function useDadosRol(enabled = true) {
   const identidade = useAuthStore(s => `${s.user?.igreja_id}:${s.user?.sub}`)
@@ -16,7 +16,6 @@ export function useDadosRol(enabled = true) {
 
   // Sem fuso da igreja cadastrado, a referência é a data civil deste dispositivo.
   const hoje = dataCivilLocal(new Date())
-  const members = useMemo(() => montarRol(pessoas ?? [], eventos ?? [], hoje), [pessoas, eventos, hoje])
-  const summary = useMemo(() => resumirRol(members), [members])
-  return { hoje, pessoas, members, summary, isLoading, errorPessoas, errPessoas, refetchPessoas, errorEventos, errEventos, refetchEventos }
+  const { members, pendencias } = useMemo(() => montarRol(pessoas ?? [], eventos ?? [], hoje), [pessoas, eventos, hoje])
+  return { pessoas, members, pendencias, isLoading, errorPessoas, errPessoas, refetchPessoas, errorEventos, errEventos, refetchEventos }
 }

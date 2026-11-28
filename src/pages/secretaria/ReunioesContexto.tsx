@@ -51,7 +51,7 @@ export function ReunioesContexto({ contexto, identidade, modelos = [] }: { conte
         <td className={colunaDetalhe}>{r.dados.local}</td><td className={colunaDetalhe}>{r.dados.horario_previsto ?? '—'}</td>
         <td className={colunaDetalhe}>{r.horario_inicio_reuniao ?? '—'}</td>
         <td className={colunaDetalhe}>{r.horario_encerramento_reuniao ?? '—'}</td>
-        <td className={colunaDetalhe}>{r.participantes.filter(p => p.presente).length}</td>
+        <td className={colunaDetalhe}>{r.dados.total_presentes ?? '—'}</td>
         <td><div className="flex items-center gap-1.5">
           <Button size="sm" variant="outline" title="Consultar" onClick={() => { consultar(r.id); selecionar('consulta') }}><Eye aria-hidden="true"/><span className="sr-only md:not-sr-only">Consultar</span></Button>
           {contexto.pode_preparar && contexto.registro_livro !== false && <Button size="sm" variant="outline" title="Editar" onClick={() => abrir(r)}><Pencil aria-hidden="true"/><span className="sr-only md:not-sr-only">Editar</span></Button>}
@@ -65,6 +65,7 @@ export function ReunioesContexto({ contexto, identidade, modelos = [] }: { conte
     <h3 className="font-semibold">{titulo(detalhe)}</h3>
     {contexto.tipo === 'ASSEMBLEIA_GERAL' && <Button variant="outline" onClick={abrirPresenca}>Presença e mesa da assembleia</Button>}
     <h4>Agendamento</h4>
+    {detalhe.dados.modelo_reuniao && <p>{detalhe.dados.modelo_reuniao.finalidade} · {detalhe.dados.formato} · {detalhe.dados.carater} · {detalhe.dados.convocacao} convocação</p>}
     <p>Horário previsto: {detalhe.dados.horario_previsto ?? 'Não informado'}</p>
     {contexto.registro_livro === false && detalhe.mesa_atual_id && <p>A redação está com a mesa. Consulte a presença e a mesa desta sessão.</p>}
     {contexto.pode_preparar && !(contexto.registro_livro === false && detalhe.mesa_atual_id) && modelos.some(m => m.estado !== 'EM_EDICAO' && m.versoes[0]?.tipo === 'ATA' && (!m.permissoes || m.permissoes.criar || m.permissoes.preparar)) &&
@@ -81,8 +82,8 @@ export function ReunioesContexto({ contexto, identidade, modelos = [] }: { conte
     <h4>Pauta</h4><PautaReuniao itens={detalhe.itens_pauta} texto={detalhe.dados.pauta}/>
     <h4>Realização</h4>
     <p>{detalhe.dados.situacao ? situacoesReuniao[detalhe.dados.situacao] : 'Situação não registrada'} · Abertura: {detalhe.horario_inicio_reuniao ?? '—'} · Encerramento: {detalhe.horario_encerramento_reuniao ?? '—'}</p>
-    <p>Local efetivo: {detalhe.local_efetivo_retrato?.descritivo ?? 'Não informado'}</p>
-    <p>Competência: {detalhe.dados.competencia}</p><p>Quórum: {detalhe.participantes.filter(p => p.presente).length} presentes / mínimo {detalhe.dados.quorum_minimo} · {detalhe.dados.quorum_conferido ? 'Conferido' : 'Pendente de conferência'}</p>
+    <p>Local efetivo: {detalhe.dados.local_efetivo ?? detalhe.local_efetivo_retrato?.descritivo ?? 'Não informado'}</p>
+    <p>Competência: {detalhe.dados.competencia}</p><p>Quórum: {detalhe.dados.quorum_minimo || 'Não informado'}</p><p>Total de presentes: {detalhe.dados.total_presentes ?? 'Não informado'}</p>
     <p>Resultado: {detalhe.dados.resultado || 'Não informado'}</p>{detalhe.participantes.map(p => <p key={p.pessoa_id}>{p.retrato.nome} · {p.presente ? 'Presente' : 'Ausente'} · {p.papeis.join(', ')}</p>)}
     {contexto.pode_preparar && contexto.registro_livro !== false && <Button variant="outline" onClick={() => abrir(detalhe)}>Editar reunião</Button>}
   </section> })

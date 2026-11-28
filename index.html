@@ -9,7 +9,16 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  </head>
+  <script type="module">
+      // Captura de design disponível somente no desenvolvimento e quando solicitada pela URL.
+      if (import.meta.env.DEV && location.hash.includes('figmacapture=')) {
+        const script = document.createElement('script');
+        script.src = 'https://mcp.figma.com/mcp/html-to-design/capture.js';
+        script.async = true;
+        document.head.appendChild(script);
+      }
+    </script>
+</head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>

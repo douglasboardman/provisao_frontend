@@ -10,7 +10,7 @@ import { NavLink, useNavigate } from "react-router"
 import logo from "../../assets/logo-assinatura-horizontal.png"
 import { cn } from "@/lib/utils"
 import { useAuthStore } from "../../stores/auth"
-import { canAccessModule, type Module } from "../../lib/permissions"
+import { type Module } from "../../lib/permissions"
 import type { LucideIcon } from "lucide-react"
 import { Perfil, PERFIL_LABELS } from "../../types/enums"
 import { useRecurso } from "../../lib/recursos"
@@ -23,7 +23,7 @@ const navEntries: NavEntry[] = [
   { kind: "item", path: "/dashboard", icon: Home, label: "Dashboard" },
 
   { kind: "group", label: "Membresia" },
-  { kind: "item", path: "/oficiais", icon: IdCard, label: "Oficiais" },
+  { kind: "item", path: "/oficiais", icon: IdCard, label: "Oficiais e Pastores" },
   { kind: "item", path: "/orgaos", icon: Landmark, label: "Estrutura da igreja" },
   { kind: "item", path: "/secretaria", icon: BookUser, label: "Secretaria", modules: ["secretaria"] },
   { kind: "item", path: "/pessoas", icon: Users, label: "Pessoas", modules: ["pessoas", "grupos-familiares"] },
@@ -76,21 +76,20 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const secretaria = useRecurso('secretaria')
   const logout = useAuthStore((s) => s.logout)
   const navigate = useNavigate()
-  const perfil = user?.perfil ?? Perfil.OPERADOR
+  const perfil = user?.perfil ?? Perfil.COMUM
   const identidade = `${user?.igreja_id ?? ''}:${user?.sub ?? ''}`
-  const notificacoes = useQuery({ queryKey: ['oficiais', identidade, 'notificacoes'], queryFn: oficiaisApi.notificacoes,
-    enabled: governanca && !!user && !user.mfa_enrollment_required && [Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO].includes(perfil), refetchInterval: 60_000 })
-  const pendentes = notificacoes.data?.filter(item => !item.lido_em).length ?? 0
-  const acessoInstitucional = [Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO, Perfil.AUDITOR].includes(perfil)
   const navegacao = useNavegacao()
+  const notificacoes = useQuery({ queryKey: ['oficiais', identidade, 'notificacoes'], queryFn: oficiaisApi.notificacoes,
+    enabled: governanca && !!user && !user.mfa_enrollment_required && navegacao.data?.permissoes['notificacoes-oficiais']?.includes('view') === true, refetchInterval: 60_000 })
+  const pendentes = notificacoes.data?.filter(item => !item.lido_em).length ?? 0
   const rotuloPerfil = navegacao.data?.perfis_atuacao?.join(' · ') || PERFIL_LABELS[perfil]
   const podeVer = (modulo: Module) => {
     const acoes = navegacao.data?.permissoes[modulo]
-    return acoes ? acoes.includes('view') || modulo === 'pessoas' && acoes.includes('create') : canAccessModule(perfil, modulo)
+    return acoes ? acoes.includes('view') || modulo === 'pessoas' && acoes.includes('create') : false
   }
   const liberados: Record<string, boolean> = {
-    '/oficiais': governanca && (navegacao.data ? podeVer('oficiais') : acessoInstitucional),
-    '/orgaos': governanca && orgaos && (navegacao.data ? podeVer('orgaos') : acessoInstitucional),
+    '/oficiais': governanca && podeVer('oficiais'),
+    '/orgaos': governanca && orgaos && podeVer('orgaos'),
     '/secretaria': secretaria && podeVer('secretaria'),
   }
   const visibleEntries = filterNav(navEntries.filter(entry => entry.kind === 'group' || liberados[entry.path] !== false), podeVer)

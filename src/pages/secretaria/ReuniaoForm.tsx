@@ -1,6 +1,8 @@
 import { PaineisSecretaria } from './PaineisSecretaria'
 import { LocalDaReuniao } from './LocalDaReuniao'
 import { SeletorPessoa } from '../../components/shared/SeletorPessoa'
+import { useAuthStore } from '../../stores/auth'
+import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Button } from '../../components/ui/button'
 import { modalidadesParaContexto, nomeModalidade, secretariaApi, situacoesReuniao, type ContextoSecretaria, type ReuniaoSecretaria, type DadosReuniao, type ResultadoSecretaria } from '../../api/secretaria'
@@ -17,7 +19,7 @@ function instanteLocal(valor: string) {
   return dataHora + (deslocamento < 0 ? '-' : '+') + hh + ':' + mm
 }
 
-type EntradaReuniao = { local_efetivo_id?: string | null; local_id?: string; dados: Omit<DadosReuniao, 'pauta' | 'local'> & { local?: string; itens_pauta: { descricao: string; proponente_id: string | null }[] } }
+type EntradaReuniao = { local_efetivo_id?: string | null; local_id?: string; dados: Omit<DadosReuniao, 'pauta' | 'local' | 'quorum_conferido'> & { local?: string; itens_pauta: { descricao: string; proponente_id: string | null }[] } }
 
 export function ReuniaoForm({ contexto, reuniao, pessoas, pronto, gerarEdital }: { contexto: ContextoSecretaria; reuniao?: ReuniaoSecretaria; pessoas: { id: string; nome_completo: string }[]; pronto: (id: string) => void; gerarEdital?: (v: EntradaReuniao & { idempotencia: string }) => Promise<ResultadoSecretaria> }) {
   const [v, set] = useState<Omit<DadosReuniao, 'pauta'>>(() => {
@@ -26,8 +28,11 @@ export function ReuniaoForm({ contexto, reuniao, pessoas, pronto, gerarEdital }:
       delete campos.pauta
       return campos
     }
-    return { situacao: 'AGENDADA', restrito: false, modalidade: modalidadesParaContexto(contexto).includes('REGULAR') ? 'REGULAR' : modalidadesParaContexto(contexto)[0], data: hoje(), local: '', inicio: null, fim: null, competencia: '', universo_informado: 0, quorum_minimo: 0, quorum_conferido: false, fundamento_quorum: '', resultado: '', participantes: [] }
+    return { formato:'Presencial', carater:'Regular', convocacao:'Primeira', situacao: 'AGENDADA', restrito: false, modalidade: modalidadesParaContexto(contexto).includes('REGULAR') ? 'REGULAR' : modalidadesParaContexto(contexto)[0], data: hoje(), local: '', inicio: null, fim: null, competencia: '', universo_informado: 0, quorum_minimo: 0, quorum_conferido: false, fundamento_quorum: '', resultado: '', participantes: [] }
   })
+  const identidade = useAuthStore(s=>s.user?.sub)
+  const modelos = useQuery({queryKey:['secretaria',identidade,contexto.id,'modelos-reuniao'],queryFn:()=>secretariaApi.modelosReuniao(contexto.id)})
+  const chamadas = useQuery({queryKey:['secretaria',identidade,contexto.id,'primeiras',v.modelo_reuniao_id],queryFn:()=>secretariaApi.primeirasConvocacoes(contexto.id,v.modelo_reuniao_id!),enabled:!!v.modelo_reuniao_id && v.convocacao==='Segunda',gcTime:0})
   const [aba, selecionarAba] = useState(reuniao && contexto.pode_agendar === false ? 'realizacao' : 'agendamento')
   const [localEfetivo, selecionarEfetivo] = useState(reuniao?.local_efetivo_id ?? '')
   const [localId, selecionarLocal] = useState(reuniao?.local_id ?? (reuniao ? 'historico' : ''))
@@ -45,11 +50,32 @@ export function ReuniaoForm({ contexto, reuniao, pessoas, pronto, gerarEdital }:
   const enviar = useComando<EntradaReuniao>(dados => gerarEdital ? gerarEdital(dados) : reuniao
     ? secretariaApi.editarReuniao(reuniao.id, { ...dados, revisao: reuniao.revisao })
     : secretariaApi.criarReuniao({ ...dados, contexto_id: contexto.id }), r => pronto(r.id))
+  const config = (v.modelo_reuniao_id===reuniao?.dados.modelo_reuniao_id ? reuniao?.dados.modelo_reuniao?.configuracao : undefined) ?? modelos.data?.find(m=>m.id===v.modelo_reuniao_id)?.configuracao
+  function selecionarModelo(id:string) {
+    const modelo=modelos.data?.find(m=>m.id===id)
+    const ordinaria=modelo?.configuracao.tipo==='Ordinária'
+    set(s=>({...s,modelo_reuniao_id:id || undefined,convocacao:'Primeira',primeira_reuniao_id:null,
+      modalidade:!id ? reuniao?.modalidade ?? s.modalidade : contexto.tipo==='ASSEMBLEIA_GERAL' ? (ordinaria?'AGO':'AGE') : (ordinaria?'ORDINARIA':'EXTRAORDINARIA'),
+      formato:s.formato??'Presencial',carater:s.carater??'Regular'}))
+  }
   const agendamento = <div className="space-y-4">
-    <div className="grid gap-4 md:grid-cols-2"><Escolha label="Modalidade" value={v.modalidade} onChange={s => editar('modalidade', s as DadosReuniao['modalidade'])}>{modalidadesParaContexto(contexto).map(m => <option key={m} value={m}>{nomeModalidade(contexto, m)}</option>)}</Escolha><Campo label="Data da reunião" type="date" value={v.data} onChange={s => editar('data', s)} />
+    <div className="grid gap-4 md:grid-cols-2">{modelos.isError && <p role="alert">Falha ao carregar os modelos. <button type="button" onClick={()=>void modelos.refetch()}>Tentar novamente</button></p>}
+      <Escolha label="Modelo de reunião" value={v.modelo_reuniao_id ?? ''} required={!reuniao || !!reuniao.dados.modelo_reuniao_id} onChange={selecionarModelo}>
+        <option value="">{reuniao && !reuniao.dados.modelo_reuniao_id ? nomeModalidade(contexto,reuniao.modalidade)+' (registro anterior)' : 'Selecione o modelo'}</option>
+        {modelos.data?.map(m=><option key={m.id} value={m.id}>{m.finalidade} · {m.configuracao.tipo}</option>)}
+      </Escolha>
+      <Escolha label="Modalidade" value={v.formato??''} required={!!v.modelo_reuniao_id} onChange={s=>editar('formato',s as DadosReuniao['formato'])}><option value="">Selecione</option>{['Presencial','Virtual','Híbrida'].map(s=><option key={s}>{s}</option>)}</Escolha>
+      <Escolha label="Caráter" value={v.carater??''} required={!!v.modelo_reuniao_id} onChange={s=>editar('carater',s as DadosReuniao['carater'])}><option value="">Selecione</option>{['Regular','Urgente'].map(s=><option key={s}>{s}</option>)}</Escolha>
+      <Escolha label="Convocação" value={v.convocacao??''} required={!!v.modelo_reuniao_id} onChange={s=>set(atual=>({...atual,convocacao:s as DadosReuniao['convocacao'],primeira_reuniao_id:null}))}><option value="">Selecione</option><option>Primeira</option><option disabled={config && ['Não prevista','Pendente'].includes(config.segunda)}>Segunda</option></Escolha>
+      {v.convocacao==='Segunda' && <Escolha label="Reunião da primeira convocação" value={v.primeira_reuniao_id??''} onChange={id=>editar('primeira_reuniao_id',id)}><option value="">Selecione a primeira convocação</option>{chamadas.data?.filter(r=>r.id!==reuniao?.id).map(r=><option key={r.id} value={r.id}>{r.data.split('-').reverse().join('/')} {r.horario} · {r.pauta}</option>)}</Escolha>}
+      {chamadas.isError && v.convocacao==='Segunda' && <p role="alert">Falha ao consultar as primeiras convocações.</p>}<Campo label="Data da reunião" type="date" value={v.data} onChange={s => editar('data', s)} />
       <LocalDaReuniao reuniao={reuniao} valor={localId} alterar={selecionarLocal} />
       <Campo label="Horário previsto" type="time" required={v.situacao === 'AGENDADA'} value={v.horario_previsto ?? ''} onChange={s => editar('horario_previsto', s || undefined)} />
     </div>
+    {config && <div className="text-sm space-y-1"><p>Quórum da {v.convocacao?.toLowerCase()} convocação · {v.convocacao==='Segunda'?config.segunda:config.primeira} · {config.referencia}</p>
+      {config.antecedencia_dias!=null && <p>Antecedência da primeira convocação · {config.antecedencia_dias} dias</p>}
+      {v.convocacao==='Segunda' && config.intervalo_minutos!=null && <p>Intervalo mínimo entre convocações · {config.intervalo_minutos%1440===0 ? (config.intervalo_minutos/1440)+' dias' : config.intervalo_minutos+' minutos'}</p>}
+      {config.observacao && <p>{config.observacao}</p>}</div>}
     <fieldset className="space-y-3"><legend className="font-semibold">Itens de pauta</legend>
       <ol className="space-y-3">{itens.map((item, i) => <li key={item.chave} className="rounded border p-3">
         <div className="grid gap-3 md:grid-cols-2">
@@ -80,9 +106,9 @@ export function ReuniaoForm({ contexto, reuniao, pessoas, pronto, gerarEdital }:
         {Object.entries(situacoesReuniao).map(([id, nome]) => <option key={id} value={id} disabled={contexto.pode_agendar === false && id !== reuniao?.dados.situacao && ['CANCELADA','ADIADA','AGENDADA'].includes(id)}>{nome}</option>)}
       </Escolha>
       <LocalDaReuniao efetivo reuniao={reuniao} valor={localEfetivo} alterar={selecionarEfetivo} />
-      {(['inicio', 'fim'] as const).map(k => <Campo key={k} label={k === 'inicio' ? 'Abertura efetiva' : 'Encerramento efetivo'} type="datetime-local" required={v.situacao === 'ENCERRADA' || (k === 'inicio' && v.situacao === 'EM_ANDAMENTO')} value={v[k] ? (() => { const d = new Date(v[k]!); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16) })() : ''} onChange={s => editar(k, instanteLocal(s))} />)}
+      {(['inicio', 'fim'] as const).map(k => <Campo key={k} label={k === 'inicio' ? 'Abertura efetiva' : 'Encerramento efetivo'} type="datetime-local" required={false} value={v[k] ? (() => { const d = new Date(v[k]!); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16) })() : ''} onChange={s => editar(k, instanteLocal(s))} />)}
     </div>
-    <Area label="Competência para os assuntos da pauta" required={v.quorum_conferido} value={v.competencia} onChange={s => editar('competencia', s)} />
+    <Area label="Competência para os assuntos da pauta" required={false} value={v.competencia} onChange={s => editar('competencia', s)} />
     <fieldset className="space-y-3"><legend className="font-semibold">Presença e mesa</legend>
       <p className="text-sm">Registre quem tinha competência para apresentar propostas conforme as regras da reunião.</p>
       <div className="flex items-end gap-2"><div className="grid min-w-0 flex-1 gap-1 text-sm"><span>Adicionar participante</span><SeletorPessoa rotulo="Adicionar participante" value={pessoa} onChange={setPessoa} required={false} opcoes={pessoas.filter(p => !v.participantes.some(r => r.pessoa_id === p.id)).map(p => ({ id: p.id, nome: p.nome_completo }))} /></div><Button type="button" variant="outline" disabled={!pessoa} onClick={() => { editar('participantes', [...v.participantes, { pessoa_id: pessoa, presente: true, papeis: ['PARTICIPANTE'], pode_propor: false }]); setPessoa('') }}>Adicionar pessoa</Button></div>
@@ -99,18 +125,17 @@ export function ReuniaoForm({ contexto, reuniao, pessoas, pronto, gerarEdital }:
         </div>
       })}
     </fieldset>
-    <p>Presentes: {v.participantes.filter(p => p.presente).length}. Cada pessoa é contada uma vez, mesmo exercendo vários papéis.</p>
+    <Campo label="Total de presentes" type="number" required={false} value={v.total_presentes ?? ''} onChange={s=>editar('total_presentes',s===''?null:Number(s))}/>
     <div className="grid gap-4 md:grid-cols-2"><Campo label="Universo informado para conferência" type="number" value={v.universo_informado} onChange={s => editar('universo_informado', Number(s))} /><Campo label="Quórum mínimo informado" type="number" value={v.quorum_minimo} onChange={s => editar('quorum_minimo', Number(s))} /></div>
-    <Area required={v.quorum_conferido} label="Fundamento e conferência do quórum" value={v.fundamento_quorum} onChange={s => editar('fundamento_quorum', s)} /><Check label="Quórum conferido pelo responsável" checked={v.quorum_conferido} onChange={s => editar('quorum_conferido', s)} />
+    <Area required={false} label="Fundamento e conferência do quórum" value={v.fundamento_quorum} onChange={s => editar('fundamento_quorum', s)} />
     <Area label="Resultado da reunião" required={false} value={v.resultado} onChange={s => editar('resultado', s)} />
   </div>
   return <form className="space-y-4 rounded border p-4" inert={enviar.isPending} onSubmit={e => {
     e.preventDefault()
     if (!localId) return
-    const dados = { ...v, local: localId === 'historico' ? v.local : undefined, itens_pauta: itens.map(({ id, descricao, proponente_id }) => ({ id, descricao, proponente_id })) }
+    const dados = { ...v, quorum_conferido:undefined, local: localId === 'historico' ? v.local : undefined, itens_pauta: itens.map(({ id, descricao, proponente_id }) => ({ id, descricao, proponente_id })) }
     const localAgendado = localId === 'historico' ? undefined : localId
-    const realizada = v.situacao === 'EM_ANDAMENTO' || v.situacao === 'ENCERRADA'
-    enviar.mutate({ dados, local_id: localAgendado, local_efetivo_id: localEfetivo || (realizada ? localAgendado : null) })
+    enviar.mutate({ dados, local_id: localAgendado, local_efetivo_id: localEfetivo || null })
   }}>
     <h3 className="font-semibold">{reuniao ? 'Editar reunião' : 'Agendar reunião'} · {contexto.nome}</h3>
     {reuniao ? <PaineisSecretaria titulo="Etapas da reunião" ativa={aba} selecionar={selecionarAba} abas={[

@@ -1,3 +1,4 @@
+vi.mock('../hooks/use-navegacao', () => ({ useNavegacao: () => ({ data: { permissoes: {secretaria:['view'], 'campos-secretaria':['view','create','edit'], 'vinculos-documentais':['view','edit'], pessoas:['view']} }, isPending: false }) }))
 import { novaPagina } from '../api/pagina'
 import EditorSecretariaPage from '../pages/secretaria/editor/EditorSecretariaPage'
 import { createMemoryRouter, RouterProvider } from 'react-router'
@@ -11,10 +12,10 @@ import { useAuthStore } from '../stores/auth'
 import { Perfil } from '../types/enums'
 import { ApiRequestError } from '../api/client'
 
-const contexto: ContextoSecretaria = { id: 'ctx', nome: 'Assembleia Geral', sigla: 'AG', tipo: 'ASSEMBLEIA_GERAL', orgao_id: 'assembleia', orgao: { ativo: true, tipo: 'ASSEMBLEIA_GERAL', constituicao: 'OFICIAL' }, pode_preparar: true, pode_aprovar: false, pode_deliberar: false, pode_consultar_restritos: false }
+const contexto: ContextoSecretaria = { id: 'ctx', nome: 'Assembleia Geral', sigla: 'AG', tipo: 'ASSEMBLEIA_GERAL', orgao_id: 'assembleia', orgao: { ativo: true, tipo: 'ASSEMBLEIA_GERAL', constituicao: 'OFICIAL' }, pode_gerir_modelos: true, pode_preparar: true, pode_aprovar: false, pode_deliberar: false, pode_consultar_restritos: false }
 const modelo: ModeloDocumento = { id: 'm', nome: 'Carta', revisao: 1, versoes: [{ id: 'mv', numero: 1, tipo: 'OUTRO', finalidade: 'CARTA', configuracao: { perfil: 'CARTA', contexto: 'ASSEMBLEIA_GERAL', tipos_orgao: [], constituicoes: [], motivador: 'OPCIONAL', resolucoes: 'OPCIONAL', registro_livro: false, campos_obrigatorios: [], papeis_obrigatorios: [], cargos_obrigatorios: [] } }] }
 function documento(): DocumentoDetalhe { return { id: 'doc', contexto_id: 'ctx', revisao: 1, estado: 'EM_EDICAO', versao_atual: 1, restrito: false, tipo: 'OUTRO', numero: null, ano: null, sigla: null, encaminhado_em: null, versoes: [{ id: 'v1', numero: 1, revisao_conteudo: 1, assunto: 'Carta antiga', data_documento: '2026-01-10', modelo_versao_id: 'mv', reuniao_id: null, motivador_id: null, retifica_versao_id: null, modelo: modelo.versoes[0], congelado_em: null, fonte_congelada: null, conteudo: { teor: 'Conteúdo original', campos: {}, arrolados: [], anexos: [] }, arrolados: [], anexos: [], deliberacoes: [] }] } }
-function montar(perfil = Perfil.SECRETARIO, entrada = '/secretaria') {
+function montar(perfil = Perfil.COMUM, entrada = '/secretaria') {
   useAuthStore.setState({ status: 'ready', user: { sub: 'u', igreja_id: 'i', perfil, username: 'Pessoa', login: 'x' } })
   render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })}><RouterProvider router={createMemoryRouter([
     { path: '/secretaria', element: <SecretariaPage/> },
@@ -24,7 +25,7 @@ function montar(perfil = Perfil.SECRETARIO, entrada = '/secretaria') {
 }
 async function selecionarContexto() { fireEvent.change(await screen.findByLabelText('Contexto documental'), { target: { value: 'ctx' } }); await screen.findByRole('button', { name: 'Novo documento' }) }
 beforeEach(() => {
-  vi.spyOn(secretariaApi, 'resumo').mockResolvedValue({ documentos: 1, atas: 1, em_edicao: 1, reunioes: 0 })
+  vi.spyOn(secretariaApi, 'pessoasDoContexto').mockResolvedValue([{ id: 'p', nome_completo: 'Pessoa da igreja' }] as Awaited<ReturnType<typeof secretariaApi.pessoasDoContexto>>)
   vi.spyOn(secretariaApi, 'historico').mockResolvedValue([])
   vi.spyOn(secretariaApi, 'artefatos').mockResolvedValue([])
   vi.spyOn(secretariaApi, 'contextos').mockResolvedValue([contexto])
@@ -37,6 +38,30 @@ beforeEach(() => {
   vi.spyOn(pessoasApi, 'list').mockResolvedValue([{ id: 'p', nome_completo: 'Pessoa da igreja' }] as Awaited<ReturnType<typeof pessoasApi.list>>)
 })
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
+describe('Edição de ata legada por atuação institucional', () => {
+  function legada() {
+    const d = documento()
+    d.estado = 'LEGADA_CONFERIDA'
+    d.tipo = 'ATA'
+    d.versoes[0].modelo = null
+    d.versoes[0].modelo_versao_id = null
+    return d
+  }
+  it('exibe a edição para a conta comum habilitada no contexto', async () => {
+    vi.mocked(secretariaApi.contextos).mockResolvedValue([{ ...contexto, pode_editar_ata_legada: true }])
+    vi.mocked(secretariaApi.documento).mockResolvedValue(legada())
+    montar(Perfil.COMUM, '/secretaria/ctx/documentos/doc')
+    expect(await screen.findByRole('button', { name: 'Editar ata legada' })).toBeTruthy()
+  })
+  it('oculta a edição quando a API não reconhece secretaria vigente', async () => {
+    vi.mocked(secretariaApi.contextos).mockResolvedValue([{ ...contexto, pode_editar_ata_legada: false }])
+    vi.mocked(secretariaApi.documento).mockResolvedValue(legada())
+    montar(Perfil.COMUM, '/secretaria/ctx/documentos/doc')
+    await screen.findByRole('button', { name: 'Recarregar documento' })
+    expect(screen.queryByRole('button', { name: 'Editar ata legada' })).toBeNull()
+  })
+})
+
 describe('E04: interface da secretaria', () => {
   it('mostra a classificação ao mandatário autorizado e preserva a leitura de atas sem consultas aos demais cadastros', async () => {
     vi.mocked(secretariaApi.contextos).mockResolvedValue([{ ...contexto, somente_atas: true, pode_preparar: false, pode_classificar_ata: true }])
@@ -46,7 +71,7 @@ describe('E04: interface da secretaria', () => {
       ata.restrito = true
       return { id: ata.id, revisao: ++ata.revisao }
     })
-    montar(Perfil.TESOUREIRO, '/secretaria/ctx/documentos/doc')
+    montar(Perfil.COMUM, '/secretaria/ctx/documentos/doc')
     fireEvent.click(await screen.findByRole('button', { name: 'Restringir ata' }))
     await screen.findByRole('button', { name: 'Retirar restrição da ata' })
     expect(comando).toHaveBeenCalledWith('doc', 'sigilo', expect.objectContaining({ revisao: 1, restrito: true, idempotencia: expect.any(String) }))
@@ -88,7 +113,7 @@ describe('E04: interface da secretaria', () => {
   it('salva e sai somente após a confirmação do servidor, inclusive depois de uma falha', async () => {
     const criar = vi.spyOn(secretariaApi, 'criarModelo').mockRejectedValueOnce(new Error('Servidor indisponível')).mockResolvedValue({ id: 'novo-id', revisao: 1, estado: 'EM_EDICAO' })
     vi.spyOn(secretariaApi, 'camposBiblioteca').mockResolvedValue([])
-    montar(Perfil.SECRETARIO, '/secretaria?contexto=ctx&aba=modelos')
+    montar(Perfil.COMUM, '/secretaria?contexto=ctx&aba=modelos')
     fireEvent.click(await screen.findByRole('button', { name: 'Novo modelo' }))
     const nome = await screen.findByLabelText('Nome do modelo')
     expect(criar).not.toHaveBeenCalled()
@@ -193,14 +218,19 @@ describe('E04: interface da secretaria', () => {
     const conselho: ContextoSecretaria = { ...contexto, id: 'conselho', nome: 'Conselho', tipo: 'ORGAO', orgao_id: 'orgao', orgao: { tipo: 'CONSELHO', constituicao: 'OFICIAL' } }
     const junta: ContextoSecretaria = { ...conselho, id: 'junta', nome: 'Junta Diaconal', orgao: { tipo: 'JUNTA', constituicao: 'OFICIAL' } }
     vi.mocked(secretariaApi.contextos).mockResolvedValue([contexto, conselho, junta])
+    vi.spyOn(secretariaApi,'modelosReuniao').mockImplementation(async id=>[{id:id+'-modelo',revisao:1,finalidade:'Ordinária da '+id,configuracao:{
+      tipo:'Ordinária',natureza:'Administrativa',obrigatoria:true,periodicidade:'Trimestral',referencia:'Integrantes do órgão/unidade',
+      orgaos_participantes:[],primeira:'Maioria absoluta',segunda:'Não prevista',colegiado:'Colegiado',fundamentacao:'Regimento',observacao:'',
+      antecedencia_dias:null,intervalo_minutos:null,minimo_anual:null}}])
     vi.spyOn(secretariaApi, 'locais').mockResolvedValue([{ id: 'templo', descritivo: 'Templo', endereco_extenso: 'Rua Central, 100' }] as Awaited<ReturnType<typeof secretariaApi.locais>>)
     const salvar = vi.spyOn(secretariaApi, 'criarReuniao').mockResolvedValue({ id: 'r', revisao: 1 })
     montar()
     fireEvent.click(await screen.findByRole('tab', { name: 'Reuniões' }))
-    for (const [id, rotulo] of [['conselho', 'Reunião regular do Conselho'], ['junta', 'Reunião regular da Junta Diaconal']]) {
+    for (const id of ['conselho','junta']) {
       fireEvent.change(screen.getByLabelText('Contexto documental'), { target: { value: id } })
       fireEvent.click(await screen.findByRole('button', { name: 'Agendar reunião' }))
-      expect((await screen.findByRole('option', { name: rotulo }) as HTMLOptionElement).selected).toBe(true)
+      await screen.findByRole('option',{name:'Ordinária da '+id+' · Ordinária'})
+      fireEvent.change(screen.getByLabelText('Modelo de reunião'),{target:{value:id+'-modelo'}})
     }
     await screen.findByRole('option', { name: 'Templo' })
     fireEvent.change(screen.getByLabelText('Local da reunião'), { target: { value: 'templo' } })
@@ -215,7 +245,7 @@ describe('E04: interface da secretaria', () => {
     expect((screen.getByLabelText('Descrição do item 1') as HTMLTextAreaElement).value).toBe('Visitas às famílias')
     fireEvent.submit(screen.getByText('Salvar reunião').closest('form')!)
     await waitFor(() => expect(salvar).toHaveBeenCalledWith(expect.objectContaining({ contexto_id: 'junta', local_id: 'templo', dados: expect.objectContaining({
-      modalidade: 'REGULAR', situacao: 'AGENDADA', horario_previsto: '19:00', inicio: null, fim: null, itens_pauta: [{ descricao: 'Visitas às famílias', proponente_id: 'p' }],
+      modelo_reuniao_id:'junta-modelo', formato:'Presencial', carater:'Regular',convocacao:'Primeira',modalidade:'ORDINARIA', situacao: 'AGENDADA', horario_previsto: '19:00', inicio: null, fim: null, itens_pauta: [{ descricao: 'Visitas às famílias', proponente_id: 'p' }],
     }) })))
   })
   it('permite escolher o redator ao criar a ata, independentemente dos arrolados', async () => {
@@ -307,7 +337,7 @@ describe('E04: interface da secretaria', () => {
       vi.mocked(secretariaApi.contextos).mockResolvedValue([{ ...contexto, pode_aprovar: true, pode_deliberar: true }])
       vi.mocked(secretariaApi.consultarDocumentos).mockResolvedValue({ itens: [d], tem_proxima: false })
       vi.mocked(secretariaApi.documento).mockResolvedValue(d)
-      montar(Perfil.GESTOR); await selecionarContexto()
+      montar(Perfil.COMUM); await selecionarContexto()
       fireEvent.click(await screen.findByRole('button', { name: 'Abrir documento' }))
       const aprovar = await screen.findByRole('button', { name: 'Aprovar tecnicamente' }) as HTMLButtonElement
       expect(aprovar.disabled).toBe(true)
@@ -383,14 +413,14 @@ describe('E04: interface da secretaria', () => {
     const edital = { ...modelo, id: 'edital', nome: 'Edital de convocação', versoes: [] }
     vi.mocked(secretariaApi.modelos).mockResolvedValue([m, edital])
     vi.spyOn(secretariaApi, 'camposBiblioteca').mockResolvedValue(campos)
-    montar(Perfil.SECRETARIO, '/secretaria/ctx/editor/modelos/m')
+    montar(Perfil.COMUM, '/secretaria/ctx/editor/modelos/m')
     fireEvent.click(await screen.findByRole('button', { name: 'Inserir campo' }))
     fireEvent.change(await screen.findByRole('combobox', { name: 'Pesquisar campo' }), { target: { value: 'pauta' } })
     expect(screen.getByRole('option', { name: 'Pauta · Campo local do modelo' })).toBeDefined()
     expect(screen.getByRole('option', { name: 'Pauta · A receber de Edital de convocação' })).toBeDefined()
     cleanup()
     vi.mocked(secretariaApi.modelos).mockResolvedValue([{ ...m, estado: 'PUBLICADO', rascunho: null }, edital])
-    montar(Perfil.SECRETARIO, '/secretaria/ctx/editor/documentos/novo')
+    montar(Perfil.COMUM, '/secretaria/ctx/editor/documentos/novo')
     fireEvent.change(await screen.findByLabelText('Modelo e versão'), { target: { value: versao.id } })
     await screen.findByRole('textbox', { name: 'Pauta', description: 'A receber de Edital de convocação · Vínculo opcional em aberto' })
   })
@@ -416,7 +446,7 @@ describe('E04: interface da secretaria', () => {
     }
     vi.mocked(secretariaApi.modelos).mockResolvedValue([m])
     vi.mocked(secretariaApi.documento).mockResolvedValue(d)
-    montar(Perfil.SECRETARIO, '/secretaria/ctx/editor/documentos/doc')
+    montar(Perfil.COMUM, '/secretaria/ctx/editor/documentos/doc')
     const origem = 'Recepcionado de ' + v.conteudo.antecedente.identificacao
     const recebida = await screen.findByRole('textbox', { name: 'Pauta', description: origem })
     expect(screen.getByRole('textbox', { name: 'Pauta', description: 'Campo local do modelo' })).toHaveProperty('value', 'Dízimos')
@@ -533,7 +563,7 @@ describe('E06: livros da secretaria', () => {
     vi.mocked(secretariaApi.modelos).mockResolvedValue([{ ...termo, estado: 'PUBLICADO', permissoes: { criar: false, preparar: false, sem_pessoa_vinculada: true } }])
     vi.spyOn(secretariaApi, 'livros').mockResolvedValue([livro])
     vi.spyOn(secretariaApi, 'livro').mockResolvedValue(livro)
-    montar(Perfil.SECRETARIO, '/secretaria?contexto=ctx&aba=livros&livro=livro-1')
+    montar(Perfil.COMUM, '/secretaria?contexto=ctx&aba=livros&livro=livro-1')
     expect(await screen.findByText(/vincular sua conta ao cadastro de pessoa/)).toBeTruthy()
     for (const nome of ['Criar termo de abertura', 'Criar termo de encerramento']) {
       expect((screen.getByRole('button', { name: nome }) as HTMLButtonElement).disabled).toBe(true)
@@ -583,7 +613,7 @@ describe('E08: resoluções e atuação', () => {
     v.conteudo.composicao = pagina
     vi.mocked(secretariaApi.modelos).mockResolvedValue([m])
     vi.mocked(secretariaApi.documento).mockResolvedValue(d)
-    montar(Perfil.SECRETARIO, '/secretaria/ctx/editor/documentos/doc')
+    montar(Perfil.COMUM, '/secretaria/ctx/editor/documentos/doc')
     const adicionar = await screen.findByRole('button', { name: 'Adicionar resolução' })
     fireEvent.click(adicionar)
     fireEvent.change(screen.getByLabelText('Assunto da resolução'), { target: { value: 'Orçamento' } })
@@ -661,7 +691,7 @@ it('abre a versão histórica referenciada mesmo sem campos ou transcrição no 
   d.versao_atual = 2
   d.versoes = [antiga, { ...d.versoes[0], id: 'v2', numero: 2 }]
   vi.mocked(secretariaApi.documento).mockResolvedValue(d)
-  montar(Perfil.SECRETARIO, '/secretaria/ctx/documentos/doc?versao=v1')
+  montar(Perfil.COMUM, '/secretaria/ctx/documentos/doc?versao=v1')
   expect(await screen.findByText('Esta versão não contém texto transcrito.')).toBeTruthy()
   expect(screen.getAllByRole('heading', { name: 'Ata histórica referenciada' }).length).toBeGreaterThan(0)
 })

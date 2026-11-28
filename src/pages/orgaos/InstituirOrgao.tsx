@@ -7,10 +7,11 @@ import { gestaoOrgaosApi } from '../../api/orgaos'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
-import { Perfil } from '../../types/enums'
+import { usePermissions } from '../../hooks/use-permissions'
 
 
-export function InstituirOrgao({ perfil, identidade }: { perfil: Perfil; identidade: string }) {
+export function InstituirOrgao({ identidade }: { identidade: string }) {
+  const orgaos = usePermissions('orgaos'), unidades = usePermissions('unidades')
   const hoje = useHojeIgreja()
   const [modo, setModo] = useState<'OFICIAL' | 'UNIDADE' | null>(null)
   const [tipo, setTipo] = useState<'CONSELHO' | 'JUNTA'>('CONSELHO')
@@ -38,11 +39,11 @@ export function InstituirOrgao({ perfil, identidade }: { perfil: Perfil; identid
   })
   function abrir(proximo: 'OFICIAL' | 'UNIDADE') { if (!modo) setData(hoje); salvar.reset(); setMensagem(''); setModo(proximo) }
   return <PainelLocal><section className="space-y-3">
-    <div className="flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={() => abrir('OFICIAL')}>Registrar Conselho ou Junta</Button>{perfil === Perfil.GESTOR && <Button type="button" variant="outline" onClick={() => abrir('UNIDADE')}>Registrar unidade ministerial</Button>}</div>
+    <div className="flex flex-wrap gap-2">{orgaos.canCreate && <Button type="button" variant="outline" onClick={() => abrir('OFICIAL')}>Registrar Conselho ou Junta</Button>}{unidades.canCreate && <Button type="button" variant="outline" onClick={() => abrir('UNIDADE')}>Registrar unidade ministerial</Button>}</div>
     {mensagem && <p role="status">{mensagem}</p>}
     {modo && <SecaoPainel titulo={modo === 'OFICIAL' ? 'Registrar Conselho ou Junta' : 'Registrar unidade ministerial'} voltar={() => setModo(null)} ocupado={salvar.isPending}>
       <form className="max-w-2xl space-y-3" onSubmit={e => { e.preventDefault(); salvar.mutate() }}>
-      <p className="text-sm text-muted-foreground">{modo === 'OFICIAL' ? 'Cadastre os dados do órgão oficial da igreja. A composição e os cargos são registrados separadamente.' : 'A instituição exige competência institucional registrada para o gestor e evidência do ato.'}</p>
+      <p className="text-sm text-muted-foreground">{modo === 'OFICIAL' ? 'Cadastre os dados do órgão oficial da igreja. A composição e os cargos são registrados separadamente.' : 'A instituição exige competência institucional registrada para o responsável e evidência do ato.'}</p>
       {modo === 'OFICIAL' ? <div className="space-y-1"><Label htmlFor="orgao-tipo">Tipo</Label><select id="orgao-tipo" className="w-full rounded border bg-background p-2" value={tipo} onChange={e => setTipo(e.target.value as typeof tipo)}><option value="CONSELHO">Conselho</option><option value="JUNTA">Junta</option></select></div> : <div className="space-y-1"><Label htmlFor="orgao-constituicao">Constituição</Label><select id="orgao-constituicao" className="w-full rounded border bg-background p-2" value={constituicao} onChange={e => setConstituicao(e.target.value as typeof constituicao)}><option value="DESIGNACAO">Por designação</option><option value="ELEICAO">Por eleição</option></select></div>}
       <div className="space-y-1"><Label htmlFor="orgao-nome">Nome</Label><Input id="orgao-nome" value={nome} onChange={e => setNome(e.target.value)} maxLength={255} required /></div>
       <div className="space-y-1"><Label htmlFor="orgao-sigla">Sigla (opcional)</Label><Input id="orgao-sigla" value={sigla} onChange={e => setSigla(e.target.value)} maxLength={40} /></div>

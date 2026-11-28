@@ -1,4 +1,3 @@
-import { FormularioSenha } from './pages/perfil/FormularioSenha'
 import { MinhaContaComum } from './pages/configuracoes/AtuacaoConta'
 import { lazy, Suspense } from 'react'
 import { useNavegacao } from './hooks/use-navegacao'
@@ -40,31 +39,24 @@ const PerfisAtuacaoPage = lazy(() => import('./pages/configuracoes/PerfisAtuacao
 const AreaMembresia = lazy(() => import('./pages/membresia/AreaMembresia').then(m => ({ default: m.AreaMembresia })))
 const AreaPessoas = lazy(() => import('./pages/pessoas/AreaPessoas').then(m => ({ default: m.AreaPessoas })))
 
-function OficiaisRoute() {
-  const governancaHabilitada = useRecurso('governanca')
-  const perfil = useAuthStore((s) => s.user?.perfil)
-  if (!governancaHabilitada || !perfil || ![Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO, Perfil.AUDITOR, Perfil.COMUM].includes(perfil)) return <Navigate to="/dashboard" replace />
-  return <OficiaisPage />
-}
-
-function OrgaosRoute() {
-  const orgaosHabilitados = useRecurso('orgaos')
-  const governancaHabilitada = useRecurso('governanca')
-  const perfil = useAuthStore((s) => s.user?.perfil)
-  if (!governancaHabilitada || !orgaosHabilitados || !perfil || ![Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO, Perfil.AUDITOR, Perfil.COMUM].includes(perfil)) return <Navigate to="/dashboard" replace />
-  return <OrgaosPage />
-}
-
-function SecretariaRoute({ editor = false }: { editor?: boolean }) {
-  const secretariaHabilitada = useRecurso('secretaria')
-  const perfil = useAuthStore(s => s.user?.perfil)
+function AcessoModulo({ modulo, habilitado, children }: { modulo: string; habilitado: boolean; children: React.ReactNode }) {
   const navegacao = useNavegacao()
-  if (!secretariaHabilitada || !perfil) return <Navigate to="/dashboard" replace />
-  if (perfil === Perfil.OPERADOR || perfil === Perfil.TESOUREIRO) {
-    if (navegacao.isPending) return <p role="status">Consultando acesso às atas…</p>
-    if (editor || !navegacao.data?.permissoes.secretaria?.includes('view')) return <Navigate to="/dashboard" replace />
-  }
-  return editor ? <Suspense fallback={<p role="status">Carregando editor…</p>}><EditorSecretariaPage /></Suspense> : <SecretariaPage />
+  if (navegacao.isPending) return <p role="status">Consultando acesso…</p>
+  if (!habilitado || !navegacao.data?.permissoes[modulo]?.includes('view')) return <Navigate to="/dashboard" replace />
+  return children
+}
+function OficiaisRoute() {
+  const habilitado = useRecurso('governanca')
+  return <AcessoModulo modulo="oficiais" habilitado={habilitado}><OficiaisPage /></AcessoModulo>
+}
+function OrgaosRoute() {
+  const orgaos = useRecurso('orgaos'), governanca = useRecurso('governanca')
+  return <AcessoModulo modulo="orgaos" habilitado={orgaos && governanca}><OrgaosPage /></AcessoModulo>
+}
+function SecretariaRoute({ editor = false }: { editor?: boolean }) {
+  const habilitado = useRecurso('secretaria')
+  return <AcessoModulo modulo="secretaria" habilitado={habilitado}>{editor
+    ? <Suspense fallback={<p role="status">Carregando editor…</p>}><EditorSecretariaPage /></Suspense> : <SecretariaPage />}</AcessoModulo>
 }
 
 function App() {
@@ -99,7 +91,7 @@ function App() {
         <Route path="/" element={<AppLayout />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="mfa-obrigatorio" element={<MfaPage />} />
-          <Route path="perfil" element={comum ? <section className="surface space-y-3"><h1 className="text-xl font-semibold">Segurança da conta</h1><FormularioSenha/><MfaPage/></section> : <PerfilPage />} />
+          <Route path="perfil" element={<PerfilPage />} />
           <Route path="dashboard" element={comum ? <MinhaContaComum /> : <DashboardPage />} />
 
           {/* Membresia */}
@@ -109,7 +101,7 @@ function App() {
           <Route path="secretaria/:contextoId/documentos/:documentoId" element={<SecretariaRoute />} />
           <Route path="pessoas" element={<AreaPessoas />} />
           <Route path="grupos-familiares" element={<Navigate to="/pessoas?aba=grupos-familiares" replace />} />
-          <Route path="rol-membros" element={<AreaMembresia />} />
+          <Route path="rol-membros/:rol?" element={<AreaMembresia />} />
           <Route path="gestao-membresia" element={<Navigate to="/rol-membros?aba=gestao" replace />} />
 
           {/* Financeiro */}

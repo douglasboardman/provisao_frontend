@@ -28,11 +28,11 @@ it('exibe posse futura e omite registro e reeleição quando o servidor recusa o
 it.each([false, true])('consegue conferir um mandato com ou sem declaração de ordenação histórica (%s)', async historica => {
   vi.stubEnv('VITE_FEATURE_ORGAOS_GESTAO','true')
   vi.spyOn(orgaosApi,'mandatos').mockResolvedValue({ itens: [mandato], proximo_cursor: null, pode_registrar: true })
-  vi.spyOn(orgaosApi, 'indicacoesMandato').mockResolvedValue([])
   vi.spyOn(oficiaisApi, 'selecaoAtas').mockImplementation(async tipo => ({
     contextos: [], tem_proxima: false, itens: [{
       documento_id: tipo, versao_id: 'versao-' + tipo, versao: 1, numero: 1, ano: 2032, sigla: tipo,
-      data: tipo === 'ASSEMBLEIA' ? '2032-01-15' : '2032-02-01',
+      data: tipo === 'ASSEMBLEIA' ? '2032-01-20' : '2032-02-05',
+      data_reuniao: tipo === 'ASSEMBLEIA' ? '2032-01-15' : null,
       contexto: tipo, contexto_id: tipo, assunto: tipo === 'ASSEMBLEIA' ? 'Eleição' : 'Posse',
       pauta: '', arrolados: [], resolucoes: [], estado: 'APROVADO',
     }],
@@ -45,9 +45,10 @@ it.each([false, true])('consegue conferir um mandato com ou sem declaração de 
   expect(await screen.findByText('No período do mandato')).toBeTruthy()
   fireEvent.click(screen.getByRole('button', { name: 'Registrar reeleição' }))
   expect(screen.getByRole('group', { name: 'Reeleição de Paulo' })).toBeTruthy()
-  expect(screen.queryByText('Indicação para esta eleição')).toBeNull()
+  expect(screen.queryByLabelText(/Indicação histórica/)).toBeNull()
   expect(screen.queryByLabelText(/Item da ata/)).toBeNull()
-  expect(screen.queryByLabelText('Data da posse')).toBeNull()
+  const posse = screen.getByLabelText('Data da posse') as HTMLInputElement
+  expect(posse.disabled).toBe(true)
   for (const rotulo of ['Ata da Assembleia que elegeu a pessoa', 'Ata que documenta a posse']) {
     const campo = screen.getByRole('textbox', { name: rotulo })
     fireEvent.click(within(campo.parentElement!).getByRole('button', { name: 'Selecionar' }))
@@ -55,7 +56,12 @@ it.each([false, true])('consegue conferir um mandato com ou sem declaração de 
     fireEvent.click(await within(dialogo).findByRole('button', { name: 'Selecionar' }))
   }
   expect(screen.getByText('15/01/2032')).toBeTruthy()
-  expect(screen.getByText('01/02/2032')).toBeTruthy()
+  expect(posse.value).toBe('2032-02-05')
+  expect(posse.min).toBe('2032-01-15')
+  expect(posse.max).toBe('2032-02-05')
+  fireEvent.change(posse, { target: { value: '2032-02-06' } })
+  expect((screen.getByRole('button', { name: 'Conferir mandato' }) as HTMLButtonElement).disabled).toBe(true)
+  fireEvent.change(posse, { target: { value: '2032-02-01' } })
   if (historica) {
     fireEvent.click(screen.getByRole('radio', { name: 'Registro de ordenação histórico não documentado' }))
     for (const rotulo of ['Data da ordenação', 'Autoridade da ordenação', 'Referência da ordenação']) {
@@ -67,7 +73,7 @@ it.each([false, true])('consegue conferir um mandato com ou sem declaração de 
   fireEvent.click(screen.getByRole('button', { name: 'Conferir mandato' }))
   await screen.findByRole('button', { name: 'Confirmar registro' })
   expect(conferir).toHaveBeenCalledWith('conselho', {
-    pessoa_id: 'eleito', ata_eleicao: 'versao-ASSEMBLEIA', ata_posse: 'versao-CONSELHO', idempotencia: expect.any(String),
+    pessoa_id: 'eleito', ata_eleicao: 'versao-ASSEMBLEIA', ata_posse: 'versao-CONSELHO', data_posse: '2032-02-01', idempotencia: expect.any(String),
     ...(historica && { ordenacao: { historica: true } }),
   })
 })

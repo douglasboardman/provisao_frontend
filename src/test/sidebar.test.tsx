@@ -10,7 +10,7 @@ import { Perfil } from '../types/enums'
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
 it.each([
-  { perfil: Perfil.SECRETARIO, concessoes: [], rotulo: 'Secretário' },
+  { perfil: Perfil.COMUM, concessoes: [], rotulo: 'Conta comum' },
   { perfil: Perfil.COMUM, concessoes: ['Secretário Conselho'], rotulo: 'Secretário Conselho' },
 ])('identifica a conta na barra lateral como $rotulo', async ({ perfil, concessoes, rotulo }) => {
   useAuthStore.setState({ status: 'ready', user: { sub: 'conta', igreja_id: 'igreja', username: 'Douglas', login: 'douglas', perfil } })

@@ -21,7 +21,7 @@ export function useComando<T extends object>(enviar: (v: T & { idempotencia: str
     const corpo = JSON.stringify([escopo, v])
     if (corpo !== pendente.current.corpo) pendente.current = { corpo, chave: crypto.randomUUID() }
     return enviar({ ...v, idempotencia: pendente.current.chave })
-  }, onSuccess: r => { pendente.current = { corpo: '', chave: '' }; void client.invalidateQueries({ queryKey: ['secretaria'] }); concluido?.(r) } })
+  }, onSuccess: r => { pendente.current = { corpo: '', chave: '' }; void client.invalidateQueries({ queryKey: ['secretaria'] }); void client.invalidateQueries({ queryKey: ['eventos-membresia'] }); concluido?.(r) } })
 }
 export function Salvar({ pending, error, success, label = 'Salvar', disabled = false }: { pending: boolean; error: Error | null; success: boolean; label?: string; disabled?: boolean }) {
   return <div className="space-y-2">{error && <p role="alert" className="text-destructive">{error instanceof TypeError ? 'Falha de conexão. Suas alterações estão no formulário. Tente salvar novamente.' : error.message}</p>}{success && <p role="status">Registro salvo.</p>}<Button type="submit" disabled={pending || disabled}>{pending ? 'Salvando…' : label}</Button></div>

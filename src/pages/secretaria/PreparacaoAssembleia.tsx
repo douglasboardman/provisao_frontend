@@ -109,7 +109,6 @@ function MesaForm({ ficha, reuniao, identidade }: Props & { ficha: FichaAssemble
     queryFn: () => assembleiasApi.rol(reuniao.id, reuniao.dados.data), gcTime: 0 })
   const [fundamento, fundamentar] = useState('')
   const [universo, informar] = useState(reuniao.dados.universo_informado)
-  const [conferido, conferir] = useState(false)
   const [minimo, definirMinimo] = useState(reuniao.dados.quorum_minimo)
   const [competencia, definirCompetencia] = useState(reuniao.dados.competencia)
   const [baseQuorum, definirBase] = useState(reuniao.dados.fundamento_quorum)
@@ -137,7 +136,7 @@ function MesaForm({ ficha, reuniao, identidade }: Props & { ficha: FichaAssemble
     if (ambos && desde && ordemConferida && rol.isSuccess) instalar.mutate({ revisao: reuniao.revisao, presidente_oficial_id: presidente, secretario_id: secretario, confirmar_presencas: confirmados,
       votantes_confirmados: votantes, criterio_presidencia: { impedimentos: impedimentos.filter(i => precedentes.some(o => o.id === i.oficial_id) && i.fundamento.trim()),
         ...(referencia.trim() && { determinacao_presbiterio: referencia }) },
-      universo, ...(conferido && { quorum: { minimo, competencia, fundamento: baseQuorum } }), vigente_desde: new Date(desde).toISOString(), motivo, fundamento })
+      universo, ...(minimo>0 && competencia && baseQuorum && { quorum: { minimo, competencia, fundamento: baseQuorum } }), vigente_desde: new Date(desde).toISOString(), motivo, fundamento })
   }}>
     <h3 className="font-semibold">{atual ? 'Atualizar mesa e conferência' : 'Instalação da mesa'}</h3>
     <div className="grid gap-3 md:grid-cols-2">
@@ -176,9 +175,8 @@ function MesaForm({ ficha, reuniao, identidade }: Props & { ficha: FichaAssemble
     </fieldset>
     <div className="grid gap-3 md:grid-cols-2"><Campo label="Universo informado para quórum" type="number" value={universo} onChange={s => informar(Number(s))}/>
       <Campo label="Início desta composição (hora local)" type="datetime-local" value={desde} onChange={iniciar}/></div>
-    <Check label="Registrar conferência do quórum" checked={conferido} onChange={conferir}/>
-    {conferido && <div className="grid gap-3 md:grid-cols-2"><Campo label="Quórum mínimo" type="number" value={minimo} onChange={s => definirMinimo(Number(s))}/>
-      <Campo label="Competência da assembleia para a pauta" value={competencia} onChange={definirCompetencia}/><Campo label="Fundamento do quórum" value={baseQuorum} onChange={definirBase}/></div>}
+    {!reuniao.dados.modelo_reuniao && <div className="grid gap-3 md:grid-cols-2"><Campo label="Quórum mínimo" type="number" value={minimo} onChange={s => definirMinimo(Number(s))}/>
+      <Campo required={false} label="Competência da assembleia para a pauta" value={competencia} onChange={definirCompetencia}/><Campo required={false} label="Fundamento do quórum" value={baseQuorum} onChange={definirBase}/></div>}
     <Escolha label="Motivo da indicação" value={motivo} onChange={justificar}>{Object.entries(motivos).map(([id,nome]) => <option key={id} value={id}>{nome}</option>)}</Escolha>
     <Area label="Fundamento da indicação e da eleição" value={fundamento} onChange={fundamentar}/>
     <Salvar label={atual ? 'Registrar atualização da sessão' : 'Instalar mesa'} disabled={!ambos || !ordemConferida || !rol.isSuccess} pending={instalar.isPending} error={instalar.error} success={false}/>

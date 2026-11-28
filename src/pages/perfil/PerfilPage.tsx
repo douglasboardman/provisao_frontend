@@ -1,3 +1,4 @@
+import { MfaPage } from '../configuracoes/MfaPage'
 import { FormularioSenha } from './FormularioSenha'
 import { useState, type ReactNode } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
@@ -5,6 +6,7 @@ import {
   ContactRound,
   UsersRound,
   KeyRound,
+  ShieldCheck,
   Mail,
   History,
   Landmark,
@@ -159,21 +161,26 @@ export function PerfilPage() {
         ))}
       </nav>
       {aba === 'Segurança' ? (
-        <Secao titulo="Alteração de senha" icon={KeyRound}>
-          <FormularioSenha />
-          <details className="border-t pt-3">
-            <summary>Esqueci minha senha atual</summary>
-            <p className="my-2 text-sm">
-              Receba um link no e-mail de acesso para definir uma nova senha.
-            </p>
-            <Button disabled={senha.isPending || senha.isSuccess} onClick={() => senha.mutate()}>
-              <Mail />
-              Enviar link de alteração
-            </Button>
-            {senha.isSuccess && <p role="status">Solicitação recebida. Confira o e-mail de acesso.</p>}
-            {senha.isError && <p role="alert">Falha ao solicitar o link. Tente novamente.</p>}
-          </details>
-        </Secao>
+        <div className="grid items-start gap-4 lg:grid-cols-2">
+          <Secao titulo="Alteração de senha" icon={KeyRound}>
+            <FormularioSenha />
+            <details className="border-t pt-3">
+              <summary>Esqueci minha senha atual</summary>
+              <p className="my-2 text-sm">
+                Receba um link no e-mail de acesso para definir uma nova senha.
+              </p>
+              <Button disabled={senha.isPending || senha.isSuccess} onClick={() => senha.mutate()}>
+                <Mail />
+                Enviar link de alteração
+              </Button>
+              {senha.isSuccess && <p role="status">Solicitação recebida. Confira o e-mail de acesso.</p>}
+              {senha.isError && <p role="alert">Falha ao solicitar o link. Tente novamente.</p>}
+            </details>
+          </Secao>
+          <Secao titulo="Autenticação em duas etapas" icon={ShieldCheck}>
+            <MfaPage />
+          </Secao>
+        </div>
       ) : q.isPending ? (
         <p role="status">Consultando perfil…</p>
       ) : q.isError ? (

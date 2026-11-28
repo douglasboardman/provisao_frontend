@@ -12,7 +12,7 @@ import { Label } from '../../components/ui/label'
 
 function dataCivil(v: string) { return v.slice(0, 10).split('-').reverse().join('/') }
 
-function EncerrarAutoridade({ tipo, id, identidade, aoFechar }: { tipo: 'competencia' | 'presidencia'; id: string; identidade: string; aoFechar: () => void }) {
+export function EncerrarAutoridade({ tipo, id, identidade, aoFechar }: { tipo: 'competencia' | 'presidencia'; id: string; identidade: string; aoFechar: () => void }) {
   const hoje = useHojeIgreja()
   const [data, setData] = useState(hoje), [autoridade, setAutoridade] = useState(''), [evidencia, setEvidencia] = useState('')
   const tentativa = useRef<{ conteudo: string; id: string } | null>(null)
@@ -25,7 +25,7 @@ function EncerrarAutoridade({ tipo, id, identidade, aoFechar }: { tipo: 'compete
     return tipo === 'competencia'
       ? gestaoOrgaosApi.encerrarCompetencia(id, { ...comum, data_fim: data, idempotencia: tentativa.current.id })
       : gestaoOrgaosApi.encerrarPresidencia(id, { ...comum, data_efeito: data, idempotencia: tentativa.current.id })
-  }, onSuccess: async () => { tentativa.current = null; await queryClient.invalidateQueries({ queryKey: ['orgaos', identidade] }); aoFechar() } })
+  }, onSuccess: async () => { tentativa.current = null; await queryClient.invalidateQueries({ queryKey: ['orgaos', identidade] }); await queryClient.invalidateQueries({ queryKey: ['pastores', identidade] }); aoFechar() } })
   return <SecaoPainel titulo={tipo === 'competencia' ? 'Encerrar competência' : 'Encerrar presidência'} voltar={aoFechar} ocupado={encerrar.isPending}><form className="max-w-xl space-y-3" onSubmit={e => { e.preventDefault(); encerrar.mutate() }}>
     <p className="text-sm text-muted-foreground">O encerramento exige autoridade e evidência. Os registros anteriores permanecem no histórico.</p>
     <div className="space-y-1"><Label htmlFor={`${tipo}-fim-data`}>Data de efeito</Label><Input id={`${tipo}-fim-data`} type="date" value={data} onChange={e => setData(e.target.value)} required /></div>
@@ -36,7 +36,7 @@ function EncerrarAutoridade({ tipo, id, identidade, aoFechar }: { tipo: 'compete
   </form></SecaoPainel>
 }
 
-function RegistrarPresidencia({ identidade, aoFechar }: { identidade: string; aoFechar: () => void }) {
+export function RegistrarPresidencia({ identidade, aoFechar }: { identidade: string; aoFechar: () => void }) {
   const hoje = useHojeIgreja()
   const [oficial, setOficial] = useState(''), [inicio, setInicio] = useState(hoje), [evidencia, setEvidencia] = useState('')
   const tentativa = useRef<{ conteudo: string; id: string } | null>(null)
@@ -57,7 +57,7 @@ function RegistrarPresidencia({ identidade, aoFechar }: { identidade: string; ao
     const corpo = { oficial_id: oficial, inicio, evidencia: evidencia.trim() }, conteudo = JSON.stringify(corpo)
     if (tentativa.current?.conteudo !== conteudo) tentativa.current = { conteudo, id: crypto.randomUUID() }
     return gestaoOrgaosApi.registrarPresidencia({ ...corpo, idempotencia: tentativa.current.id })
-  }, onSuccess: async () => { tentativa.current = null; await queryClient.invalidateQueries({ queryKey: ['orgaos', identidade] }); aoFechar() } })
+  }, onSuccess: async () => { tentativa.current = null; await queryClient.invalidateQueries({ queryKey: ['orgaos', identidade] }); await queryClient.invalidateQueries({ queryKey: ['pastores', identidade] }); aoFechar() } })
   return <SecaoPainel titulo="Registrar presidência institucional" voltar={aoFechar} ocupado={salvar.isPending}><form className="max-w-xl space-y-3" onSubmit={e => { e.preventDefault(); salvar.mutate() }}>
     <p className="text-sm text-muted-foreground">O registro exige presbítero docente com vínculo pastoral institucional e exercício comprovado. Informe a evidência da presidência.</p>
     <div className="space-y-1"><Label htmlFor="presidencia-docente">Presbítero docente</Label><SeletorPessoa id="presidencia-docente" value={oficial} onChange={id => setOficial(id)} required opcoes={docentes.data?.map(o => ({ id: o.id, nome: o.pessoa.nome_completo }))} />{docentes.isError && <p role="alert">Não foi possível carregar os docentes.</p>}</div>
@@ -91,7 +91,7 @@ export function GestaoAutoridades({ identidade }: { identidade: string }) {
     {aberto && <SecaoPainel titulo="Autoridades institucionais" voltar={() => setAberto(false)}><div className="space-y-5">
       <p className="text-sm text-muted-foreground">Um registro aberto não comprova, sozinho, competência atual: também são conferidos o vínculo, a vigência e o exercício pastoral aplicáveis.</p>
       <div className="space-y-2"><h2 className="font-semibold">Competências de gestores</h2>
-        {competencias.isPending ? <p>Carregando competências...</p> : competencias.isError ? <p role="alert">Não foi possível consultar competências.</p> : competencias.data?.itens.length ? competencias.data.itens.map(c => <div key={c.id} className="rounded border p-3"><p>{c.usuario.nome_usuario} · pessoa: {c.pessoa.nome_completo}</p><p className="text-sm text-muted-foreground">Início {dataCivil(c.inicio)} · {c.fim ? (c.fim.slice(0, 10) === c.inicio.slice(0, 10) ? 'sem período de vigência' : `primeiro dia sem competência: ${dataCivil(c.fim)}`) : 'registro aberto'}{!c.usuario.ativo || c.usuario.perfil !== 'GESTOR' || c.usuario.pessoa_id !== c.pessoa_id ? ' · vínculo atual precisa de conferência' : ''}</p>{(!c.fim || (c.fim.slice(0, 10) > hoje && c.fim.slice(0, 10) > c.inicio.slice(0, 10))) && <Button type="button" variant="outline" onClick={() => { setRegistrar(false); setEncerrando({ tipo: 'competencia', id: c.id }) }}>Encerrar competência de {c.usuario.nome_usuario}</Button>}</div>) : <p>Nenhuma competência registrada.</p>}
+        {competencias.isPending ? <p>Carregando competências...</p> : competencias.isError ? <p role="alert">Não foi possível consultar competências.</p> : competencias.data?.itens.length ? competencias.data.itens.map(c => <div key={c.id} className="rounded border p-3"><p>{c.usuario.nome_usuario} · pessoa: {c.pessoa.nome_completo}</p><p className="text-sm text-muted-foreground">Início {dataCivil(c.inicio)} · {c.fim ? (c.fim.slice(0, 10) === c.inicio.slice(0, 10) ? 'sem período de vigência' : `primeiro dia sem competência: ${dataCivil(c.fim)}`) : 'registro aberto'}{!c.usuario.ativo || c.usuario.perfil !== 'COMUM' || c.usuario.pessoa_id !== c.pessoa_id ? ' · vínculo atual precisa de conferência' : ''}</p>{(!c.fim || (c.fim.slice(0, 10) > hoje && c.fim.slice(0, 10) > c.inicio.slice(0, 10))) && <Button type="button" variant="outline" onClick={() => { setRegistrar(false); setEncerrando({ tipo: 'competencia', id: c.id }) }}>Encerrar competência de {c.usuario.nome_usuario}</Button>}</div>) : <p>Nenhuma competência registrada.</p>}
         <div className="flex gap-2"><Button type="button" variant="outline" disabled={!anterioresC.length} onClick={() => anterior('c')}>Competências anteriores</Button><Button type="button" variant="outline" disabled={!competencias.data?.proximo_cursor} onClick={() => proxima('c')}>Próximas competências</Button></div>
       </div>
       <div className="space-y-2"><h2 className="font-semibold">Presidências do Conselho</h2>

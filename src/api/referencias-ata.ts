@@ -32,6 +32,7 @@ export interface AtaOpcao {
 }
 export interface BuscaAtaOpcao extends AtaOpcao {
   reconvocacao?: boolean
+  data_reuniao?: string | null
   versao_id: string; contexto_id: string; assunto: string; pauta: string; arrolados: string[]
   resolucoes: { assunto: string; resultado: ResultadoResolucao; texto: string | null }[]
 }
@@ -43,6 +44,10 @@ interface Revisao {
 export interface ItemDocumental extends AlvoAta {
   tipo: string; titulo: string; data: string | null; orgao_id: string | null; versao: number | null; situacao: SituacaoAta
 }
+export interface AtoParaReatribuir extends AlvoAta {
+  referencia_id: string; tipo: string; titulo: string; data: string | null; pode_reatribuir: boolean
+}
+export interface ReatribuicaoAtos { vistas: string[]; selecionadas: string[] }
 interface Autorizacao {
   id: string; tipo: keyof typeof tiposFinanceiros; assunto: string; autoridade: string; data_decisao: string
   evidencia: string; projeto: string | null; conta: string | null; situacao: SituacaoAta
@@ -57,6 +62,7 @@ const caminho = ({ grupo, alvo_id, etapa }: AlvoAta) => `${base}/referencias-ata
 const params = (filtros: Record<string, string>) => new URLSearchParams(filtros).toString()
 
 export const referenciasAtaApi = {
+  prepararReatribuicao: (id: string) => apiClient.get<AtoParaReatribuir[]>(`${base}/documentos/${encodeURIComponent(id)}/atos-para-reatribuir`),
   consultar: (alvo: AlvoAta, pagina = 0) => apiClient.get<Pagina<Revisao> & { situacao?: SituacaoAta; pode_editar: boolean }>(`${caminho(alvo)}?pagina=${pagina}`),
   registrar: (alvo: AlvoAta, dados: EntradaReferencia) => apiClient.post<{ id: string }>(caminho(alvo), dados),
   buscar: (alvo: AlvoAta, filtros: Record<string, string>) => apiClient.get<PaginaSelecao>(`${caminho(alvo)}/atas?${params(filtros)}`),

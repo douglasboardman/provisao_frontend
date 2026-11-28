@@ -1,3 +1,6 @@
+import { useReatribuicaoAtos } from './ReatribuirAtos'
+import type { ReatribuicaoAtos } from '../../api/referencias-ata'
+import { CamposEfetivosAta } from './CamposEfetivosAta'
 import { AtualizarFontes } from './AtualizarFontes'
 import { dadosLeitura } from './editor/dadosLeitura'
 import { ConferirDataConvocada, DocumentoAnterior, valoresSemOrigem } from './DocumentoAnterior'
@@ -173,11 +176,12 @@ export function DocumentoForm({ contexto, documento, reuniaoInicial, retificar =
     setPaginaLivros(0)
     set(s => ({ ...s, livro_id: null, ...(!valor && {
       reuniao_id: reuniao?.dados.restrito ? null : s.reuniao_id,
-      motivador_id: null, confirmar_troca_origem: true, conteudo: { ...s.conteudo, antecedente: undefined, valores: valoresSemOrigem(s.conteudo.valores) }
+      motivador_id: null, confirmar_troca_origem: true, conteudo: { ...s.conteudo, efetivos:undefined, antecedente: undefined, valores: valoresSemOrigem(s.conteudo.valores) }
     }) }))
   }
   const conteudo = <K extends keyof VersaoInput['conteudo']>(k: K, valor: VersaoInput['conteudo'][K]) => set(s => ({ ...s, conteudo: { ...s.conteudo, [k]: valor } }))
-  const enviar = useComando((dados: { versao: VersaoInput }) => documento ? (retificar ? secretariaApi.comando(documento.id, 'retificar', { ...dados, revisao: revisaoInicial!, autoridade, evidencia }) : secretariaApi.editarDocumento(documento.id, { ...dados, revisao: revisaoInicial! })) : secretariaApi.criarDocumento({ ...dados, ...(novoTermo?.previa && { conferencia_abertura: novoTermo.previa.conferencia }), ...(soMinuta && { acao: 'preparar' }), ...(preparando && { usar_modelo_vigente: true }), contexto_id: contexto.id, restrito }), r => {
+  const reatribuicao = useReatribuicaoAtos()
+  const enviar = useComando((dados: { versao: VersaoInput; reatribuicao_atos?: ReatribuicaoAtos }) => documento ? (retificar ? secretariaApi.comando(documento.id, 'retificar', { ...dados, revisao: revisaoInicial!, autoridade, evidencia }) : secretariaApi.editarDocumento(documento.id, { ...dados, revisao: revisaoInicial! })) : secretariaApi.criarDocumento({ ...dados, ...(novoTermo?.previa && { conferencia_abertura: novoTermo.previa.conferencia }), ...(soMinuta && { acao: 'preparar' }), ...(preparando && { usar_modelo_vigente: true }), contexto_id: contexto.id, restrito }), r => {
     const concluir = () => { if (aposSalvar.current && conferir && r.revisao) conferir(r.revisao); else pronto(r.id) }
     if (sessao) sessao.gravou(concluir)
     else concluir()
@@ -287,7 +291,7 @@ export function DocumentoForm({ contexto, documento, reuniaoInicial, retificar =
           !window.confirm('Trocar a reunião e remover os campos recepcionados ajustados?')) return
       set(s => ({ ...s, reuniao_id: id || null, resolucoes: s.resolucoes?.map(r => ({ ...r, item_pauta_id: null })), ...(modelo?.tipo === 'ATA' && {
         ...(prepararAta && selecionada && { data_documento: selecionada.data.slice(0,10), assunto: 'Ata de ' + nomeModalidade(contexto, selecionada.modalidade) }),
-        motivador_id: null, confirmar_troca_origem: true, conteudo: { ...s.conteudo, antecedente: undefined, valores: valoresSemOrigem(s.conteudo.valores) }
+        motivador_id: null, confirmar_troca_origem: true, conteudo: { ...s.conteudo, efetivos:undefined, antecedente: undefined, valores: valoresSemOrigem(s.conteudo.valores) }
       }) }))
     }}>
       <option value="">Selecione a reunião</option>
@@ -327,6 +331,7 @@ export function DocumentoForm({ contexto, documento, reuniaoInicial, retificar =
     {seletorReuniao}
     {documento && !retificar && modelo && (v.reuniao_id || v.livro_id || Object.keys(modelo.configuracao.definicoes ?? {}).length > 0) && <AtualizarFontes documento={documento.id} revisao={revisaoInicial!} versao={v} definicoes={modelo.configuracao.definicoes ?? {}} aplicar={(automaticos, assinatura, planejamento) => set(s => ({ ...s, atualizar_fontes: assinatura, conteudo: { ...s.conteudo, planejamento_origem: planejamento, valores: { ...s.conteudo.valores, ...automaticos } } }))}/>}
     {seletorRedator}
+    {modelo?.tipo==='ATA' && <CamposEfetivosAta minimoDeclarado={!reuniao?.dados.modelo_reuniao || reuniao.dados.modelo_reuniao.configuracao.primeira==='Pendente'} valor={v.conteudo.efetivos ?? {}} alterar={valor=>conteudo('efetivos',valor)} conselho={contexto.orgao?.tipo==='CONSELHO'}/>}
     {!documento && !novoTermo && modelo && (modelo.tipo === 'ATA' ? contexto.pode_classificar_ata : contexto.pode_consultar_restritos) && <Check label={modelo.tipo === 'ATA' ? 'Ata restrita' : 'Documento restrito'} checked={restrito} onChange={classificarMinuta} />}
     {seletorLivro}
     {termo === 'TERMO_ENCERRAMENTO' && <p>Os totais do encerramento vêm do inventário do livro.</p>}
@@ -397,7 +402,7 @@ export function DocumentoForm({ contexto, documento, reuniaoInicial, retificar =
   const acoes = <>
     {preparando && !prepararAta && pagina && !editarPreparacao && <Button type="button" variant="outline" onClick={() => abrirPagina(true)}>Editar página antes de criar</Button>}
     {avisos}
-    <Salvar pending={enviar.isPending || upload || imagensPagina.enviando} disabled={!!documento && documento.revisao !== revisaoInicial || !modelo || !documento && modelo?.tipo === 'ATA' && restrito && !contexto.pode_classificar_ata || prepararAta && (!v.reuniao_id || escolherLivro && politica === 'OBRIGATORIO' && !v.livro_id) || !!novoTermo && todasVersoes.length === 0 || modelo?.configuracao.motivador === 'OBRIGATORIO' && !v.motivador_id} error={enviar.error} success={enviar.isSuccess} label={retificar ? 'Criar retificação' : prepararAta ? 'Preparar ata' : !documento && soMinuta ? 'Preparar minuta' : preparando ? 'Criar documento' : 'Salvar documento'} />
+    <Salvar pending={reatribuicao.carregando || reatribuicao.aberto || enviar.isPending || upload || imagensPagina.enviando} disabled={!!documento && documento.revisao !== revisaoInicial || !modelo || !documento && modelo?.tipo === 'ATA' && restrito && !contexto.pode_classificar_ata || prepararAta && (!v.reuniao_id || escolherLivro && politica === 'OBRIGATORIO' && !v.livro_id) || !!novoTermo && todasVersoes.length === 0 || modelo?.configuracao.motivador === 'OBRIGATORIO' && !v.motivador_id} error={enviar.error} success={enviar.isSuccess} label={retificar ? 'Criar retificação' : prepararAta ? 'Preparar ata' : !documento && soMinuta ? 'Preparar minuta' : preparando ? 'Criar documento' : 'Salvar documento'} />
     {menu && <button hidden type="submit" name="salvar-conferir" />}
   </>
   return <form ref={form} inert={enviar.isPending} aria-busy={enviar.isPending} className={sessao ? undefined : "space-y-4 rounded border p-4"} onInvalidCapture={e => {
@@ -415,7 +420,9 @@ export function DocumentoForm({ contexto, documento, reuniaoInicial, retificar =
     }
     if (usarAssunto) versao.conteudo = { ...versao.conteudo, campos: { ...versao.conteudo.campos, ASSUNTO: v.assunto } }
     if (preparando && !versao.conteudo.composicao && !versao.conteudo.estrutura) versao.conteudo = { ...versao.conteudo, composicao: novaPagina() }
-    enviar.mutate({ versao }, { onError: sessao?.falhou })
+    if (retificar && documento?.tipo === 'ATA') {
+      void reatribuicao.confirmar(documento.id, reatribuicao_atos => enviar.mutate({ versao, reatribuicao_atos }, { onError: sessao?.falhou }))
+    } else enviar.mutate({ versao }, { onError: sessao?.falhou })
   } }}>
     {sessao ? <EspacoEditor sessao={sessao} preparacao={preparacaoAta} mostrarPainelInicial={!!novoTermo?.previa} funcao={documento ? 'Editando documento' : 'Criando documento'} nome={prepararAta ? 'Preparar ata' : v.assunto || 'Novo documento'}
       alterado={v !== inicial || !!(retificar && (autoridade || evidencia)) || restrito !== (documento?.restrito ?? novoTermo?.livro.restrito ?? reuniaoInicial?.dados.restrito ?? false)}
@@ -429,5 +436,6 @@ export function DocumentoForm({ contexto, documento, reuniaoInicial, retificar =
         {menu && <details className="espaco-grupo"><summary>Tramitação e assinaturas</summary><div id="conferir-minuta" tabIndex={-1}>{menu}</div></details>}
       </>}/> :
       <><h3 className="font-semibold">{retificar ? 'Retificar documento' : documento ? 'Editar documento' : 'Novo documento'}</h3>{folha || editorClassico}{vinculos}{dados}{painelResolucoes}{participantesEAtos}{fundamentoRetificacao}{acoes}</>}
+    {reatribuicao.modal}
   </form>
 }

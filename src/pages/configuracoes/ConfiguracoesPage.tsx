@@ -11,7 +11,6 @@ import { Navigate, useSearchParams } from "react-router"
 import { Abas } from "../../components/ui/abas"
 import { AutorizacoesFinanceiras } from "../secretaria/AutorizacoesFinanceiras"
 import { useAuthStore } from "../../stores/auth"
-import { canAccessModule } from "../../lib/permissions"
 import { MfaPage } from "./MfaPage"
 import { IgrejaPage } from "./IgrejaPage"
 import { LogsPage } from "./LogsPage"
@@ -35,7 +34,7 @@ const TABS: Tab[] = [
   { key: "liberacoes", label: "Liberação de acessos", icon: ShieldCheck, module: "igreja", component: LiberacaoAcessos },
   { key: "parametros-membresia", label: "Parâmetros Membresia", icon: SlidersHorizontal, module: "regras-relacao-enum", component: ParametrosRolMembrosPage },
   { key: "profissoes", label: "Profissões", icon: Briefcase, module: "profissoes", component: ProfissoesPage },
-  { key: "campos", label: "Campos da Secretaria", icon: FileText, module: "secretaria", component: BibliotecaCampos },
+  { key: "campos", label: "Campos da Secretaria", icon: FileText, module: "campos-secretaria", component: BibliotecaCampos },
   { key: "autorizacoes-financeiras", label: "Autorizações financeiras", icon: Scale, module: "autorizacoes-financeiras", component: AutorizacoesNasConfiguracoes },
   { key: "logs", label: "Logs", icon: FileText, module: "logs", component: LogsPage },
 ]
@@ -44,7 +43,7 @@ function AutorizacoesNasConfiguracoes() {
   const user = useAuthStore(s => s.user)
   const { data: navegacao } = useNavegacao()
   const podeConsultar = (modulo: 'contas' | 'acoes') => !!user
-    && (navegacao?.permissoes[modulo]?.includes('view') ?? canAccessModule(user.perfil, modulo))
+    && (navegacao?.permissoes[modulo]?.includes('view') ?? false)
   const contas = useQuery({ queryKey: ['contas', user?.igreja_id, user?.sub, 'autorizacoes'], queryFn: contasApi.list, enabled: podeConsultar('contas') })
   const projetos = useQuery({ queryKey: ['acoes', user?.igreja_id, user?.sub, 'autorizacoes'], queryFn: acoesApi.list, enabled: podeConsultar('acoes') })
   return <AutorizacoesFinanceiras contas={contas.data} projetos={projetos.data} />
@@ -57,10 +56,11 @@ export function ConfiguracoesPage() {
   const [params, selecionar] = useSearchParams()
   const visibleTabs = TABS.filter((t) => {
     if (!user) return false
+    if (t.key === 'mfa') return true
     if (t.key === 'liberacoes') return user.perfil === 'ADMINISTRADOR'
-    if (t.key === 'campos' && (!secretaria || !['ADMINISTRADOR', 'SECRETARIO'].includes(user.perfil))) return false
-    if (t.key === 'autorizacoes-financeiras' && (!secretaria || user.perfil === 'OPERADOR')) return false
-    return navegacao.data?.permissoes[t.module]?.includes('view') ?? canAccessModule(user.perfil, t.module)
+    if (t.key === 'campos' && !secretaria) return false
+    if (t.key === 'autorizacoes-financeiras' && !secretaria) return false
+    return navegacao.data?.permissoes[t.module]?.includes('view') ?? false
   })
   const activeTab = visibleTabs.find((t) => t.key === params.get('aba')) ?? visibleTabs[0]
   if (!activeTab) return navegacao.isPending ? <p role="status">Consultando acessos…</p> : <Navigate to="/dashboard" replace />

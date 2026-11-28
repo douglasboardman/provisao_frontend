@@ -19,8 +19,8 @@ export function PainelLocal({ children }: { children: ReactNode }) {
   return destino === undefined ? <div className="surface"><Painel>{children}</Painel></div> : children
 }
 
-export function SecaoPainel({ titulo, voltar, ocupado, children }: {
-  titulo: string; voltar: () => void; ocupado?: boolean; children: ReactNode
+export function SecaoPainel({ titulo, voltar, ocupado, children, rotuloVoltar = 'Voltar' }: {
+  titulo: string; voltar: () => void; ocupado?: boolean; children: ReactNode; rotuloVoltar?: string
 }) {
   const destino = useContext(Destino)
   const id = useId()
@@ -43,7 +43,7 @@ export function SecaoPainel({ titulo, voltar, ocupado, children }: {
     <Painel>
       <header className="sticky top-0 z-10 flex bg-background pb-2 items-start justify-between gap-3">
         <h2 id={id} ref={tituloRef} tabIndex={-1} className="min-w-0 self-center break-words text-lg font-semibold">{titulo}</h2>
-        <Button type="button" variant="outline" size="sm" className="shrink-0" disabled={ocupado} onClick={voltar}><ArrowLeft />Voltar</Button>
+        <Button type="button" variant="outline" size="sm" className="shrink-0" disabled={ocupado} onClick={voltar}><ArrowLeft />{rotuloVoltar}</Button>
       </header>
       {children}
     </Painel>

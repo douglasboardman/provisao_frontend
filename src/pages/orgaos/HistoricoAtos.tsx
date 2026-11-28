@@ -1,3 +1,4 @@
+import { BlocoOrgao, TabelaOrgao } from './apresentacao'
 import { SecaoPainel } from '../../components/shared/Painel'
 import { useRecurso } from '../../lib/recursos'
 import { ReferenciaAta } from '../../components/shared/ReferenciaAta'
@@ -21,21 +22,20 @@ export function HistoricoAtos({ orgaoId, identidade }: { orgaoId: string; identi
   const [cursor, setCursor] = useState<string | undefined>()
   const [anteriores, setAnteriores] = useState<(string | undefined)[]>([])
   const atos = useQuery({ queryKey: ['orgaos', identidade, 'atos', orgaoId, cursor], queryFn: () => orgaosApi.atos(orgaoId, cursor), staleTime: 0, gcTime: 0 })
-  return <section className="space-y-2">
-    <h3 className="font-semibold">Histórico de atos</h3>
-    <p className="text-sm text-muted-foreground">Ordenado pelo registro, do mais recente ao mais antigo. Atos novos preservam a identificação do momento do registro; atos antigos podem mostrar o cadastro atual; registrar não significa ser a autoridade do ato.</p>
+  return <BlocoOrgao titulo="Histórico de atos" descricao="Registros do mais recente ao mais antigo.">
+    <details className="text-sm text-muted-foreground"><summary>Sobre os responsáveis pelos registros</summary><p className="mt-2">Ordenado pelo registro, do mais recente ao mais antigo. Atos novos preservam a identificação do momento do registro; atos antigos podem mostrar o cadastro atual; registrar não significa ser a autoridade do ato.</p></details>
     {atos.isPending && <p>Carregando atos...</p>}
     {atos.isError && <p role="alert">Não foi possível consultar os atos.</p>}
     {atos.data?.itens.length === 0 && <p>Nenhum ato registrado.</p>}
-    {atos.data?.itens.map(ato => <div key={ato.id}><p>{tiposAtosOrgao[ato.tipo] ?? 'Outro ato'} — efeito em {ato.data_efeito.slice(0, 10).split('-').reverse().join('/')} · registrado por {ato.operador.nome_usuario}</p><DetalheAto orgao={orgaoId} ato={ato.id} identidade={identidade} />
+    {!!atos.data?.itens.length && <TabelaOrgao rotulo="Histórico de atos" colunas={['Ato', 'Data de efeito', 'Registrado por', 'Consulta e documentos']}>{atos.data.itens.map(ato => <tr key={ato.id}><td data-label="Ato" className="font-medium">{tiposAtosOrgao[ato.tipo] ?? 'Outro ato'}</td><td data-label="Data de efeito">{ato.data_efeito.slice(0, 10).split('-').reverse().join('/')}</td><td data-label="Registrado por">{ato.operador.nome_usuario}</td><td data-label="Consulta e documentos"><div className="flex flex-wrap items-center gap-2"><DetalheAto orgao={orgaoId} ato={ato.id} identidade={identidade} />
       {secretariaHabilitada && ato.tipo !== 'CADASTRO_OFICIAL' && (
         ['ELEICAO_CARGO', 'ELEICAO_CARGO_UNIDADE'].includes(ato.tipo)
           ? <><ReferenciaAta alvo={{ grupo: 'ORGAO', alvo_id: ato.id, etapa: 'ELEICAO' }} identidade={identidade} label="Ata da eleição" />
               <ReferenciaAta alvo={{ grupo: 'ORGAO', alvo_id: ato.id, etapa: 'POSSE' }} identidade={identidade} label="Ata da posse" /></>
           : <ReferenciaAta alvo={{ grupo: 'ORGAO', alvo_id: ato.id, etapa: 'ATO' }} identidade={identidade} />
-      )}</div>)}
+      )}</div></td></tr>)}</TabelaOrgao>}
     {(anteriores.length > 0 || atos.data?.proximo_cursor) && <div className="flex gap-2"><Button type="button" variant="outline" disabled={!anteriores.length} onClick={() => { const itens = [...anteriores]; setCursor(itens.pop()); setAnteriores(itens) }}>Atos anteriores</Button><Button type="button" variant="outline" disabled={!atos.data?.proximo_cursor} onClick={() => { if (atos.data?.proximo_cursor) { setAnteriores(a => [...a, cursor]); setCursor(atos.data.proximo_cursor) } }}>Mais atos</Button></div>}
-  </section>
+  </BlocoOrgao>
 }
 
 function DetalheAto({ orgao, ato, identidade }: { orgao: string; ato: string; identidade: string }) {

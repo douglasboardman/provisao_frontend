@@ -60,9 +60,11 @@ export function PessoasPage() {
       key: "grupo",
       header: "Grupo Familiar",
       render: (p) => p.grupos_familiares ? (
-        <button type="button" onClick={(e) => { e.stopPropagation(); push({ type: "familia", grupo: p.grupos_familiares! }) }}>
-          <Badge variant="outline" className="hover:bg-muted cursor-pointer transition-colors">{p.grupos_familiares.nome_familia}</Badge>
-        </button>
+        <Badge asChild variant="outline">
+          <button type="button" onClick={(e) => { e.stopPropagation(); push({ type: "familia", grupo: p.grupos_familiares! }) }}>
+            {p.grupos_familiares.nome_familia}
+          </button>
+        </Badge>
       ) : <span className="text-muted-foreground">—</span>,
     },
   ]

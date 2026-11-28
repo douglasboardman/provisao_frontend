@@ -11,14 +11,9 @@ export const servicos = {
 } as const
 export type Servico = string
 export type PermissoesNavegacao = Record<string, ('view' | 'create' | 'edit' | 'delete')[]>
-export type Liberacao = { acao: Servico; rotulo: string; estado: 'LEGADO' | 'ATRIBUICAO' | 'PAUSADO'; revisao: number; permite_pausar: boolean }
+export type Liberacao = { acao: Servico; rotulo: string; estado: 'ATRIBUICAO' | 'PAUSADO'; revisao: number; permite_pausar: boolean }
 export type PreviaLiberacao = { acao: Servico; revisao: number; previa: string; contas_ativas: number;
   diferencas: { usuario_id: string; nome: string; perfil: string; rota: string; escopo?: string; antes: boolean; depois: boolean }[] }
-export type ComparacaoConversao = { previa: string; perfil_anterior: string; outra_conta: boolean; conta_atuacao: boolean;
-  rotas: { rota: string; acao: Servico; antes: boolean; depois: boolean }[];
-  rotas_legadas?: string[];
-  existentes: { acao: Servico; inicio: string; fim: string | null }[];
-}
 type AcaoPerfil = { acao: Servico; rotulo: string }
 export type AreaPermissaoPerfil = 'pessoas-membresia' | 'financeiro' | 'institucional' | 'administracao'
 export type PerfilAtuacao = { id: string; nome: string; requisito: string; requisitos?: string[]; acoes: AcaoPerfil[] }
@@ -31,9 +26,6 @@ export type RequisitoPerfil = { tipo: 'cargo'; id: string } | { tipo: 'oficio'; 
 export interface AtuacaoConta {
   pessoa_id: string | null
   conta_atuacao: boolean
-  competencias?: { id: string; inicio: string; fim: string | null; pode_aprovar: boolean; pode_deliberar: boolean;
-    pode_consultar_restritos: boolean; pode_instalar_mesa: boolean; contexto: { nome: string } }[]
-  pode_converter?: boolean
   pode_salvar_modelo_atuacao?: boolean
   catalogo?: { acao: Servico; rotulo: string }[]
   selecionada_id?: string | null
@@ -43,19 +35,15 @@ export interface AtuacaoConta {
 }
 export interface EventoAutorizacao {
   id: string; instante: string; operador_id: string; destinatario_id: string | null; acao: string;
-  recurso_id: string | null; fundamento: string; dados: { acao?: string; legado?: boolean; proposta?: boolean }
+  recurso_id: string | null; fundamento: string; dados: { acao?: string }
 }
 export const autorizacaoApi = {
-  navegacao: () => apiClient.get<{ permissoes: PermissoesNavegacao; mandatos_legados?: boolean; perfis_atuacao?: string[] }>('autorizacao/navegacao'),
+  navegacao: () => apiClient.get<{ permissoes: PermissoesNavegacao; perfis_atuacao?: string[] }>('autorizacao/navegacao'),
   liberacoes: () => apiClient.get<Liberacao[]>('autorizacao/liberacoes'),
   previaLiberacao: (acao: Servico) =>
     apiClient.get<PreviaLiberacao>(`autorizacao/liberacoes/${encodeURIComponent(acao)}/previa`),
   atualizarLiberacao: (acao: Servico, dados: { estado: 'ATRIBUICAO' | 'PAUSADO'; revisao: number; fundamento: string; previa?: string }) =>
     apiClient.patch(`autorizacao/liberacoes/${encodeURIComponent(acao)}`, dados),
-  previaConversao: (id: string, acoes: Servico[], competencias: string[]) =>
-    apiClient.post<ComparacaoConversao>(`autorizacao/contas/${id}/conversao/previa`, { acoes, competencias }),
-  converter: (id: string, acoes: Servico[], competencias: string[], previa: string, fundamento: string) =>
-    apiClient.post<{ id: string; perfil: string }>(`autorizacao/contas/${id}/conversao`, { acoes, competencias, previa, fundamento }),
   historico: (cursor?: string) => apiClient.get<{ itens: EventoAutorizacao[]; proximo_cursor: string | null }>(
     'autorizacao/historico' + (cursor ? '?cursor=' + encodeURIComponent(cursor) : '')),
   me: () => apiClient.get<AtuacaoConta>('autorizacao/me'),

@@ -1,5 +1,5 @@
+import { usePermissions } from '../../hooks/use-permissions'
 import { SecaoPainel } from '../../components/shared/Painel'
-import { HistoricoIndicacoes } from './HistoricoIndicacoes'
 import { useRecurso } from '../../lib/recursos'
 import { ReferenciaAta } from '../../components/shared/ReferenciaAta'
 import { SeletorAta, descreverAta } from '../../components/shared/SeletorAta'
@@ -7,7 +7,7 @@ import type { BuscaAtaOpcao } from '../../api/referencias-ata'
 import { useRef, useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { IdentidadePastoral } from './IdentidadePastoral'
-import { oficiaisApi, podeHistorico, type OficialResumo, type AcessoSensivel } from '../../api/oficiais'
+import { oficiaisApi, type OficialResumo, type AcessoSensivel } from '../../api/oficiais'
 import { ApiRequestError } from '../../api/client'
 import { Button } from '../../components/ui/button'
 import { useAuthStore } from '../../stores/auth'
@@ -34,18 +34,18 @@ export function GestaoOficial({ voltar, oficial, identidade, podeConsultarDetalh
   const docente = oficial.tipo === 'PRESBITERO_DOCENTE'
   const encerramentoComAta = modo === 'encerrar' && secretariaHabilitada && periodo.startsWith('mandatos:')
   const perfil = useAuthStore(s => s.user?.perfil)
-  const comum = perfil === Perfil.COMUM
-  const consultarAcervo = comum ? !!acesso?.operacoes?.HISTORICO_OFICIAIS_CONSULTAR : podeHistorico(acesso, 'HISTORICO_OFICIAIS_CONSULTAR')
-  const registrarHistorico = comum ? !!acesso?.operacoes?.HISTORICO_OFICIAIS_REGISTRAR : podeHistorico(acesso, 'HISTORICO_OFICIAIS_REGISTRAR')
+  const permissoes = usePermissions('oficiais')
+  const consultarAcervo = !!acesso?.operacoes?.HISTORICO_OFICIAIS_CONSULTAR
+  const registrarHistorico = !!acesso?.operacoes?.HISTORICO_OFICIAIS_REGISTRAR
   const modosLiberados = {
     ordenacao: registrarHistorico, acervo: registrarHistorico, politica: perfil === Perfil.ADMINISTRADOR,
-    vinculo: !comum && oficial.tipo === 'PRESBITERO_DOCENTE', encerrar: !comum || !!periodoInicial,
+    vinculo: permissoes.canEdit && oficial.tipo === 'PRESBITERO_DOCENTE', encerrar: permissoes.canEdit || !!periodoInicial,
   }
   const client = useQueryClient()
   const acervo = useQuery({ queryKey: ['oficiais', identidade, 'acervo', oficial.id], queryFn: () => oficiaisApi.acervo(oficial.id), enabled: consultarAcervo })
   const detalhe = useQuery({ queryKey: ['oficiais', identidade, 'detalhe-acervo', detalheId], queryFn: () => oficiaisApi.detalheAcervo(detalheId), enabled: consultarAcervo && podeConsultarDetalhe && !!detalheId, staleTime: 0, gcTime: 0 })
   const periodos = useQuery({ queryKey: ['oficiais', identidade, 'periodos', oficial.id], queryFn: () => oficiaisApi.periodos(oficial.id) })
-  const salvar = useMutation({ mutationFn: ({ caminho, dados, patch }: { caminho: string; dados: unknown; patch?: boolean }) => patch ? oficiaisApi.encerrar(caminho, dados) : oficiaisApi.criarAto(caminho, dados), onSuccess: async () => { formRef.current?.reset(); setAtaEncerramento(null); if (modo === 'encerrar') setPeriodo(''); chaveAcervo.current = crypto.randomUUID(); setResultado('Registro salvo.'); await Promise.all([client.invalidateQueries({ queryKey: ['oficiais', identidade] }), client.invalidateQueries({ queryKey: ['orgaos', identidade] })]) } })
+  const salvar = useMutation({ mutationFn: ({ caminho, dados, patch }: { caminho: string; dados: unknown; patch?: boolean }) => patch ? oficiaisApi.encerrar(caminho, dados) : oficiaisApi.criarAto(caminho, dados), onSuccess: async () => { formRef.current?.reset(); setAtaEncerramento(null); if (modo === 'encerrar') setPeriodo(''); chaveAcervo.current = crypto.randomUUID(); setResultado('Registro salvo.'); await Promise.all([client.invalidateQueries({ queryKey: ['oficiais', identidade] }), client.invalidateQueries({ queryKey: ['orgaos', identidade] }), client.invalidateQueries({ queryKey: ['pastores', identidade] })]) } })
   function enviar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault(); setResultado(''); salvar.reset()
     const d = new FormData(e.currentTarget), id = encodeURIComponent(oficial.id)
@@ -79,7 +79,7 @@ export function GestaoOficial({ voltar, oficial, identidade, podeConsultarDetalh
   }
   const titulo = `Registros de ${oficial.pessoa.nome_completo}`
   return <SecaoPainel titulo={titulo} voltar={voltar}>
-    {!comum && oficial.tipo === 'PRESBITERO_DOCENTE' && <IdentidadePastoral oficialId={oficial.id} identidade={identidade} />}
+    {permissoes.canEdit && oficial.tipo === 'PRESBITERO_DOCENTE' && <IdentidadePastoral oficialId={oficial.id} identidade={identidade} />}
     <div className="flex flex-wrap gap-2">
       <Button variant="outline" onClick={() => abrirConsulta('periodos')}>Períodos registrados</Button>
       {consultarAcervo && <Button variant="outline" onClick={() => abrirConsulta('acervo')}>Acervo histórico conferido</Button>}
@@ -89,7 +89,6 @@ export function GestaoOficial({ voltar, oficial, identidade, podeConsultarDetalh
       {periodos.data?.mandatos.map(m => <div key={m.id}><p>Mandato: eleição {dataExibida(m.data_eleicao)}, posse {dataExibida(m.data_posse)}, {m.termino_efetivo ? `término efetivo ${dataExibida(m.termino_efetivo)}` : `término previsto ${dataExibida(m.termino_previsto)}`}.{m.revisao_pendente && <strong> Pendente de revisão institucional.</strong>}</p>{secretariaHabilitada && <>{(['ELEICAO', 'POSSE', ...(m.termino_efetivo ? ['ENCERRAMENTO'] : [])] as ('ELEICAO' | 'POSSE' | 'ENCERRAMENTO')[]).map(ato => <div key={ato}><p>Referência de {ato.toLowerCase()}:</p><ReferenciaAta alvo={{ grupo: 'MANDATO', alvo_id: m.id, etapa: ato }} identidade={identidade} /></div>)}</>}</div>)}
       {periodos.data?.vinculos.map(v => <div key={v.id}><p>Vínculo pastoral {v.modalidade}, {v.concilio}: {dataExibida(v.data_inicio)} até {v.data_fim ? dataExibida(v.data_fim) : 'em aberto'}.</p>{secretariaHabilitada && <>{(['INICIO', ...(v.data_fim ? ['ENCERRAMENTO'] : [])] as ('INICIO' | 'ENCERRAMENTO')[]).map(ato => <div key={ato}><p>Referência de {ato.toLowerCase()}:</p><ReferenciaAta alvo={{ grupo: 'PASTORAL', alvo_id: v.id, etapa: ato }} identidade={identidade} /></div>)}</>}</div>)}
     </>}</SecaoPainel>}
-    {!comum && secretariaHabilitada && oficial.tipo !== 'PRESBITERO_DOCENTE' && <HistoricoIndicacoes identidade={identidade} oficial={oficial.id} />}
     {consulta === 'acervo' && consultarAcervo && <SecaoPainel titulo="Acervo histórico conferido" voltar={() => abrirConsulta(null)}><p className="text-sm text-muted-foreground">Estes registros preservam lacunas e não concedem exercício automaticamente.</p>
       {acervo.isPending ? <p>Carregando acervo...</p> : acervo.isError ? <p role="alert">Não foi possível carregar o acervo.</p> : !acervo.data?.length ? <p>Nenhum registro histórico.</p> : acervo.data.map(a => <div key={a.id} className="my-2 rounded border p-2"><p>{({ ELEICAO: 'Eleição', POSSE: 'Posse', ORDENACAO: 'Ordenação', VINCULO_PASTORAL: 'Vínculo pastoral', FIM_EXERCICIO: 'Fim de exercício' } as const)[a.tipo]} — {a.data_evento ? dataExibida(a.data_evento) : 'data não informada'} — {a.situacao_documental === 'PENDENTE' ? 'documentação pendente' : 'referência externa conferida'}.</p>{podeConsultarDetalhe && <Button type="button" variant="outline" onClick={() => setDetalheId(a.id)}>Consultar referência</Button>}</div>)}
       {detalheId && podeConsultarDetalhe && <SecaoPainel titulo="Referência do registro" voltar={() => setDetalheId('')}>{detalhe.isPending ? <p>Carregando referência...</p> : detalhe.isError ? <p role="alert">Não foi possível consultar a referência.</p> : detalhe.data && <div className="rounded border p-2"><p>Data aproximada: {detalhe.data.data_descricao || 'não informada'}</p><p>Referência: {detalhe.data.referencia_externa || 'não informada'}</p><p>Autoridade: {detalhe.data.autoridade || 'não informada'}</p><p>Registrado por: {detalhe.data.criado_por.nome_usuario}</p></div>}</SecaoPainel>}

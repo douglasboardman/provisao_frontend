@@ -1,3 +1,4 @@
+import { useReatribuicaoAtos } from './ReatribuirAtos'
 import { SeletorPessoa } from '../../components/shared/SeletorPessoa'
 import { TeorDocumento } from './FichaDocumento'
 import { useState } from 'react'
@@ -42,6 +43,7 @@ export function AtaLegadaForm({ contexto, reunioes, pessoas, pronto, documento, 
   const corrigir = useComando<Omit<Parameters<typeof secretariaApi.editarAtaLegada>[1], 'idempotencia'>>(dados =>
     secretariaApi.editarAtaLegada(documento!.id, dados), r => pronto(r.id), documento?.id)
   const salvar = documento ? corrigir : criar
+  const reatribuicao = useReatribuicaoAtos()
 
   async function enviarPdf(arquivo: File) {
     setPdf(null)
@@ -79,7 +81,7 @@ export function AtaLegadaForm({ contexto, reunioes, pessoas, pronto, documento, 
     e.preventDefault()
     if (documento && revisao) {
       const { numero_original, assunto, data_documento, reuniao_id, reuniao, teor, arrolados, resolucoes } = v
-      corrigir.mutate({ revisao, numero_original: textoOpcional(numero_original ?? ''), assunto, data_documento, reuniao_id, reuniao, teor, arrolados, resolucoes })
+      void reatribuicao.confirmar(documento.id, reatribuicao_atos => corrigir.mutate({ revisao, numero_original: textoOpcional(numero_original ?? ''), assunto, data_documento, reuniao_id, reuniao, teor, arrolados, resolucoes, reatribuicao_atos }))
     } else if (pdf && v.conferida && !arquivoPendente && !extracaoPendente) {
       criar.mutate({ ...v, numero_original: textoOpcional(v.numero_original ?? ''), pdf })
     }
@@ -152,7 +154,8 @@ export function AtaLegadaForm({ contexto, reunioes, pessoas, pronto, documento, 
     {!documento && <><Campo label="Autoridade da conferência" value={v.autoridade} onChange={s => editar('autoridade', s)} />
     <Area label="Evidência da origem e da conferência" value={v.evidencia} onChange={s => editar('evidencia', s)} />
     <Check label="Conferi o teor, os arrolados e as resoluções com o PDF original" checked={v.conferida} onChange={s => editar('conferida', s)} /></>}
-    <Salvar pending={salvar.isPending} error={salvar.error} success={salvar.isSuccess} label={documento ? "Salvar alterações" : "Salvar ata legada conferida"}
+    {reatribuicao.modal}
+    <Salvar pending={salvar.isPending || reatribuicao.carregando || reatribuicao.aberto} error={salvar.error} success={salvar.isSuccess} label={documento ? "Salvar alterações" : "Salvar ata legada conferida"}
       disabled={!documento && (!pdf || !v.conferida || arquivoPendente || extracaoPendente)} />
     {cancelar && <Button variant="outline" type="button" disabled={salvar.isPending} onClick={cancelar}>Cancelar edição</Button>}
   </form>

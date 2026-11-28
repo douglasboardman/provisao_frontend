@@ -70,7 +70,7 @@ export default function EditorSecretariaPage() {
   }
   return <div ref={raiz}>
     {contexto && !contextos.isError && id && (entidade === 'modelos' || entidade === 'documentos')
-      ? <Conteudo key={[identidade, contexto.id, entidade, id].join(':')} contexto={contexto} identidade={identidade} id={id} entidade={entidade} sessao={sessao} admin={user?.perfil === Perfil.ADMINISTRADOR}/>
+      ? <Conteudo key={[identidade, contexto.id, entidade, id].join(':')} contexto={contexto} identidade={identidade} id={id} entidade={entidade} sessao={sessao}/>
       : <div className="surface"><p role="status">{contextos.isPending ? 'Carregando editor…' : 'Contexto ou endereço indisponível.'}</p><Button onClick={voltar}>Voltar à Secretaria</Button></div>}
     {trava.state === 'blocked' && <Dialog open onOpenChange={aberto => { if (!aberto && !ocupado) cancelarSaida() }}><DialogContent aria-describedby={undefined}>
       <DialogTitle>Salvar as alterações antes de sair?</DialogTitle>
@@ -81,8 +81,8 @@ export default function EditorSecretariaPage() {
   </div>
 }
 
-function Conteudo({ contexto, identidade, id, entidade, sessao, admin }: {
-  contexto: ContextoSecretaria; identidade: string; id: string; entidade: 'modelos' | 'documentos'; sessao: SessaoEditor; admin: boolean
+function Conteudo({ contexto, identidade, id, entidade, sessao }: {
+  contexto: ContextoSecretaria; identidade: string; id: string; entidade: 'modelos' | 'documentos'; sessao: SessaoEditor
 }) {
   const comum = useAuthStore(s => s.user?.perfil === Perfil.COMUM)
   const novo = id === 'novo'
@@ -96,7 +96,7 @@ function Conteudo({ contexto, identidade, id, entidade, sessao, admin }: {
   const termo = busca.get('termo')
   const local = useLocation()
   const navegar = useNavigate()
-  const podeEscrever = contexto.orgao?.ativo !== false && !(comum && deModelo) && (contexto.pode_preparar || deModelo && admin)
+  const podeEscrever = contexto.orgao?.ativo !== false && (deModelo ? contexto.pode_gerir_modelos === true : contexto.pode_preparar)
   const autorizado = ler || podeEscrever
   const base = ['secretaria', identidade, contexto.id]
   const modelos = useQuery({ queryKey: [...base, 'modelos'], queryFn: () => secretariaApi.modelos(contexto.id), enabled: autorizado && (deModelo || !ler), gcTime: 0 })
@@ -183,7 +183,7 @@ function Conteudo({ contexto, identidade, id, entidade, sessao, admin }: {
             corrigir={campo => campo === 'mesa' && v.reuniao_id ? irParaFicha('mesa') : trocar(caminhoEditor(contexto.id, entidade, id, { campo }))}
             retificar={() => irParaFicha('retificar')}/>}
           <ArtefatosDocumento documento={d} contexto={contexto} identidade={identidade} versaoId={v.id}/>
-          {!comum && v.congelado_em && d.tramitacao?.assinaturas !== false && assinaturasHabilitadas() && <AssinaturasDocumento key={v.id + ':' + d.revisao}
+          {v.congelado_em && d.tramitacao?.assinaturas !== false && assinaturasHabilitadas() && <AssinaturasDocumento key={v.id + ':' + d.revisao}
             versaoId={v.id} documento={d} contexto={contexto} identidade={identidade}/>}
         </details>}
       </>}

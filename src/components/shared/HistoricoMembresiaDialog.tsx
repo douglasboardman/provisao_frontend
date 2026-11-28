@@ -1,5 +1,7 @@
+import { usePermissions as usePermissoesAtuais } from '../../hooks/use-permissions'
 import { Painel } from './Painel'
 import { useRecurso } from '../../lib/recursos'
+import { ReferenciaDocumentalMembresia } from "./ReferenciaDocumentalMembresia";
 import { ReferenciaAta } from './ReferenciaAta';
 import { HistoricoRevisoesEleitorais } from '../../pages/oficiais/DecisaoEleitoral';
 import { CorrecaoConteudo } from '../../pages/oficiais/CorrecaoConteudo';
@@ -38,7 +40,6 @@ import { usePermissions } from "../../hooks/use-permissions";
 import { toast } from "../ui/use-toast";
 import { podeHistorico, oficiaisApi } from "../../api/oficiais";
 import { useAuthStore } from "../../stores/auth";
-import { Perfil } from "../../types/enums";
 import { eventosMembresiaApi } from "../../api/eventos-membresia";
 import { pessoasApi } from "../../api/pessoas";
 import { ApiRequestError } from "../../api/client";
@@ -54,11 +55,14 @@ import {
 } from "../../lib/membresia-labels";
 import { useEnumRelations } from "../../hooks/use-enum-relations";
 
+const referenciaDocumentalSchema = z.string().trim().min(1, "Identifique o documento que fundamenta a edição.").max(1000);
+
 const admissaoSchema = z.object({
   rol: z.nativeEnum(MembresiaRol),
   motivacao_evento: z.string().min(1, "Motivação é obrigatória"),
   data_evento: z.string().min(1, "Data é obrigatória"),
   igreja_origem: z.string().optional().or(z.literal("")),
+  referencia_documental: referenciaDocumentalSchema,
   observacoes: z.string().optional().or(z.literal("")),
 });
 
@@ -66,6 +70,7 @@ const demissaoSchema = z.object({
   motivacao_evento: z.string().min(1, "Motivação é obrigatória"),
   data_evento: z.string().min(1, "Data é obrigatória"),
   igreja_destino: z.string().optional().or(z.literal("")),
+  referencia_documental: referenciaDocumentalSchema,
   observacoes: z.string().optional().or(z.literal("")),
 });
 
@@ -73,6 +78,7 @@ const mudancaRolSchema = z.object({
   rol: z.nativeEnum(MembresiaRol),
   motivacao_evento: z.string().min(1, "Motivação é obrigatória"),
   data_evento: z.string().min(1, "Data é obrigatória"),
+  referencia_documental: referenciaDocumentalSchema,
   observacoes: z.string().optional().or(z.literal("")),
 });
 
@@ -108,10 +114,11 @@ export function HistoricoMembresiaDialog({
   const [rolOrigem, setRolOrigem] = useState("");
   const [ordemEventoId, setOrdemEventoId] = useState<string | null>(null);
   const chaveOrdem = useRef('');
+  const vinculosDocumentais = usePermissoesAtuais('vinculos-documentais')
   const authUser = useAuthStore(s => s.user);
   const identidade = `${authUser?.igreja_id ?? ''}:${authUser?.sub ?? ''}`;
   const acesso = useQuery({ queryKey: ['oficiais', identidade, 'meu-acesso'], queryFn: oficiaisApi.meuAcesso,
-    enabled: governancaHabilitada && open && !!authUser && [Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO, Perfil.AUDITOR, Perfil.COMUM].includes(authUser.perfil), staleTime: 0, gcTime: 0 });
+    enabled: governancaHabilitada && open && !!authUser && vinculosDocumentais.canView, staleTime: 0, gcTime: 0 });
   const consultaHistorico = !!acesso.data?.pode_consultar && podeHistorico(acesso.data, 'HISTORICO_MEMBRESIA_CONSULTAR');
   const retificaHistorico = !!acesso.data?.pode_registrar && podeHistorico(acesso.data, 'HISTORICO_MEMBRESIA_RETIFICAR');
   const decideRevisao = !!acesso.data?.pode_registrar && podeHistorico(acesso.data, 'REVISOES_ELEITORAIS_DECIDIR');
@@ -148,6 +155,7 @@ export function HistoricoMembresiaDialog({
       motivacao_evento: "",
       data_evento: "",
       igreja_origem: "",
+      referencia_documental: "",
       observacoes: "",
     },
   });
@@ -157,6 +165,7 @@ export function HistoricoMembresiaDialog({
       motivacao_evento: "",
       data_evento: "",
       igreja_destino: "",
+      referencia_documental: "",
       observacoes: "",
     },
   });
@@ -166,6 +175,7 @@ export function HistoricoMembresiaDialog({
       rol: MembresiaRol.COMUNGANTES,
       motivacao_evento: "",
       data_evento: "",
+      referencia_documental: "",
       observacoes: "",
     },
   });
@@ -190,7 +200,7 @@ export function HistoricoMembresiaDialog({
       eventosMembresiaApi.update(id, d),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["eventos-membresia"] });
-      toast({ title: "Último evento registradoizado" });
+      toast({ title: "Último evento atualizado" });
       closeEditForm();
     },
     onError: (e) =>
@@ -235,6 +245,7 @@ export function HistoricoMembresiaDialog({
         motivacao_evento: ev.motivacao_evento,
         data_evento: ev.data_evento.split("T")[0],
         igreja_origem: ev.igreja_origem ?? "",
+        referencia_documental: "",
         observacoes: ev.observacoes ?? "",
       });
       setEditForm("admissao");
@@ -243,6 +254,7 @@ export function HistoricoMembresiaDialog({
         motivacao_evento: ev.motivacao_evento,
         data_evento: ev.data_evento.split("T")[0],
         igreja_destino: ev.igreja_destino ?? "",
+        referencia_documental: "",
         observacoes: ev.observacoes ?? "",
       });
       setEditForm("demissao");
@@ -252,6 +264,7 @@ export function HistoricoMembresiaDialog({
         rol: ev.rol,
         motivacao_evento: ev.motivacao_evento,
         data_evento: ev.data_evento.split("T")[0],
+        referencia_documental: "",
         observacoes: ev.observacoes ?? "",
       });
       setEditForm("mudanca");
@@ -473,8 +486,10 @@ export function HistoricoMembresiaDialog({
                           <div className="flex gap-2"><Button type="submit" disabled={ordenarAto.isPending}>Salvar ordem</Button><Button type="button" variant="outline" disabled={ordenarAto.isPending} onClick={() => setOrdemEventoId(null)}>Cancelar</Button></div>
                         </form>}
                       </div>}
-                      {secretariaHabilitada && authUser && [Perfil.ADMINISTRADOR, Perfil.GESTOR, Perfil.SECRETARIO, Perfil.AUDITOR, Perfil.COMUM].includes(authUser.perfil) && <ReferenciaAta alvo={{ grupo: "MEMBRESIA", alvo_id: ev.id, etapa: "ATO" }} identidade={identidade} />}
+                      {secretariaHabilitada && authUser && vinculosDocumentais.canView && <ReferenciaAta alvo={{ grupo: "MEMBRESIA", alvo_id: ev.id, etapa: "ATO" }} identidade={identidade} />}
                       <div className="mt-2 text-sm space-y-1">
+                        {ev.referencia_documental && <p>Referência documental: {ev.referencia_documental}</p>}
+                        {ev.documentado === false && <p role="status">Confira ou vincule o documento que fundamenta este ato.</p>}
                         <p>
                           <span className="text-muted-foreground">
                             Motivação:
@@ -595,6 +610,7 @@ export function HistoricoMembresiaDialog({
                 />
               </div>
             </div>
+            <ReferenciaDocumentalMembresia id="hist_adm_obs_fonte" campo={admForm.register("referencia_documental")} erro={admForm.formState.errors.referencia_documental?.message} />
             <div className="space-y-2">
               <Label htmlFor="hist_adm_obs">Observações</Label>
               <Textarea
@@ -669,6 +685,7 @@ export function HistoricoMembresiaDialog({
                 {...demForm.register("igreja_destino")}
               />
             </div>
+            <ReferenciaDocumentalMembresia id="hist_dem_obs_fonte" campo={demForm.register("referencia_documental")} erro={demForm.formState.errors.referencia_documental?.message} />
             <div className="space-y-2">
               <Label htmlFor="hist_dem_obs">Observações</Label>
               <Textarea
@@ -762,6 +779,7 @@ export function HistoricoMembresiaDialog({
                 />
               </div>
             </div>
+            <ReferenciaDocumentalMembresia id="hist_mud_obs_fonte" campo={mudForm.register("referencia_documental")} erro={mudForm.formState.errors.referencia_documental?.message} />
             <div className="space-y-2">
               <Label htmlFor="hist_mud_obs">Observações</Label>
               <Textarea

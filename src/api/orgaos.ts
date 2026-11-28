@@ -16,6 +16,7 @@ export interface DetalheOrgao {
   preparo_registro_cargos?: 'VINCULAR_PESSOA' | null
   pode_registrar_cargos?: boolean
   cargos_na_data?: VagaCargo[]
+  contexto_modelos_reuniao_id?: string | null
   contexto_id?: string | null
   versao?: { numero: number; fonte: string } | null
   orgao: OrgaoResumo & { finalidade: string; data_criacao: string | null }
@@ -38,14 +39,14 @@ export interface DetalheOrgao {
 
 export interface EntradaMandato {
   pessoa_id: string; ata_eleicao: string; ata_posse: string
-  indicacao_id?: string
+  data_posse: string
   ordenacao?: { data: string; autoridade: string; evidencia?: string }
     | { historica: true; data?: string; autoridade?: string; evidencia?: string }
   idempotencia: string
 }
 export interface PreviaMandato {
   nome: string; data_eleicao: string; data_posse: string; termino_previsto: string; reeleicao: boolean
-  versao: number; previa: string; transcricao_historica: boolean; assunto_indicacao?: string
+  versao: number; previa: string; transcricao_historica: boolean
   ordenacao_historica?: boolean
 }
 export interface MandatoFicha {
@@ -73,9 +74,6 @@ export const orgaosApi = {
   mandatos: (id: string, cursor?: string) => apiClient.get<Pagina<MandatoFicha> & { pode_registrar: boolean }>(`orgaos/${id}/mandatos${cursor ? '?cursor=' + cursor : ''}`),
   docentesConselho: (id: string, cursor?: string) => apiClient.get<Pagina<OficialResumo & { vinculos_pastorais: { id: string; modalidade: string; data_inicio: string; data_fim: string | null }[] }>>(`orgaos/${id}/docentes${cursor ? '?cursor=' + cursor : ''}`),
   previaMandato: (id: string, dados: EntradaMandato) => apiClient.post<PreviaMandato>(`orgaos/${id}/mandatos/previa`, dados),
-  indicacoesMandato: (id: string, pessoa: string, ata: string) =>
-    apiClient.get<{ id: string; ata_conselho: { id: string; assunto: string; data_documento: string } }[]>(
-      `orgaos/${id}/mandatos/indicacoes?${new URLSearchParams({ pessoa, ata })}`),
   registrarMandato: (id: string, dados: EntradaMandato & { previa: string }) => apiClient.post<{ id: string; oficial_id: string }>(`orgaos/${id}/mandatos`, dados),
   ato: (orgao: string, ato: string) => apiClient.get<{ id: string; autoridade: string | null; evidencia: string | null; detalhes: Record<string, unknown>; retrato: { orgao?: { nome: string }; operador?: { nome: string }; pessoas?: { id: string; nome: string }[] } | null }>(`orgaos/${encodeURIComponent(orgao)}/atos/${encodeURIComponent(ato)}`),
   relogio: () => apiClient.get<{ data_utc: string; data_operacional: string | null; fuso_iana: string | null; data_no_fuso: string | null }>('orgaos/relogio'),

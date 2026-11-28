@@ -37,7 +37,14 @@ function PainelReferencia({ alvo, identidade }: { alvo: AlvoAta; identidade: str
   const consulta = useQuery({ queryKey: [...chave, 'historico', alvo, pagina], queryFn: () => referenciasAtaApi.consultar(alvo, pagina), gcTime: 0, retry: false })
   const salvar = useMutation({
     mutationFn: (dados: EntradaReferencia) => referenciasAtaApi.registrar(alvo, dados),
-    onSuccess: async () => { setEditar(false); setPagina(0); await client.invalidateQueries({ queryKey: chave }) },
+    onSuccess: async () => {
+      setEditar(false)
+      setPagina(0)
+      await Promise.all([
+        client.invalidateQueries({ queryKey: chave }),
+        ...(alvo.grupo === 'MEMBRESIA' ? [client.invalidateQueries({ queryKey: ['eventos-membresia'] })] : []),
+      ])
+    },
   })
   const atual = pagina === 0 ? consulta.data?.itens[0] : undefined
   return <div className="space-y-3 rounded border p-3">

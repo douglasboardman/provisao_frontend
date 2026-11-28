@@ -13,7 +13,7 @@ import { Input } from '../../components/ui/input'
 import { Textarea } from '../../components/ui/textarea'
 import { formatarDataCivil } from '../../lib/membresia-temporal'
 import { useAuthStore } from '../../stores/auth'
-import { Perfil } from '../../types/enums'
+import { usePermissions } from '../../hooks/use-permissions'
 
 type DadosAutorizacoes = {
   projetos?: { id: string; nome: string }[]
@@ -22,9 +22,10 @@ type DadosAutorizacoes = {
 }
 
 export function AutorizacoesFinanceiras({ projetos = [], contas = [], selecao = 'ambos' }: DadosAutorizacoes) {
+  const { canView } = usePermissions('autorizacoes-financeiras')
   const secretariaHabilitada = useRecurso('secretaria')
   const usuario = useAuthStore(s => s.user)
-  if (!secretariaHabilitada || !usuario || usuario.perfil === Perfil.OPERADOR) return null
+  if (!secretariaHabilitada || !usuario || !canView) return null
   const identidade = `${usuario.igreja_id}:${usuario.sub}`
   return <ListaAutorizacoes key={identidade} identidade={identidade} projetos={projetos} contas={contas} selecao={selecao} />
 }
@@ -32,10 +33,11 @@ export function AutorizacoesFinanceiras({ projetos = [], contas = [], selecao = 
 export function DadosFinanceiros({ nome, icone, children, ...dados }: DadosAutorizacoes & {
   nome: string; icone: LucideIcon; children: ReactNode
 }) {
+  const { canView } = usePermissions('autorizacoes-financeiras')
   const secretariaHabilitada = useRecurso('secretaria')
   const perfil = useAuthStore(s => s.user?.perfil)
   const [aba, selecionar] = useState('cadastros')
-  if (!secretariaHabilitada || !perfil || perfil === Perfil.OPERADOR) return children
+  if (!secretariaHabilitada || !perfil || !canView) return children
   return <Abas titulo={`Seções de ${nome.toLocaleLowerCase('pt-BR')}`} ativa={aba} selecionar={selecionar} abas={[
     { id: 'cadastros', nome, icone, manter: true, conteudo: children },
     { id: 'autorizacoes', nome: 'Autorizações documentadas', icone: Scale, conteudo: <AutorizacoesFinanceiras {...dados} /> },

@@ -1,10 +1,9 @@
 import { MembresiaRol, TipoEvento, type MotivacaoEvento, type Sexo } from "../../types/enums"
 import type { EventoMembresia, Pessoa } from "../../types/models"
 import { ROL_LABELS, MOTIVACAO_LABELS, calcAge } from "../../lib/membresia-labels"
-import { eventoMembresiaVigente } from "../../lib/membresia-temporal"
+import { agruparAtosPorPessoa, atosQueExigemConferencia, eventoMembresiaVigente } from "../../lib/membresia-temporal"
 
 export const NAO_ARROLADO = "NAO_ARROLADO"
-export const INDETERMINADO = "INDETERMINADO"
 
 export const CATEGORY_ORDER = [
   MembresiaRol.COMUNGANTES,
@@ -12,13 +11,21 @@ export const CATEGORY_ORDER = [
   MembresiaRol.ROL_SEPARADO,
   MembresiaRol.EXCLUIDOS,
   NAO_ARROLADO,
-  INDETERMINADO,
 ] as const
+
+export type CategoriaRol = typeof CATEGORY_ORDER[number]
+
+export const ROTAS_ROL: Record<CategoriaRol, string> = {
+  [MembresiaRol.COMUNGANTES]: "comungantes",
+  [MembresiaRol.NAO_COMUNGANTES]: "nao-comungantes",
+  [MembresiaRol.ROL_SEPARADO]: "rol-separado",
+  [MembresiaRol.EXCLUIDOS]: "excluidos",
+  [NAO_ARROLADO]: "nao-arrolados",
+}
 
 export const CATEGORY_LABELS: Record<string, string> = {
   ...ROL_LABELS,
   [NAO_ARROLADO]: "Não Arrolados",
-  [INDETERMINADO]: "Histórico indeterminado",
 }
 
 export const CATEGORY_COLORS: Record<string, string> = {
@@ -27,7 +34,6 @@ export const CATEGORY_COLORS: Record<string, string> = {
   [MembresiaRol.ROL_SEPARADO]: "#CA8A04",
   [MembresiaRol.EXCLUIDOS]: "#DC2626",
   [NAO_ARROLADO]: "#9CA3AF",
-  [INDETERMINADO]: "#B45309",
 }
 
 export type MemberView = {
@@ -37,10 +43,12 @@ export type MemberView = {
   familia?: string
   idade: number
   sexo: Sexo
-  rolKey: string
+  rolKey: CategoriaRol
   rolLabel: string
   admissaoMotivacao: MotivacaoEvento | null
   admissaoLabel: string
+  demissaoMotivacao: MotivacaoEvento | null
+  ultimaMovimentacaoLabel: string
   tempoRolMeses: number | null
   tempoRolFormatted: string
 }
@@ -70,23 +78,24 @@ function formatTempoRol(dataEvento: string): string {
   return `há ${yStr} e ${mStr}`
 }
 
-export function montarRol(pessoas: Pessoa[], eventos: EventoMembresia[], hoje: string): MemberView[] {
-  const grupos = new Map<string, EventoMembresia[]>()
-  for (const evento of eventos) {
-    const grupo = grupos.get(evento.pessoa_id) ?? []
-    grupo.push(evento)
-    grupos.set(evento.pessoa_id, grupo)
-  }
+export function montarRol(pessoas: Pessoa[], eventos: EventoMembresia[], hoje: string) {
+  const grupos = agruparAtosPorPessoa(eventos)
+  const members: MemberView[] = []
+  let pendencias = 0
 
-  return pessoas.map(p => {
-    const grupo = grupos.get(p.id) ?? []
+  for (const p of pessoas) {
+    const grupo = (grupos.get(p.id) ?? []).filter(e => e.data_evento.slice(0, 10) <= hoje)
+    if (atosQueExigemConferencia(grupo).length) {
+      pendencias++
+      continue
+    }
     const estado = eventoMembresiaVigente(grupo, hoje)
     const admissao = eventoMembresiaVigente(grupo.filter(e => e.tipo_evento === TipoEvento.ADMISSAO), hoje)
     const lastEvent = estado.situacao === 'DEFINIDO' ? estado.evento : undefined
     const admEvent = admissao.situacao === 'DEFINIDO' ? admissao.evento : undefined
-    const rolKey = estado.situacao === 'AMBIGUO' ? INDETERMINADO : lastEvent?.rol ?? NAO_ARROLADO
+    const rolKey = lastEvent?.rol ?? NAO_ARROLADO
 
-    return {
+    members.push({
       id: p.id,
       nome: p.nome_completo,
       cpf: p.cpf,
@@ -97,21 +106,25 @@ export function montarRol(pessoas: Pessoa[], eventos: EventoMembresia[], hoje: s
       rolLabel: CATEGORY_LABELS[rolKey] ?? rolKey,
       admissaoMotivacao: admEvent?.motivacao_evento ?? null,
       admissaoLabel: admEvent ? MOTIVACAO_LABELS[admEvent.motivacao_evento] ?? "" : "—",
+      demissaoMotivacao: lastEvent?.tipo_evento === TipoEvento.DEMISSAO ? lastEvent.motivacao_evento : null,
+      ultimaMovimentacaoLabel: lastEvent ? MOTIVACAO_LABELS[lastEvent.motivacao_evento] ?? lastEvent.motivacao_evento : "—",
       tempoRolMeses: lastEvent ? getTempoRolMonths(lastEvent.data_evento) : null,
       tempoRolFormatted: lastEvent ? formatTempoRol(lastEvent.data_evento) : "—",
-    }
-  })
+    })
+  }
+  return { members, pendencias }
 }
 
-export function resumirRol(members: MemberView[]) {
-  const counts: Record<string, number> = Object.fromEntries(CATEGORY_ORDER.map((k) => [k, 0]))
-  for (const m of members) counts[m.rolKey] = (counts[m.rolKey] ?? 0) + 1
-  const total = members.length
-  return CATEGORY_ORDER.map((key) => ({
+export function resumirRol(members: MemberView[], considerarNaoArrolados = true) {
+  const categorias = considerarNaoArrolados ? CATEGORY_ORDER : CATEGORY_ORDER.filter(key => key !== NAO_ARROLADO)
+  const counts = new Map<CategoriaRol, number>()
+  for (const m of members) counts.set(m.rolKey, (counts.get(m.rolKey) ?? 0) + 1)
+  const total = considerarNaoArrolados ? members.length : members.length - (counts.get(NAO_ARROLADO) ?? 0)
+  return categorias.map((key) => ({
     key,
     label: CATEGORY_LABELS[key],
-    count: counts[key] ?? 0,
-    percent: total > 0 ? ((counts[key] ?? 0) / total) * 100 : 0,
+    count: counts.get(key) ?? 0,
+    percent: total > 0 ? ((counts.get(key) ?? 0) / total) * 100 : 0,
     color: CATEGORY_COLORS[key],
   }))
 }

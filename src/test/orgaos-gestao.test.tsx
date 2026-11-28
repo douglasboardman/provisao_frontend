@@ -1,3 +1,5 @@
+import { useAuthStore } from '../stores/auth'
+vi.mock('../hooks/use-navegacao', () => ({ useNavegacao: () => ({ data: { permissoes: {orgaos:['view','create','edit'],unidades:['view','create','edit']} }, isPending: false }) }))
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -27,7 +29,7 @@ vi.mock('../api/orgaos', () => ({ gestaoOrgaosApi: {
   registrarCompetencia: vi.fn().mockResolvedValue({ id: 'competencia' }),
   participacao: vi.fn().mockResolvedValue({ ato_id: 'ato', membro_id: 'membro' }),
   designar: vi.fn().mockResolvedValue({ ato_id: 'ato', ocupacao_id: null }),
-  competencias: vi.fn(async () => ({ itens: [{ id: 'competencia', inicio: '2020-01-01', fim: null, pessoa_id: 'p', pessoa: { nome_completo: 'Pessoa Gestora' }, usuario: { nome_usuario: 'Gestora Teste', ativo: true, perfil: 'GESTOR', pessoa_id: 'p' } }], proximo_cursor: null })),
+  competencias: vi.fn(async () => ({ itens: [{ id: 'competencia', inicio: '2020-01-01', fim: null, pessoa_id: 'p', pessoa: { nome_completo: 'Pessoa Gestora' }, usuario: { nome_usuario: 'Gestora Teste', ativo: true, perfil: 'COMUM', pessoa_id: 'p' } }], proximo_cursor: null })),
   presidencias: vi.fn(async () => ({ itens: [{ id: 'presidencia', inicio: '2020-01-01', fim: null, oficial: { id: 'docente', pessoa: { nome_completo: 'Pastor Teste' } } }], proximo_cursor: null })),
   docentes: vi.fn(async () => ({ itens: [{ id: 'docente', pessoa: { nome_completo: 'Pastor Teste' } }], proximo_cursor: null })),
   registrarPresidencia: vi.fn().mockResolvedValue({ id: 'presidencia' }),
@@ -41,9 +43,10 @@ vi.mock('../api/orgaos', () => ({ gestaoOrgaosApi: {
   desativar: vi.fn().mockResolvedValue({ ato_id: 'ato', orgao_id: 'unidade' }),
 }, orgaosApi: { detalhe: vi.fn(async () => ({ ultima_ordem_designacao: 2, ordem_designacao_indeterminada: false })) } }))
 vi.mock('../api/pessoas', () => ({ pessoasApi: { list: vi.fn(async () => [{ id: 'pessoa', nome_completo: 'Pessoa Teste' }]) } }))
-vi.mock('../api/usuarios', () => ({ usuariosApi: { list: vi.fn(async () => [{ id: 'gestor', nome_usuario: 'Gestora Teste', perfil: Perfil.GESTOR, ativo: true, pessoa_id: 'pessoa' }, { id: 'sem-pessoa', nome_usuario: 'Sem vínculo', perfil: Perfil.GESTOR, ativo: true, pessoa_id: null }]) } }))
+vi.mock('../api/usuarios', () => ({ usuariosApi: { list: vi.fn(async () => [{ id: 'gestor', nome_usuario: 'Gestora Teste', perfil: Perfil.COMUM, ativo: true, pessoa_id: 'pessoa' }, { id: 'sem-pessoa', nome_usuario: 'Sem vínculo', perfil: Perfil.COMUM, ativo: true, pessoa_id: null }]) } }))
 
 function renderizar(node: ReactNode) {
+  useAuthStore.setState({status:'ready', user:{sub:'u',igreja_id:'igreja',perfil:Perfil.COMUM,username:'Responsável',login:'x'}})
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
   return render(<QueryClientProvider client={client}>{node}</QueryClientProvider>)
 }
@@ -52,7 +55,7 @@ describe('gestão de órgãos', () => {
   afterEach(cleanup)
   it.each(['CONSELHO', 'JUNTA'])('cadastra %s sem exigir instituidor, autoridade ou evidência', async tipo => {
     vi.mocked(gestaoOrgaosApi.criarOficial).mockResolvedValueOnce({ id: 'orgao' })
-    renderizar(<RelogioIgreja dia="2026-11-18"><InstituirOrgao perfil={Perfil.ADMINISTRADOR} identidade="igreja:admin" /></RelogioIgreja>)
+    renderizar(<RelogioIgreja dia="2026-11-18"><InstituirOrgao identidade="igreja:admin" /></RelogioIgreja>)
     fireEvent.click(screen.getByRole('button', { name: 'Registrar Conselho ou Junta' }))
     expect(screen.queryByLabelText('Pessoa instituidora')).toBeNull()
     expect(screen.queryByLabelText('Autoridade do ato')).toBeNull()
@@ -145,7 +148,7 @@ describe('gestão de órgãos', () => {
     expect(screen.queryByText(/Vínculos com início a partir de/)).toBeNull()
   })
   it('conserva a chave ao repetir a mesma instituição após falha', async () => {
-    renderizar(<InstituirOrgao perfil={Perfil.GESTOR} identidade="igreja:gestor" />)
+    renderizar(<InstituirOrgao identidade="igreja:gestor" />)
     fireEvent.click(screen.getByRole('button', { name: 'Registrar unidade ministerial' }))
     fireEvent.change(screen.getByLabelText('Nome'), { target: { value: 'Unidade Teste' } })
     fireEvent.change(screen.getByLabelText('Finalidade'), { target: { value: 'Finalidade' } })
@@ -158,11 +161,11 @@ describe('gestão de órgãos', () => {
     expect(chamadas).toHaveLength(2)
     expect(chamadas[0][0].idempotencia).toBe(chamadas[1][0].idempotencia)
   })
-  it('oferece apenas gestores ativos vinculados e registra evidência', async () => {
+  it('oferece apenas contas comuns ativas vinculadas e registra evidência', async () => {
     renderizar(<CompetenciaUnidades identidade="igreja:admin" />)
     fireEvent.click(screen.getByRole('button', { name: 'Registrar competência de gestor' }))
     expect(screen.queryByRole('option', { name: 'Sem vínculo' })).toBeNull()
-    fireEvent.change(screen.getByLabelText('Gestor vinculado a pessoa'), { target: { value: 'Teste' } })
+    fireEvent.change(screen.getByLabelText('Responsável vinculado a pessoa'), { target: { value: 'Teste' } })
     fireEvent.click(await screen.findByRole('option', { name: 'Gestora Teste' }))
     fireEvent.change(screen.getByLabelText('Primeiro dia sem competência (opcional)'), { target: { value: '2099-01-01' } })
     fireEvent.change(screen.getByLabelText('Autoridade declarada'), { target: { value: 'Conselho' } })

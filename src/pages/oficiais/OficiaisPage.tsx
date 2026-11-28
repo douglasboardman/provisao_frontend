@@ -1,8 +1,11 @@
+import { Pastores } from './Pastores'
+import './oficiais.css'
+import { usePermissions } from '../../hooks/use-permissions'
 import { Painel, SecaoPainel } from '../../components/shared/Painel'
 import { Link } from 'react-router'
 import { useCanAccessModule } from '../../hooks/use-permissions'
 import { SeletorPessoa } from '../../components/shared/SeletorPessoa'
-import { UsersRound, CalendarClock, BellRing, Vote, ShieldCheck, LayoutList } from 'lucide-react'
+import { UsersRound, CalendarClock, BellRing, ShieldCheck, LayoutList, Church } from 'lucide-react'
 import { AlternarConteudo, CabecalhoPainel, DataReferencia, WorkspaceHeader } from '../../components/shared/Workspace'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -19,8 +22,6 @@ import { Button } from '../../components/ui/button'
 import { Abas } from '../../components/ui/abas'
 import { Label } from '../../components/ui/label'
 import { useAuthStore } from '../../stores/auth'
-import { useRecurso } from '../../lib/recursos'
-import { EleicaoOficiais } from './EleicaoOficiais'
 
 const tipos: Record<OficialResumo['tipo'], string> = { DIACONO: 'Diácono', PRESBITERO_REGENTE: 'Presbítero regente', PRESBITERO_DOCENTE: 'Presbítero docente' }
 const situacoes = { EM_EXERCICIO: 'Em exercício', FORA_DE_EXERCICIO: 'Fora de exercício', INDETERMINADA: 'Histórico incompleto ou ambíguo' }
@@ -31,10 +32,9 @@ export function OficiaisPage() {
   const queryClient = useQueryClient()
   const perfil = useAuthStore(s => s.user?.perfil)
   const auditor = perfil === Perfil.AUDITOR
-  const comum = perfil === Perfil.COMUM
+  const permissoes = usePermissions('oficiais')
   const ficha = useCanAccessModule('orgaos')
-  const secretaria = useRecurso('secretaria')
-  const [area, setArea] = useState('quadro')
+  const [area, setArea] = useState('presbiteros')
   const [quadro, setQuadro] = useState<'mandatos' | 'oficios'>('mandatos')
   const [restrito, setRestrito] = useState<OficialResumo | null>(null)
   const [formAberto, setFormAberto] = useState(false)
@@ -55,10 +55,11 @@ export function OficiaisPage() {
     mutationFn: oficiaisApi.alterarSituacao,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['oficiais', identidade] }),
   })
-  const lista = useQuery({ queryKey: ['oficiais', identidade, cursor], queryFn: () => oficiaisApi.listar(cursor) })
+  const tipoQuadro = area === 'diaconos' ? 'DIACONO' : 'PRESBITERO_REGENTE'
+  const lista = useQuery({ queryKey: ['oficiais', identidade, 'lista', tipoQuadro, cursor], queryFn: () => oficiaisApi.listar(cursor, tipoQuadro) })
   const exercicio = useQuery({ queryKey: ['oficiais', identidade, 'exercicio', selecionado?.id, data], queryFn: () => oficiaisApi.exercicio(selecionado!.id, data), enabled: !auditor && !!selecionado && !!data })
   const vigentes = useQuery({ queryKey: ['oficiais', identidade, 'vigentes', data], queryFn: () => oficiaisApi.vigentes(data), enabled: !auditor && !!data })
-  const alertas = useQuery({ queryKey: ['oficiais', identidade, 'alertas', data], queryFn: () => oficiaisApi.alertas(data, 90), enabled: !auditor && !comum && !!data })
+  const alertas = useQuery({ queryKey: ['oficiais', identidade, 'alertas', data], queryFn: () => oficiaisApi.alertas(data, 90), enabled: permissoes.canCreate && !!data })
   function abrirRegistro(item: OficialResumo, painel: 'exercicio' | 'gestao' | 'restrito') {
     setSelecionado(painel === 'exercicio' ? item : null)
     setGerenciar(painel === 'gestao' ? item : null)
@@ -66,19 +67,20 @@ export function OficiaisPage() {
   }
   function proxima() { if (!lista.data?.proximo_cursor) return; setAnteriores(a => [...a, cursor]); setCursor(lista.data.proximo_cursor); setSelecionado(null); setGerenciar(null); setRestrito(null) }
   function anterior() { const itens = [...anteriores]; setCursor(itens.pop()); setAnteriores(itens); setSelecionado(null); setGerenciar(null); setRestrito(null) }
-  const referencia = !auditor && <DataReferencia id="referencia-oficiais" data={data} mudar={setData} />
+  const mandatosTipo = vigentes.data?.filter(m => m.oficial.tipo === tipoQuadro) ?? []
+  const referencia = (area !== 'acessos') &&
+    <DataReferencia id="referencia-oficiais" data={data} mudar={setData} />
   const visaoQuadro = auditor ? 'oficios' : quadro
   const conteudoQuadro = <div className="space-y-4">
-    {referencia}
     {!auditor && <AlternarConteudo titulo="Dados do quadro de oficiais" ativa={quadro} selecionar={setQuadro} opcoes={[
       { id: 'mandatos', nome: 'Mandatos vigentes' }, { id: 'oficios', nome: 'Ofícios registrados' },
     ]} />}
     {visaoQuadro === 'mandatos' && <section className="surface space-y-4">
       <CabecalhoPainel icone={CalendarClock} titulo="Mandatos vigentes">
-        {vigentes.data && <span className="pill">{vigentes.data.length} na data</span>}
+        {vigentes.data && <span className="pill">{mandatosTipo.length} na data</span>}
       </CabecalhoPainel>
-    {!data ? <p>Selecione a data de referência.</p> : vigentes.isPending ? <p>Consultando mandatos…</p> : vigentes.isError ? <p role="alert">Não foi possível consultar os mandatos.</p> : !vigentes.data.length ? <p className="text-sm text-muted-foreground">Nenhum mandato no período selecionado.</p> :
-    <div className="overflow-x-auto"><table className="record-table"><thead><tr><th>Oficial</th><th>Posse</th><th>Término</th><th>Período cumprido</th></tr></thead><tbody>{vigentes.data.map(m => {
+    {!data ? <p>Selecione a data de referência.</p> : vigentes.isPending ? <p>Consultando mandatos…</p> : vigentes.isError ? <p role="alert">Não foi possível consultar os mandatos.</p> : !mandatosTipo.length ? <p className="text-sm text-muted-foreground">Nenhum mandato no período selecionado.</p> :
+    <div className="overflow-x-auto"><table className="record-table"><thead><tr><th>Oficial</th><th>Posse</th><th>Término</th><th>Período cumprido</th></tr></thead><tbody>{mandatosTipo.map(m => {
       const inicio = Date.parse(m.data_posse.slice(0,10))
       const fim = Date.parse((m.termino_efetivo ?? m.termino_previsto).slice(0,10))
       const percentual = fim <= inicio ? 100 : Math.max(0, Math.min(100, Math.round(100 * (Date.parse(data) - inicio) / (fim - inicio))))
@@ -87,11 +89,11 @@ export function OficiaisPage() {
     {visaoQuadro === 'oficios' && <section className="surface"><Painel>
       <CabecalhoPainel icone={UsersRound} titulo="Ofícios registrados" />
       {ficha && <Button asChild variant="outline"><Link to="/orgaos">Registrar mandato na ficha do órgão</Link></Button>}
-      {!auditor && !comum && <Button type="button" variant="ghost" onClick={() => { cadastrar.reset(); setHistorico(false); setFormAberto(true) }}>Registrar ofício</Button>}
-      {formAberto && !auditor && !comum && <SecaoPainel titulo="Registrar ofício" voltar={() => setFormAberto(false)} ocupado={cadastrar.isPending}><form className="max-w-xl space-y-3 rounded border p-4" onSubmit={e => { e.preventDefault(); if (pessoaId) cadastrar.mutate({ pessoa_id: pessoaId, tipo, ...(historico ? { ativo: false } : {}) }) }}>
+      {permissoes.canCreate && <Button type="button" variant="ghost" onClick={() => { cadastrar.reset(); setHistorico(false); setTipo(tipoQuadro); setFormAberto(true) }}>Registrar ofício</Button>}
+      {formAberto && permissoes.canCreate && <SecaoPainel titulo="Registrar ofício" voltar={() => setFormAberto(false)} ocupado={cadastrar.isPending}><form className="max-w-xl space-y-3 rounded border p-4" onSubmit={e => { e.preventDefault(); if (pessoaId) cadastrar.mutate({ pessoa_id: pessoaId, tipo, ...(historico ? { ativo: false } : {}) }) }}>
         <p className="text-sm text-muted-foreground">O registro do ofício não cria ordenação, mandato ou competência.</p>
         <div className="space-y-1"><Label htmlFor="pessoa-oficial">Pessoa</Label><SeletorPessoa id="pessoa-oficial" value={pessoaId} onChange={id => setPessoaId(id)} required opcoes={pessoas.data?.map(p => ({ id: p.id, nome: p.nome_completo }))} />{pessoas.isError && <p role="alert">Não foi possível carregar as pessoas.</p>}</div>
-        <div className="space-y-1"><Label htmlFor="tipo-oficial">Ofício</Label><select id="tipo-oficial" className="w-full rounded border bg-background p-2" value={tipo} onChange={e => setTipo(e.target.value as OficialResumo['tipo'])}>{Object.entries(tipos).map(([valor, nome]) => <option key={valor} value={valor}>{nome}</option>)}</select></div>
+        <div className="space-y-1"><Label htmlFor="tipo-oficial">Ofício</Label><select id="tipo-oficial" className="w-full rounded border bg-background p-2" value={tipo} onChange={e => setTipo(e.target.value as OficialResumo['tipo'])}>{Object.entries(tipos).filter(([valor]) => valor !== 'PRESBITERO_DOCENTE').map(([valor, nome]) => <option key={valor} value={valor}>{nome}</option>)}</select></div>
         <label className="flex items-center gap-2">
           <input type="checkbox" checked={historico} onChange={e => setHistorico(e.target.checked)} />
           Registrar como inativo
@@ -113,9 +115,9 @@ export function OficiaisPage() {
               </td>
               <td data-label="Ações"><div className="flex flex-wrap gap-2">
                 {!auditor && <>
-                  {!comum && <Button type="button" size="sm" variant="outline" disabled={alterarSituacao.isPending} onClick={() => alterarSituacao.mutate({ id: item.id, ativo: !ativo })}>{ativo ? 'Inativar cadastro' : 'Ativar cadastro'}</Button>}
+                  {permissoes.canEdit && <Button type="button" size="sm" variant="outline" disabled={alterarSituacao.isPending} onClick={() => alterarSituacao.mutate({ id: item.id, ativo: !ativo })}>{ativo ? 'Inativar cadastro' : 'Ativar cadastro'}</Button>}
                   <Button type="button" size="sm" variant="outline" onClick={() => abrirRegistro(item, 'exercicio')}>Consultar exercício</Button>
-                  {(!comum || historicoPermitido) && <Button type="button" size="sm" variant="outline" onClick={() => abrirRegistro(item, 'gestao')}>Gerir registros</Button>}
+                  {(permissoes.canEdit || historicoPermitido) && <Button type="button" size="sm" variant="outline" onClick={() => abrirRegistro(item, 'gestao')}>Gerir registros</Button>}
                 </>}
                 {(acesso.data?.pode_consultar || acesso.data?.pode_registrar) && <Button type="button" size="sm" variant="outline" onClick={() => abrirRegistro(item, 'restrito')}>Eventos restritos</Button>}
               </div></td>
@@ -132,7 +134,6 @@ export function OficiaisPage() {
     </Painel></section>}
   </div>
   const conteudoAvisos = <div className="space-y-4">
-    {referencia}
     <section className="surface"><Painel>
       <CabecalhoPainel icone={BellRing} titulo="Avisos e prazos">
         {perfil === Perfil.ADMINISTRADOR && <ConfiguracaoAlertas identidade={identidade} />}
@@ -147,12 +148,13 @@ export function OficiaisPage() {
     </Painel></section>
   </div>
 
-  return <div className="workspace">
-    <WorkspaceHeader icon={UsersRound} title="Oficiais" description="Quadro de mandatos, exercício e registros eleitorais." />
-    <Abas titulo="Áreas de oficiais" ativa={area} selecionar={setArea} abas={[
-      { id: 'quadro', nome: 'Quadro de oficiais', icone: LayoutList, conteudo: conteudoQuadro, mostrar: true },
-      { id: 'eleicao', nome: 'Processo eleitoral', icone: Vote, conteudo: <EleicaoOficiais identidade={identidade} key={identidade} />, mostrar: !auditor && !comum && secretaria },
-      { id: 'avisos', nome: 'Avisos e prazos', icone: BellRing, conteudo: conteudoAvisos, mostrar: !auditor && !comum },
+  return <div className="workspace oficiais-workspace">
+    <WorkspaceHeader icon={UsersRound} title="Oficiais e Pastores" description="Presbíteros, diáconos e equipe pastoral da igreja." />
+    <Abas titulo="Áreas de oficiais" ativa={area} selecionar={nova => { setArea(nova); setCursor(undefined); setAnteriores([]); setSelecionado(null); setGerenciar(null); setRestrito(null); setFormAberto(false) }} controle={referencia} abas={[
+      { id: 'presbiteros', nome: 'Presbíteros', icone: LayoutList, conteudo: conteudoQuadro, mostrar: true },
+      { id: 'diaconos', nome: 'Diáconos', icone: UsersRound, conteudo: conteudoQuadro, mostrar: true },
+      { id: 'pastores', nome: 'Pastores', icone: Church, conteudo: <Pastores identidade={identidade} data={data} administrador={perfil === Perfil.ADMINISTRADOR} podeCadastrar={permissoes.canCreate} podeGerir={permissoes.canEdit || historicoPermitido} acesso={acesso.data} />, mostrar: true },
+      { id: 'avisos', nome: 'Avisos e prazos', icone: BellRing, conteudo: conteudoAvisos, mostrar: permissoes.canCreate },
       { id: 'acessos', nome: 'Permissões', icone: ShieldCheck, conteudo: <AcessosSensiveis identidade={identidade} />, mostrar: perfil === Perfil.ADMINISTRADOR },
     ].filter(a => a.mostrar)} />
   </div>

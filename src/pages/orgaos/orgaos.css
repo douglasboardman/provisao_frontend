@@ -1,0 +1,24 @@
+.org-nav { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; border-block: 1px solid var(--color-border); padding-block: .75rem; }
+.org-bloco { min-width: 0; padding: 1.25rem; border: 1px solid var(--color-border); border-radius: 1rem; background: var(--color-card); display: flex; flex-direction: column; gap: 1rem; }
+.org-table-wrap { min-width: 0; overflow-x: auto; border: 1px solid var(--color-border); border-radius: .75rem; }
+.org-table td { vertical-align: top; }
+.org-table th { white-space: nowrap; }
+.org-table button { max-width: 100%; white-space: normal; height: auto; min-height: 2.25rem; text-align: left; }
+.org-table progress { width: 6rem; height: .35rem; accent-color: var(--color-purple); }
+.org-dados { display: grid; gap: 1rem; }
+.org-dados dt { font-size: .75rem; color: var(--color-muted-foreground); margin-bottom: .25rem; }
+.org-dados dd { font-size: .875rem; }
+.org-workspace .painel-secao > .min-w-0 > div { min-width: 0; }
+@media (max-width: 767px) {
+  .org-nav { gap: .25rem; }
+  .org-nav button { flex: 1 1 auto; font-size: .75rem; padding-inline: .65rem; }
+  .org-bloco { padding: 1rem; }
+  .org-table-wrap { overflow: visible; border: 0; }
+  .org-table, .org-table tbody, .org-table tr, .org-table td { display: block; width: 100%; }
+  .org-table thead { position: absolute; width: 1px; height: 1px; clip-path: inset(50%); overflow: hidden; }
+  .org-table tr { border: 1px solid var(--color-border); border-radius: .75rem; margin-bottom: .75rem; padding: .5rem; }
+  .org-table td { border: 0; padding: .5rem; overflow-wrap: anywhere; }
+  .org-table td::before { content: attr(data-label); display: block; color: var(--color-muted-foreground); font-size: .7rem; font-weight: 500; margin-bottom: .25rem; }
+}
+/* A ficha acompanha a rolagem da página, sem uma segunda barra interna. */
+.org-workspace .painel-secao { max-height: none; overflow: visible; }

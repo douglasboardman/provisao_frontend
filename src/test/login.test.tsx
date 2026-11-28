@@ -47,7 +47,7 @@ describe('login em duas etapas', () => {
     expect(useAuthStore.getState().user).toBeNull()
   })
 
-  it.each([Perfil.ADMINISTRADOR, Perfil.GESTOR])('pede apenas o código para %s com MFA e permite recuperação após código inválido', async perfil => {
+  it.each([Perfil.ADMINISTRADOR, Perfil.COMUM])('pede apenas o código para %s com MFA e permite recuperação após código inválido', async perfil => {
     vi.mocked(authApi.login)
       .mockRejectedValueOnce(new ApiRequestError(401, ['Código necessário.'], 'MFA_REQUIRED'))
       .mockRejectedValueOnce(new ApiRequestError(401, ['Código inválido.']))
@@ -88,7 +88,7 @@ describe('login em duas etapas', () => {
   })
 
   it('entra diretamente quando a conta não exige segundo fator', async () => {
-    vi.mocked(authApi.login).mockResolvedValueOnce({ sub: 'usuario', igreja_id: igreja, perfil: Perfil.OPERADOR, username: 'Teste', login: credentials.login })
+    vi.mocked(authApi.login).mockResolvedValueOnce({ sub: 'usuario', igreja_id: igreja, perfil: Perfil.COMUM, username: 'Teste', login: credentials.login })
     renderizar()
     await entrar()
     await waitFor(() => expect(screen.getByText('Área autenticada')).toBeTruthy())

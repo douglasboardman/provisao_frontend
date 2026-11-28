@@ -90,6 +90,7 @@ export function Metadados({
   const valores = v.conteudo.valores ?? {}
   const definicoes = v.modelo?.configuracao.definicoes ?? {}
   const origens = distinguirHomonimos(origensDoDocumento({}, valores, v.conteudo.antecedente, !!v.motivador_id, false), definicoes)
+  const efetivos = documento.tipo === 'ATA' ? v.conteudo.efetivos : undefined
   const encontro = historica ?? congelada?.dados ?? reuniao.data?.dados
   return (
     <div className="space-y-4 text-sm">
@@ -104,8 +105,12 @@ export function Metadados({
         {Object.entries({
           ...(v.conteudo?.redator_ata?.nome && { 'Redator da ata': v.conteudo.redator_ata.nome }),
           'Data do documento': dataCivil(v.data_documento),
-          'Data da reunião': dataCivil(encontro?.data),
-          Local: encontro?.local,
+          ...(efetivos?.inicio ? { 'Início efetivo': new Date(efetivos.inicio).toLocaleString('pt-BR') } : { 'Data da reunião': dataCivil(encontro?.data) }),
+          ...(efetivos?.fim && { 'Encerramento efetivo': new Date(efetivos.fim).toLocaleString('pt-BR') }),
+          Local: efetivos?.local ?? encontro?.local,
+          ...(efetivos?.presentes != null && { 'Total de presentes': String(efetivos.presentes) }),
+          ...(efetivos?.habilitados_presentes != null && { 'Presentes habilitados para quórum': String(efetivos.habilitados_presentes) }),
+          ...(efetivos?.universo != null && { 'Universo de membros habilitados': String(efetivos.universo) }),
           Acesso: documento.restrito ? 'Restrito' : 'Institucional',
         }).map(([k, val]) => (
           <div key={k}>

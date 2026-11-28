@@ -25,7 +25,6 @@ import { Badge } from "../../components/ui/badge"
 import { usePermissions } from "../../hooks/use-permissions"
 import { toast } from "../../components/ui/use-toast"
 import { useAuthStore } from "../../stores/auth"
-import { AccessAuthoritiesPanel } from "./AccessAuthoritiesPanel"
 import { EmailQueuePanel } from "./EmailQueuePanel"
 import { AccessRequestsPanel } from "./AccessRequestsPanel"
 import { usuariosApi } from "../../api/usuarios"
@@ -151,7 +150,6 @@ export function UsuariosPage() {
   })
   if (podeVerSolicitacoes) abas.push({ id: "solicitacoes", nome: "Solicitações de acesso", conteudo: <AccessRequestsPanel /> })
   if (canCreate) abas.push(
-    { id: "competencias", nome: "Competências", conteudo: <AccessAuthoritiesPanel usuarios={usuarios} /> },
     { id: "historico", nome: "Histórico", conteudo: <HistoricoAcessos usuarios={usuarios} /> },
   )
   if (perfilAtual === Perfil.ADMINISTRADOR) abas.push({ id: "emails", nome: "Envio de e-mails", conteudo: <EmailQueuePanel /> })
@@ -204,9 +202,7 @@ export function UsuariosPage() {
               <Select value={form.watch("perfil")} onValueChange={(v) => form.setValue("perfil", v as Perfil)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {Object.entries(PERFIL_LABELS).filter(([k]) => k === editing?.perfil ||
-                    [Perfil.COMUM, Perfil.ADMINISTRADOR, Perfil.AUDITOR].some(p => p === k) &&
-                    !(k === Perfil.COMUM && editing && [Perfil.GESTOR, Perfil.OPERADOR, Perfil.SECRETARIO, Perfil.TESOUREIRO].includes(editing.perfil))).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                  {Object.entries(PERFIL_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

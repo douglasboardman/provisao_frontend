@@ -16,7 +16,7 @@ it('registra a ordenação do docente com data obrigatória e sem exigir ordem o
   const salvar = vi.spyOn(oficiaisApi, 'criarAto').mockResolvedValue({})
   render(<QueryClientProvider client={new QueryClient()}><Painel>
     <GestaoOficial voltar={() => {}} oficial={{ id: 'docente', tipo: 'PRESBITERO_DOCENTE', ativo: true, pessoa: { id: 'pessoa', nome_completo: 'Pastor' } }}
-      identidade="igreja:usuario" podeConsultarDetalhe={false} />
+      identidade="igreja:usuario" podeConsultarDetalhe={false} acesso={{pode_consultar:false,pode_registrar:false,operacoes:{HISTORICO_OFICIAIS_REGISTRAR:true,HISTORICO_OFICIAIS_CONSULTAR:false,HISTORICO_MEMBRESIA_CONSULTAR:false,HISTORICO_MEMBRESIA_RETIFICAR:false,REVISOES_ELEITORAIS_DECIDIR:false}}} />
   </Painel></QueryClientProvider>)
 
   const data = screen.getByLabelText('Data da ordenação') as HTMLInputElement

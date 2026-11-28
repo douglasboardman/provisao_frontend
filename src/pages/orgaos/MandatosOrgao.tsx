@@ -1,3 +1,5 @@
+import { TabelaOrgao } from './apresentacao'
+import { Badge } from '../../components/ui/badge'
 import { PainelLocal, SecaoPainel } from '../../components/shared/Painel'
 import { ProvimentoCargo } from './ProvimentoCargo'
 import { useState } from 'react'
@@ -64,21 +66,22 @@ export function MandatosOrgao({ orgao, identidade, data, conselho, cargos, podeA
     </SecaoPainel>}
     {mensagem && <p role="status">{mensagem}</p>}
     {lista.isPending ? <p>Carregando mandatos…</p> : lista.isError ? <p role="alert">Não foi possível consultar os mandatos.</p> : !lista.data.itens.length ? <p>Nenhum mandato registrado.</p> :
-      lista.data.itens.map(m => {
+      <TabelaOrgao rotulo="Mandatos do órgão" colunas={['Oficial e cargos', 'Eleição e posse', 'Término e situação', 'Ações']}>{lista.data.itens.map(m => {
         const { situacao, percentual } = prazo(m, data)
         const funcoes = cargos?.filter(c => c.titulares.some(t => t.id === m.oficial.pessoa.id)).map(c => c.nome)
-        return <article className="space-y-2 rounded-xl border p-3" key={m.id}><div className="flex flex-wrap justify-between gap-2"><strong>{m.oficial.pessoa.nome_completo}</strong><span>{situacao}</span></div>
-          <p>Eleição em {fmt(m.data_eleicao)} · Posse em {fmt(m.data_posse)} · Término previsto em {fmt(m.termino_previsto)}</p>
-          {!!funcoes?.length && <p>Cargos de {m.oficial.pessoa.nome_completo} em {fmt(data)}: {funcoes.join(', ')}.</p>}
-          {m.termino_efetivo && <p>Último dia de exercício em {fmt(m.termino_efetivo)}.</p>}
-          {m.motivo_encerramento && <p>Motivo do encerramento: {m.motivo_encerramento}</p>}
-          {m.registro && <p className="text-sm text-muted-foreground">Registro por {m.registro.operador} em {new Date(m.registro.instante).toLocaleDateString('pt-BR')} · configuração {m.versao_orgao?.numero}.</p>}
-          <p className="flex items-center gap-2"><progress aria-label={'Período do mandato de ' + m.oficial.pessoa.nome_completo} value={percentual} max={100} />{percentual}%</p>
-          <div className="flex flex-wrap gap-2">{perfil !== Perfil.AUDITOR && <Button variant="outline" onClick={() => { setRegistro({ oficial: m.oficial, modo: 'acervo' }); setForm(null) }}>Abrir prontuário e atos</Button>}
-            {mostrarAtribuicao && <Button variant="outline" onClick={() => { setMensagem(''); escolherCargo(''); escolherMandatario(m.oficial.pessoa) }}>Atribuir cargo</Button>}
+        return <tr key={m.id}>
+          <td data-label="Oficial e cargos"><strong>{m.oficial.pessoa.nome_completo}</strong>{!!funcoes?.length && <p className="mt-1 text-xs text-muted-foreground">{funcoes.join(', ')}</p>}
+          {m.registro && <details className="mt-2 text-xs text-muted-foreground"><summary>Dados do registro</summary><p className="mt-2">Registro por {m.registro.operador} em {new Date(m.registro.instante).toLocaleDateString('pt-BR')} · configuração {m.versao_orgao?.numero}.</p></details>}</td>
+          <td data-label="Eleição e posse"><p>Eleição: {fmt(m.data_eleicao)}</p><p className="mt-1 text-muted-foreground">Posse: {fmt(m.data_posse)}</p></td>
+          <td data-label="Término e situação"><p className="mb-2">{fmt(m.termino_efetivo ?? m.termino_previsto)} <span className="text-xs text-muted-foreground">({m.termino_efetivo ? 'efetivo' : 'previsto'})</span></p><Badge variant="outline">{situacao}</Badge>
+          {m.motivo_encerramento && <p className="mt-2 text-xs">{m.motivo_encerramento}</p>}
+          <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground"><progress aria-label={'Período do mandato de ' + m.oficial.pessoa.nome_completo} value={percentual} max={100} />{percentual}%</p></td>
+          <td data-label="Ações">
+          <div className="flex flex-col items-start gap-2">{perfil !== Perfil.AUDITOR && <Button size="sm" variant="outline" onClick={() => { setRegistro({ oficial: m.oficial, modo: 'acervo' }); setForm(null) }}>Abrir prontuário e atos</Button>}
+            {(mostrarAtribuicao || podeRegistrar || m.pode_encerrar) && <details className="w-full text-sm"><summary className="py-1 font-medium text-purple">Gerenciar mandato</summary><div className="mt-2 flex flex-col items-start gap-2">{mostrarAtribuicao && <Button variant="outline" onClick={() => { setMensagem(''); escolherCargo(''); escolherMandatario(m.oficial.pessoa) }}>Atribuir cargo</Button>}
             {podeRegistrar && <Button variant="outline" onClick={() => iniciar(m.oficial.pessoa)}>Registrar reeleição</Button>}
-            {m.pode_encerrar && <Button variant="outline" onClick={() => { setRegistro({ oficial: m.oficial, periodo: 'mandatos:' + m.id, modo: 'encerrar' }); setForm(null) }}>Encerrar mandato</Button>}</div></article>
-      })}
+            {m.pode_encerrar && <Button variant="outline" onClick={() => { setRegistro({ oficial: m.oficial, periodo: 'mandatos:' + m.id, modo: 'encerrar' }); setForm(null) }}>Encerrar mandato</Button>}</div></details>}</div></td></tr>
+      })}</TabelaOrgao>}
     <Paginacao cursores={paginas} mudar={setPaginas} proximo={lista.data?.proximo_cursor} nome="mandatos" />
     {mostrarAtribuicao && mandatario && <SecaoPainel titulo={`Atribuir cargo a ${mandatario.nome_completo}`} voltar={() => escolherMandatario(null)}>
       {!podeAtribuir && preparoRegistro && <OrientacaoVinculoParaRegistro />}

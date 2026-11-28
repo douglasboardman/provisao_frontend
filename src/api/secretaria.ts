@@ -1,3 +1,4 @@
+import type { ReatribuicaoAtos } from './referencias-ata'
 import type { CampoIgreja, DefinicaoCampo, Valores } from './campos'
 import type { PaginaTexto } from './pagina'
 import type { PaginaSelecao } from './referencias-ata'
@@ -10,7 +11,7 @@ export interface ContextoSecretaria {
   editor_pagina?: boolean
   id: string; nome: string; sigla: string; tipo: 'ORGAO' | 'ASSEMBLEIA_GERAL'; orgao_id: string | null
   orgao: { ativo?: boolean; tipo: 'ASSEMBLEIA_GERAL' | 'SOCIEDADE_INTERNA' | 'CONSELHO' | 'JUNTA' | 'UNIDADE_MINISTERIAL'; constituicao: 'OFICIAL' | 'ELEICAO' | 'DESIGNACAO' } | null
-  pode_classificar_ata?: boolean; somente_atas?: boolean
+  pode_gerir_modelos?: boolean; pode_editar_ata_legada?: boolean; pode_classificar_ata?: boolean; somente_atas?: boolean
   pode_agendar?: boolean; pode_preparar: boolean; pode_aprovar: boolean; pode_deliberar: boolean; pode_consultar_restritos: boolean
 }
 export interface RegraAntecedente { modelo_id: string; campos: Record<string,string> }
@@ -55,10 +56,24 @@ export function nomeModalidade(contexto: ContextoSecretaria, modalidade: Modalid
   return rotulosModalidadeReuniao[modalidade]
 }
 export const situacoesReuniao = {
-  AGENDADA: 'Agendada', EM_ANDAMENTO: 'Em andamento', ENCERRADA: 'Encerrada', ADIADA: 'Adiada', CANCELADA: 'Cancelada',
+  NAO_INSTALADA: 'Não instalada', AGENDADA: 'Agendada', EM_ANDAMENTO: 'Em andamento', ENCERRADA: 'Encerrada', ADIADA: 'Adiada', CANCELADA: 'Cancelada',
 } as const
 export interface ItemPauta { id?: string; ordem: number; descricao: string; proponente_id: string | null; proponente: { nome_completo: string } | null }
+export interface ConfigModeloReuniao {
+  tipo: string; natureza: string; obrigatoria: boolean; periodicidade: string; referencia: string
+  orgaos_participantes: string[]; primeira: string; segunda: string; antecedencia_dias: number | null
+  intervalo_minutos: number | null; minimo_anual: number | null; colegiado: string; fundamentacao: string; observacao: string
+}
+export interface ModeloReuniao { id: string; finalidade: string; revisao: number; configuracao: ConfigModeloReuniao }
+export interface EfetivosAta {
+  minimo_declarado?: number
+  inicio?: string; fim?: string; local?: string; presentes?: number; habilitados_presentes?: number; universo?: number | null
+  pastores_presentes?: number; regentes_presentes?: number; regentes_exercicio?: number
+}
 export interface DadosReuniao {
+  modelo_reuniao_id?: string; modelo_reuniao?: Omit<ModeloReuniao,'id'>; primeira_reuniao_id?: string | null
+  formato?: 'Presencial' | 'Virtual' | 'Híbrida'; carater?: 'Regular' | 'Urgente'; convocacao?: 'Primeira' | 'Segunda'
+  total_presentes?: number | null; local_efetivo?: string
   horario_previsto?: string
   situacao?: keyof typeof situacoesReuniao
   restrito: boolean; modalidade: ModalidadeReuniao; data: string; local: string; inicio: string | null; fim: string | null; pauta: string; competencia: string
@@ -135,7 +150,7 @@ export interface PreviaAbertura {
   presidente: { pessoa_id: string; nome: string } | null
   pendencias: string[]
 }
-export interface VersaoInput { atualizar_fontes?: string; confirmar_troca_origem?: boolean; confirmar_troca_livro?: boolean; resolucoes?: ResolucaoInput[]; modelo_versao_id: string; livro_id?: string | null; reuniao_id: string | null; motivador_id: string | null; assunto: string; data_documento: string; conteudo: { planejamento_origem?: string; redator_ata?: { pessoa_id: string; nome?: string } | null; antecedente?: Antecedente; valores?: Valores; teor: string; campos: Record<string, string>; arrolados: Arrolado[]; anexos: { arquivo_id: string; nome: string }[]; estrutura?: EstruturaDocumento; composicao?: PaginaTexto } }
+export interface VersaoInput { atualizar_fontes?: string; confirmar_troca_origem?: boolean; confirmar_troca_livro?: boolean; resolucoes?: ResolucaoInput[]; modelo_versao_id: string; livro_id?: string | null; reuniao_id: string | null; motivador_id: string | null; assunto: string; data_documento: string; conteudo: { efetivos?: EfetivosAta; planejamento_origem?: string; redator_ata?: { pessoa_id: string; nome?: string } | null; antecedente?: Antecedente; valores?: Valores; teor: string; campos: Record<string, string>; arrolados: Arrolado[]; anexos: { arquivo_id: string; nome: string }[]; estrutura?: EstruturaDocumento; composicao?: PaginaTexto } }
 export interface ReuniaoLegada {
   data: string | null; local: string | null; modalidade: DadosReuniao['modalidade'] | null
   inicio: string | null; fim: string | null; pauta: string | null
@@ -147,7 +162,7 @@ export interface AtaLegadaInput {
   arrolados: Pick<Arrolado, 'pessoa_id' | 'papeis' | 'fundamento'>[]; resolucoes: ResolucaoInput[]
 }
 export type EdicaoAtaLegada = Pick<AtaLegadaInput, 'numero_original' | 'assunto' | 'data_documento' |
-  'reuniao_id' | 'reuniao' | 'teor' | 'arrolados' | 'resolucoes'> & { revisao: number; idempotencia: string }
+  'reuniao_id' | 'reuniao' | 'teor' | 'arrolados' | 'resolucoes'> & { revisao: number; idempotencia: string; reatribuicao_atos?: ReatribuicaoAtos }
 
 export interface DocumentoVersao extends Omit<VersaoInput, 'resolucoes' | 'modelo_versao_id'> {
   livro?: Pick<LivroResumo, 'perfil'> | null
@@ -218,10 +233,13 @@ export const nomeLivro = (livro: LivroResumo) => {
 
 const base = 'secretaria'
 export const secretariaApi = {
+  modelosReuniao: (contexto: string) => apiClient.get<ModeloReuniao[]>(`${base}/contextos/${contexto}/modelos-reuniao`),
+  salvarModeloReuniao: (contexto: string,dados: unknown) => apiClient.post<ModeloReuniao>(`${base}/contextos/${contexto}/modelos-reuniao`,dados),
+  opcoesOrgaos: ()=>apiClient.get<{id:string;nome:string}[]>(base+'/modelos-reuniao/orgaos-participantes'),
+  primeirasConvocacoes: (contexto: string,modelo: string) => apiClient.get<{id:string;data:string;horario?:string;pauta:string}[]>(`${base}/contextos/${contexto}/primeiras-convocacoes?modelo=${modelo}`),
   camposBiblioteca: () => apiClient.get<CampoIgreja[]>(`${base}/campos`),
   criarCampo: (dados: unknown) => apiClient.post<CampoIgreja>(`${base}/campos`, dados),
   editarCampo: (id: string, dados: unknown) => apiClient.patch<CampoIgreja>(`${base}/campos/${id}`, dados),
-  resumo: (id: string) => apiClient.get<{ documentos: number; atas: number; em_edicao: number; reunioes: number }>(`secretaria/contextos/${encodeURIComponent(id)}/resumo`),
   reuniao: (id: string) => apiClient.get<ReuniaoSecretaria>(`secretaria/reunioes/${encodeURIComponent(id)}`),
   atuacao: (filtros: FiltrosAtuacao, pagina: number) => {
     const params = new URLSearchParams({ ...filtros, pagina: String(pagina) })

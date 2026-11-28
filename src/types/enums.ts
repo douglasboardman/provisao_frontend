@@ -9,21 +9,13 @@ export enum EstadoBrasil {
 export enum Perfil {
   COMUM = "COMUM",
   ADMINISTRADOR = "ADMINISTRADOR",
-  GESTOR = "GESTOR",
-  TESOUREIRO = "TESOUREIRO",
-  OPERADOR = "OPERADOR",
   AUDITOR = "AUDITOR",
-  SECRETARIO = "SECRETARIO",
 }
 
 export const PERFIL_LABELS: Record<Perfil, string> = {
   [Perfil.COMUM]: "Conta comum",
   [Perfil.ADMINISTRADOR]: "Administrador",
   [Perfil.AUDITOR]: "Auditor",
-  [Perfil.OPERADOR]: "Operador",
-  [Perfil.SECRETARIO]: "Secretário",
-  [Perfil.TESOUREIRO]: "Tesoureiro",
-  [Perfil.GESTOR]: "Gestor",
 }
 
 export enum Sexo {

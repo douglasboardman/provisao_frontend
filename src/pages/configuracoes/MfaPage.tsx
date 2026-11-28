@@ -11,7 +11,7 @@ import { Label } from '../../components/ui/label'
 
 export function MfaPage() {
   const user = useAuthStore(s => s.user)
-  const allowed = user?.perfil === Perfil.ADMINISTRADOR || user?.perfil === Perfil.GESTOR || user?.perfil === Perfil.COMUM || !!user?.mfa_enrollment_required
+  const allowed = !!user
   const status = useQuery({ queryKey: ['mfa-status', user?.sub], queryFn: authApi.mfaStatus, enabled: allowed })
   const [password, setPassword] = useState('')
   const [secret, setSecret] = useState('')
@@ -67,7 +67,7 @@ export function MfaPage() {
       setBusy(false)
     }
   }
-  if (!allowed) return <p>A configuração está disponível para administradores e gestores.</p>
+  if (!allowed) return <p>Entre na sua conta para configurar a autenticação em duas etapas.</p>
   if (recovery.length) return <div className="space-y-4"><p>Guarde estes códigos em local seguro. Cada código funciona uma vez.</p><div className="grid grid-cols-2 gap-2 font-mono text-sm">{recovery.map(c => <span key={c}>{c}</span>)}</div>{sessionsRevoked ? <><p>As sessões anteriores foram encerradas. Use um novo código do autenticador ou um código de recuperação no próximo acesso.</p><Link className="underline" to="/login">Ir para login</Link></> : <><p>Confirme que guardou o lote informando um dos códigos novos. Ele será consumido na confirmação. Os demais códigos anteriores permanecem válidos; o código usado para iniciar fica reservado até a confirmação ou expiração.</p>{error && <p role="alert" className="text-destructive">{error}</p>}<Label htmlFor="confirm-recovery">Um código novo</Label><Input id="confirm-recovery" value={confirmCode} onChange={e => setConfirmCode(e.target.value)} /><Button disabled={busy || !/^[a-f0-9]{24}$/i.test(confirmCode)} onClick={confirmRecovery}>Confirmar novos códigos</Button></>}</div>
   if (status.isLoading) return <p>Carregando...</p>
   if (status.isError) return <p role="alert">Não foi possível verificar a configuração.</p>

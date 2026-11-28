@@ -51,7 +51,7 @@ export function LocalDaReuniao({ reuniao, valor, alterar, efetivo = false }: { e
   const endereco = registrado ?? local
   return <div className="space-y-2">
     <Escolha label={efetivo ? "Local efetivo" : "Local da reunião"} required={!efetivo} value={valor} onChange={alterar}>
-      <option value="">{efetivo ? 'Mesmo local do agendamento' : 'Selecione um local'}</option>
+      <option value="">{efetivo ? 'Não informado' : 'Selecione um local'}</option>
       {!efetivo && reuniao && !reuniao.local_id && <option value="historico">{reuniao.dados.local} (registrado na reunião)</option>}
       {registrado && !local && <option value={valor}>{registrado.descritivo}</option>}
       {locais.map(l => <option key={l.id} value={l.id}>{l.id === valor && registrado ? registrado.descritivo : l.descritivo}{locais.some(outro => outro.id !== l.id && outro.descritivo === l.descritivo) && l.endereco_extenso ? ' — ' + l.endereco_extenso : ''}</option>)}

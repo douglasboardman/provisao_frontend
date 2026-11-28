@@ -6,11 +6,6 @@ export interface OficialResumo { id: string; tipo: 'DIACONO' | 'PRESBITERO_REGEN
 export interface PaginaOficiais { itens: OficialResumo[]; proximo_cursor: string | null }
 export interface ExercicioOficial { situacao: 'EM_EXERCICIO' | 'FORA_DE_EXERCICIO' | 'INDETERMINADA'; data_referencia: string; revisao_pendente?: boolean }
 export interface AlertaOficial { id: string; data_alerta: string; natureza: 'ENCERRAMENTO_REGISTRADO' | 'TERMINO_PREVISTO'; oficial: { tipo: OficialResumo['tipo']; pessoa: { nome_completo: string } } }
-export type OficioEletivo = 'DIACONO' | 'PRESBITERO_REGENTE'
-export interface AtaDeEleicao { versao_id: string; documento_id: string; data: string; assunto: string; numero: string | null }
-export interface IndicacaoEleitoral { id: string; oficio: OficioEletivo; data_assembleia: string; pessoa: { nome_completo: string } }
-export interface NovaIndicacao { pessoa_id: string; oficio: OficioEletivo; ata_conselho_versao_id: string; data_assembleia: string }
-export interface MandatoPorIndicacao { indicacao_id: string; ata_assembleia_versao_id: string; data_posse: string }
 export interface PeriodosOficial { mandatos: { id: string; data_eleicao: string; data_posse: string; termino_previsto: string; termino_efetivo: string | null; revisao_pendente?: boolean }[]; vinculos: { id: string; modalidade: string; concilio: string; data_inicio: string; data_fim: string | null; exercicio_institucional: boolean }[] }
 export type OperacaoHistorica = 'HISTORICO_MEMBRESIA_CONSULTAR' | 'HISTORICO_MEMBRESIA_RETIFICAR'
   | 'HISTORICO_OFICIAIS_CONSULTAR' | 'HISTORICO_OFICIAIS_REGISTRAR' | 'REVISOES_ELEITORAIS_DECIDIR'
@@ -19,7 +14,7 @@ export interface AcessoSensivel {
   operacoes?: Record<OperacaoHistorica, boolean>
 }
 export function podeHistorico(acesso: AcessoSensivel | undefined, acao: OperacaoHistorica) {
-  return acesso?.operacoes?.[acao] ?? true
+  return acesso?.operacoes?.[acao] ?? false
 }
 export interface ConcessaoSensivel extends AcessoSensivel { id: string; usuario_id: string; fundamento: string; concedido_em: string; revogado_em: string | null; usuario: { nome_usuario: string } }
 export interface EventoSensivel { id: string; tipo: 'LICENCA' | 'SUSPENSAO' | 'DISPONIBILIDADE' | 'RESTAURACAO' | 'DEPOSICAO'; data_efeito: string; ordem: number; autoridade: string; evidencia: string; observacoes: string | null; evento_restaurado_id: string | null; registrado_por?: { nome: string; data: string } | null }
@@ -47,13 +42,7 @@ export interface PreviaOficialRetroativa { hash: string; proposta: PropostaOfici
 export interface InclusaoOficialRegistrada { id: string; justificativa: string; criado_em: string; criado_por: { nome_usuario: string }; impacto: PreviaOficialRetroativa }
 export interface RevisaoEleitoral { id: string; operacao: string; hash_previa: string; autoridade: string; evidencia: string; justificativa: string; criado_em: string; aplicado_em: string | null; criado_por: { nome_usuario: string }; itens: { id: string; conferencia_id: string | null; mandato_id: string | null; revisado_em: string | null; autoridade_revisao: string | null; evidencia_revisao: string | null; conclusao_revisao: string | null; permite_reutilizacao: boolean | null; revisado_por: { nome_usuario: string } | null }[] }
 export type MandatoVigente = Pick<PeriodosOficial['mandatos'][number], 'id' | 'data_posse' | 'termino_previsto' | 'termino_efetivo'> & { oficial: { tipo: OficialResumo['tipo']; pessoa: { nome_completo: string } } }
-export interface IndicacaoHistorica {
-  id: string; oficio: OficioEletivo; pessoa: { nome_completo: string }; data_assembleia: string
-  mandato: { id: string } | null; ata_conselho: { id: string; contexto_id: string; documento_id: string }
-}
 export const oficiaisApi = {
-  historicoIndicacoes: (id?: string, cursor?: string) => apiClient.get<{ itens: IndicacaoHistorica[]; proximo_cursor: string | null }>(
-    `oficiais/${id ? id + '/indicacoes-historicas' : 'indicacoes/historico'}${cursor ? '?cursor=' + cursor : ''}`),
   vigentes: (data: string) => apiClient.get<MandatoVigente[]>(`oficiais/mandatos-vigentes?data=${encodeURIComponent(data)}`),
   concluirRevisaoEleitoral: (id: string, dados: unknown) => apiClient.post<unknown>(`oficiais/revisoes-eleitorais/${encodeURIComponent(id)}/concluir`, dados),
   revisoesEleitorais: (pessoaId: string) => apiClient.get<RevisaoEleitoral[]>(`oficiais/pessoas/${encodeURIComponent(pessoaId)}/revisoes-eleitorais`),
@@ -93,22 +82,15 @@ export const oficiaisApi = {
   eventosSensiveis: (id: string) => apiClient.get<EventoSensivel[]>(`oficiais/${encodeURIComponent(id)}/eventos-sensiveis`),
   selecaoAtas: (tipo: 'CONSELHO' | 'ASSEMBLEIA', filtros: Record<string, string>) =>
     apiClient.get<PaginaSelecao>(`oficiais/indicacoes/selecao-atas?${new URLSearchParams({ ...filtros, tipo })}`),
-  atasDeEleicao: (tipo: 'CONSELHO' | 'ASSEMBLEIA', busca: string) =>
-    apiClient.get<AtaDeEleicao[]>(`oficiais/indicacoes/atas?${new URLSearchParams({ tipo, busca })}`),
   candidatos: (ata: string, busca: string, tipo = 'CONSELHO') =>
     apiClient.get<{ id: string; nome_completo: string }[]>(`oficiais/indicacoes/candidatos?${new URLSearchParams({ ata, busca, tipo })}`),
-  indicacoes: (assembleia?: string) =>
-    apiClient.get<IndicacaoEleitoral[]>(`oficiais/indicacoes${assembleia ? `?${new URLSearchParams({ assembleia })}` : ''}`),
-  registrarIndicacao: (dados: NovaIndicacao) => apiClient.post<{ id: string }>('oficiais/indicacoes', dados),
-  registrarMandatoPorIndicacao: (dados: MandatoPorIndicacao) =>
-    apiClient.post<{ id: string; oficial_id: string }>('oficiais/indicacoes/mandatos', dados),
   periodos: (id: string) => apiClient.get<PeriodosOficial>(`oficiais/${encodeURIComponent(id)}/periodos`),
   criarAto: (caminho: string, dados: unknown) => apiClient.post<unknown>(`oficiais/${caminho}`, dados),
   encerrar: (caminho: string, dados: unknown) => apiClient.patch<unknown>(`oficiais/${caminho}`, dados),
   cadastrar: (dados: { pessoa_id: string; tipo: OficialResumo['tipo']; ativo?: boolean }) => apiClient.post<{ id: string }>('oficiais', dados),
   alterarSituacao: ({ id, ativo }: { id: string; ativo: boolean }) =>
     apiClient.patch<{ id: string; ativo: boolean }>(`oficiais/${encodeURIComponent(id)}/situacao`, { ativo }),
-  listar: (cursor?: string) => apiClient.get<PaginaOficiais>(`oficiais${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`),
+  listar: (cursor?: string, tipo?: OficialResumo['tipo']) => apiClient.get<PaginaOficiais>(`oficiais?${new URLSearchParams({ ...(cursor ? { cursor } : {}), ...(tipo ? { tipo } : {}) })}`),
   exercicio: (id: string, data: string) => apiClient.get<ExercicioOficial>(`oficiais/${encodeURIComponent(id)}/exercicio?data=${encodeURIComponent(data)}`),
   alertas: (data: string, dias: number) => apiClient.get<AlertaOficial[]>(`oficiais/alertas?data=${encodeURIComponent(data)}&dias=${dias}`),
 }
